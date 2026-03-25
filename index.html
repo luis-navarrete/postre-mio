@@ -2,10 +2,26 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Postre Mío</title>
 
 <style>
+
+html, body {
+  height: 100%;
+  overflow: hidden; /* 🚫 NO scroll global */
+}
+
+body {
+  touch-action: manipulation;
+}
+
+.page {
+  height: calc(100dvh - 100px); /* resta el header */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 .menu-btn {
   position: absolute;
@@ -78,8 +94,7 @@ body {
 
 .container {
   display: flex;
-  height: 100vh;
-  height: 100dvh;
+  height: 100%;
 }
 
 /* PRODUCTOS */
@@ -87,8 +102,6 @@ body {
   width: 60%;
   padding: 10px;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
 }
 
 .category {
@@ -138,8 +151,6 @@ body {
 .cart-items {
   flex: 1;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
   flex: none;
   max-height: 300px;
 }
@@ -296,6 +307,35 @@ button {
   background: #ffebee;
 }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+}
+
+.page-content {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  padding: 20px;
+  padding-bottom: 120px; /* 🔥 espacio extra abajo */
+
+  box-sizing: border-box;
+}
+
 </style>
 </head>
 
@@ -308,7 +348,7 @@ button {
 
 
 <!-- 🟢 PÁGINA PRINCIPAL -->
-<div id="posPage" class="page">
+<div id="posPage" class="page" style="display:block;">
 
   <div class="container">
 
@@ -342,14 +382,18 @@ button {
 
 <!-- INVENTARIO -->
 <div id="inventoryPage" class="page" style="display:none;">
-  <h2>Inventario</h2>
-  <div id="inventoryList"></div>
+  <div class="page-content">
+    <h2>Inventario</h2>
+    <div id="inventoryList"></div>
+  </div>
 </div>
 
 <!-- HISTORIAL -->
 <div id="historyPage" class="page" style="display:none;">
-  <h2>Historial</h2>
-  <div id="historyList"></div>
+  <div class="page-content">
+    <h2>Historial</h2>
+    <div id="historyList"></div>
+  </div>
 </div>
 
 <!-- MENÚ -->
@@ -687,9 +731,7 @@ function renderHistory() {
   const data = JSON.parse(localStorage.getItem("history")) || [];
 
   if (data.length === 0) {
-    container.innerHTML = "<p>Hoy será un gran día, poki, te amo.</p>";
-  if (history.length === 0) {
-    container.innerHTML = "<p>No hay ventas aún</p>";
+    container.innerHTML = "<p>No hay ventas aún.</p>";
     return;
   }
 
@@ -709,7 +751,6 @@ function renderHistory() {
       <div class="history-header">
         <button class="delete-btn" onclick="deleteSale(${sale.id})">🗑️</button>
       </div>
-      <button onclick="deleteSale(${sale.id})">🗑️ Borrar</button>
     `;
 
     container.appendChild(div);
