@@ -298,7 +298,6 @@ button {
     <div class="products" id="products"></div>
 
     <div class="cart">
-      <div id="sales"></div>
       <h2>🛒 Orden</h2>
       <div class="cart-items" id="cart"></div>
       <div class="total">Total: $<span id="total">0</span></div>
@@ -537,29 +536,6 @@ function calculateModalChange() {
   }
 }
 
-function saveSale(amount) {
-  const today = new Date().toLocaleDateString();
-  let sales = JSON.parse(localStorage.getItem("sales")) || {};
-
-  if (!sales[today]) sales[today] = 0;
-
-  sales[today] += parseFloat(amount);
-
-  localStorage.setItem("sales", JSON.stringify(sales));
-
-  renderSales();
-}
-
-function renderSales() {
-  const today = new Date().toLocaleDateString();
-  let sales = JSON.parse(localStorage.getItem("sales")) || {};
-
-  const total = sales[today] || 0;
-
-  document.getElementById("sales").innerText =
-    "Ventas del día: $" + total;
-}
-
 function finalizeSale() {
   const total = document.getElementById("modalTotal").innerText;
   const date = new Date().toLocaleString();
@@ -675,7 +651,6 @@ function updateStock(name, delta) {
 }
 
 
-renderSales();
 renderProducts();
 renderCart();
 </script>
