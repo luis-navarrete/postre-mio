@@ -370,7 +370,7 @@ let inventory = JSON.parse(localStorage.getItem("inventory")) || {
   "Lucky Charms": 10,
   "Conejito Turín": 10,
   "Crookies": 10,
-  "Roles de canela": 10,
+  "Rol de canela": 10,
   "Carlota de limón": 10
 };
 
@@ -578,6 +578,8 @@ function finalizeSale() {
 
   saveInventory();
 
+  renderProducts();
+
   alert("Venta registrada ✅");
 
   closeModal();
@@ -671,7 +673,15 @@ function updateStock(name, delta) {
 
 function renderHistory() {
   const container = document.getElementById("historyList");
+
+  if (!container) return; // 🔒 evita crash
+
   container.innerHTML = "";
+
+  if (history.length === 0) {
+    container.innerHTML = "<p>No hay ventas aún</p>";
+    return;
+  }
 
   history.slice().reverse().forEach(sale => {
     const div = document.createElement("div");
@@ -711,6 +721,8 @@ function deleteSale(id) {
 
   saveHistory();
   saveInventory();
+
+  renderProducts();
 
   renderHistory();
 }
