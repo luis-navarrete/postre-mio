@@ -279,6 +279,18 @@ button {
   background: #e8f5e9;
 }
 
+#historyList {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#historyList button {
+  margin-top: 10px;
+  background: #ffebee;
+}
+
 </style>
 </head>
 
@@ -332,6 +344,7 @@ button {
 <!-- HISTORIAL -->
 <div id="historyPage" class="page" style="display:none;">
   <h2>Historial</h2>
+  <div id="historyList"></div>
 </div>
 
 <!-- MENÚ -->
@@ -366,6 +379,12 @@ let updatedItems = new Set();
 
 function saveInventory() {
   localStorage.setItem("inventory", JSON.stringify(inventory));
+}
+
+let history = JSON.parse(localStorage.getItem("history")) || [];
+
+function saveHistory() {
+  localStorage.setItem("history", JSON.stringify(history));
 }
 
 const menu = [
@@ -537,22 +556,20 @@ function calculateModalChange() {
 }
 
 function finalizeSale() {
-  const total = document.getElementById("modalTotal").innerText;
+  const total = parseFloat(document.getElementById("modalTotal").innerText);
   const date = new Date().toLocaleString();
 
-  let ticket = "🧾 Postre Mío\n";
-  ticket += "Fecha: " + date + "\n\n";
+  const sale = {
+    id: Date.now(),
+    date: date,
+    items: [...cart],
+    total: total
+  };
 
-  cart.forEach(item => {
-    ticket += item.name + " - $" + item.price + "\n";
-  });
+  history.push(sale);
+  saveHistory();
 
-  ticket += "\nTotal: $" + total;
-
-  alert(ticket);
-
-  closeModal();
-
+  // actualizar inventario
   cart.forEach(item => {
     if (inventory[item.name] > 0) {
       inventory[item.name]--;
@@ -561,6 +578,9 @@ function finalizeSale() {
 
   saveInventory();
 
+  alert("Venta registrada ✅");
+
+  closeModal();
   clearCart();
 }
 
@@ -600,6 +620,7 @@ function showPage(page) {
 
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
+    renderHistory();
   }
 
   if (page !== "inventory") {
@@ -646,6 +667,52 @@ function updateStock(name, delta) {
 
   saveInventory();
   renderInventory();
+}
+
+function renderHistory() {
+  const container = document.getElementById("historyList");
+  container.innerHTML = "";
+
+  history.slice().reverse().forEach(sale => {
+    const div = document.createElement("div");
+    div.className = "inventory-card";
+
+    let itemsHTML = "";
+    sale.items.forEach(i => {
+      itemsHTML += `<div>${i.name} - $${i.price}</div>`;
+    });
+
+    div.innerHTML = `
+      <div class="inv-name">${sale.date}</div>
+      <div>${itemsHTML}</div>
+      <div class="inv-qty">Total: $${sale.total}</div>
+      <button onclick="deleteSale(${sale.id})">🗑️ Borrar</button>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+function deleteSale(id) {
+  const confirmDelete = confirm("¿Borrar esta venta?");
+  if (!confirmDelete) return;
+
+  const index = history.findIndex(s => s.id === id);
+  if (index === -1) return;
+
+  const sale = history[index];
+
+  // recuperar inventario
+  sale.items.forEach(item => {
+    inventory[item.name]++;
+  });
+
+  history.splice(index, 1);
+
+  saveHistory();
+  saveInventory();
+
+  renderHistory();
 }
 
 
