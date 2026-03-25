@@ -10,6 +10,8 @@
 html, body {
   height: 100%;
   overflow: hidden; /* 🚫 NO scroll global */
+  position: fixed;
+  width: 100%;
 }
 
 body {
@@ -24,6 +26,8 @@ body {
 #inventoryPage,
 #historyPage {
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   height: 100%;
 }
 
@@ -106,7 +110,9 @@ body {
 .products {
   width: 60%;
   padding: 10px;
-  overflow-y: scroll;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .category {
@@ -156,6 +162,8 @@ body {
 .cart-items {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   flex: none;
   max-height: 300px;
 }
@@ -655,6 +663,7 @@ function showPage(page) {
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
 
+    renderProducts();
     renderInventory();
   }
 
