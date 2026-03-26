@@ -218,32 +218,33 @@ button {
 }
 
 .modal {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-
-  background: rgba(0,0,0,0.4);
-
+  background: rgba(0,0,0,0.5);
+  display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 999;
+}
+
+.hidden {
+  display: none;
 }
 
 .modal-content {
   background: white;
   padding: 20px;
-  border-radius: 15px;
-  width: 300px;
-  text-align: center;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
 }
 
-.modal input {
+.modal-content button {
   width: 100%;
-  padding: 10px;
-  margin: 10px 0;
-  font-size: 16px;
+  margin-top: 10px;
 }
 
 #inventoryList {
@@ -319,6 +320,7 @@ button {
   font-size: 16px;
   cursor: pointer;
   opacity: 0.6;
+  margin-left: auto;
 }
 
 .delete-btn:hover {
@@ -331,9 +333,53 @@ button {
   -webkit-overflow-scrolling: touch;
 
   padding: 20px;
-  padding-bottom: 120px; /* 🔥 espacio extra abajo */
+  padding-bottom: 120px;
 
   box-sizing: border-box;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px;
+  gap: 10px;
+  font-size: 14px;
+  align-items: center;
+}
+
+.history-items {
+  margin: 5px 0;
+}
+
+.history-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.history-total {
+  font-weight: bold;
+}
+
+.delete-btn {
+  margin-left: auto;
+}
+
+.history-header-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 80px;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  opacity: 0.7;
+  margin-bottom: 5px;
+}
+
+.history-row span:nth-child(2),
+.history-row span:nth-child(3),
+.history-header-row span:nth-child(2),
+.history-header-row span:nth-child(3) {
+  text-align: right;
 }
 
 </style>
@@ -359,7 +405,7 @@ button {
       <div class="cart-items" id="cart"></div>
       <div class="total">Total: $<span id="total">0</span></div>
 
-      <button class="pay" onclick="pay()">Cobrar</button>
+      <button class="pay" onclick="openPaymentOptions();">Cobrar</button>
       <button class="clear" onclick="clearCart()">Limpiar</button>
     </div>
 
@@ -368,16 +414,8 @@ button {
 </div>
 
 <!-- MODAL -->
-<div id="paymentModal" class="modal">
-  <div class="modal-content">
-    <h2>Pagar</h2>
-    <p>Total: $<span id="modalTotal"></span></p>
-    <input type="number" id="modalCash" placeholder="Pago con..." />
-    <p id="modalChange"></p>
-
-    <button onclick="finalizeSale()">Finalizar</button>
-    <button onclick="closeModal()">Cancelar</button>
-  </div>
+<div id="modal" class="modal hidden">
+  <div class="modal-content" id="modalContent"></div>
 </div>
 
 <!-- INVENTARIO -->
@@ -429,8 +467,6 @@ let updatedItems = new Set();
 function saveInventory() {
   localStorage.setItem("inventory", JSON.stringify(inventory));
 }
-
-let history = JSON.parse(localStorage.getItem("history")) || [];
 
 function saveHistory() {
   localStorage.setItem("history", JSON.stringify(history));
@@ -533,7 +569,7 @@ function renderCart() {
       </div>
 
       <div class="cart-item-price">
-        $${item.price} x ${item.qty}
+        $${item.price} × ${item.qty}
       </div>
 
       <div class="cart-item-controls">
@@ -576,36 +612,85 @@ function clearCart() {
   renderCart();
 }
 
-function pay() {
-  const total = document.getElementById("total").innerText;
+function openModal(html) {
+  const modal = document.getElementById("modal");
+  const content = document.getElementById("modalContent");
 
-  document.getElementById("modalTotal").innerText = total;
-  document.getElementById("modalCash").value = "";
-  document.getElementById("modalChange").innerText = "";
-
-  document.getElementById("paymentModal").style.display = "flex";
+  content.innerHTML = html;
+  modal.classList.remove("hidden");
 }
 
 function closeModal() {
-  document.getElementById("paymentModal").style.display = "none";
+  document.getElementById("modal").classList.add("hidden");
 }
 
-function calculateModalChange() {
-  const total = parseFloat(document.getElementById("modalTotal").innerText);
-  const cash = parseFloat(document.getElementById("modalCash").value);
+function openPaymentOptions() {
+  const total = parseFloat(document.getElementById("total").innerText);
 
-  if (!isNaN(cash)) {
-    const change = cash - total;
+  openModal(`
+    <h3>Cobrar: $${total}</h3>
 
-    document.getElementById("modalChange").innerText =
-      change >= 0
-        ? "Cambio: $" + change.toFixed(2)
-        : "Falta: $" + Math.abs(change).toFixed(2);
-  }
+    <button onclick="handleCash(${total})">Efectivo</button>
+    <button onclick="handleTransfer(${total})">Transferencia</button>
+    <button onclick="closeModal()">Cancelar</button>
+  `);
 }
 
-function finalizeSale() {
-  const total = parseFloat(document.getElementById("modalTotal").innerText);
+function handleCash(total) {
+  openModal(`
+    <h3>Total: $${total}</h3>
+
+    <input 
+      id="cashInput"
+      type="number"
+      inputmode="numeric"
+      placeholder="Pago con..."
+      style="width:94%; padding:10px; font-size:18px;"
+    />
+
+    <button id="continueBtn" disabled>Continuar</button>
+    <button onclick="openPaymentOptions(${total})">Cancelar</button>
+  `);
+
+  const input = document.getElementById("cashInput");
+  const btn = document.getElementById("continueBtn");
+
+  // 👉 abre teclado automáticamente
+  setTimeout(() => input.focus(), 100);
+
+  input.addEventListener("input", () => {
+    const value = parseFloat(input.value);
+    btn.disabled = !(value >= total);
+  });
+
+  btn.onclick = () => {
+    const value = parseFloat(input.value);
+    const change = value - total;
+    showFinalStep(total, "cash", change);
+  };
+}
+
+function handleTransfer(total) {
+  showFinalStep(total, "transfer", 0);
+}
+
+function showFinalStep(total, method, change) {
+  openModal(`
+    <h3>Total: $${total}</h3>
+
+    ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
+
+    <button onclick="alert('Ticket próximamente')">
+      Obtener ticket
+    </button>
+
+    <button onclick="finalizeSale(${total})">
+      Finalizar
+    </button>
+  `);
+}
+
+function saveSale(total) {
   const date = new Date().toLocaleString();
 
   const sale = {
@@ -615,24 +700,27 @@ function finalizeSale() {
     total: total
   };
 
+  const history = JSON.parse(localStorage.getItem("history")) || [];
   history.push(sale);
-  saveHistory();
+  localStorage.setItem("history", JSON.stringify(history));
 
-  // actualizar inventario
   cart.forEach(item => {
     if (inventory[item.name] > 0) {
       inventory[item.name]--;
     }
   });
+}
 
-  saveInventory();
+function finalizeSale() {
+  saveSale(total);
+
+  closeModal();
 
   renderProducts();
 
-  alert("Venta registrada ✅");
-
-  closeModal();
   clearCart();
+
+  renderHistory();
 }
 
 function toggleMenu() {
@@ -719,12 +807,13 @@ function updateStock(name, delta) {
 
   saveInventory();
   renderInventory();
+  
+  renderProducts();
 }
 
 function renderHistory() {
   const container = document.getElementById("historyList");
-
-  if (!container) return; // 🔒 evita crash
+  if (!container) return;
 
   container.innerHTML = "";
 
@@ -735,21 +824,58 @@ function renderHistory() {
     return;
   }
 
-  history.slice().reverse().forEach(sale => {
+  data.slice().reverse().forEach((sale) => {
+    const realIndex = data.indexOf(sale);
     const div = document.createElement("div");
     div.className = "inventory-card";
 
+    // 🔥 Agrupar productos
+    const grouped = {};
+
+    (sale.items || []).forEach(i => {
+      const name = i.name;
+      const price = i.price;
+
+      if (!grouped[name]) {
+        grouped[name] = { qty: 0, price: price };
+      }
+
+      grouped[name].qty++;
+    });
+
+    // 🔥 Construir filas bonitas
     let itemsHTML = "";
-    sale.items.forEach(i => {
-      itemsHTML += `<div>${i.name} - $${i.price}</div>`;
+    let total = 0;
+
+    Object.entries(grouped).forEach(([name, info]) => {
+      const subtotal = info.qty * info.price;
+      total += subtotal;
+
+      itemsHTML += `
+        <div class="history-row">
+          <span>${info.qty} × ${name}</span>
+          <span>$${info.price}</span>
+          <span>$${subtotal}</span>
+        </div>
+      `;
     });
 
     div.innerHTML = `
-      <div class="inv-name">${sale.date}</div>
-      <div>${itemsHTML}</div>
-      <div class="inv-qty">Total: $${sale.total}</div>
-      <div class="history-header">
-        <button class="delete-btn" onclick="deleteSale(${sale.id})">🗑️</button>
+      <div class="inv-name">${sale.date || ""}</div>
+
+      <div class="history-items">
+        <div class="history-header-row">
+          <span>Descripción</span>
+          <span>Precio</span>
+          <span>Total</span>
+        </div>
+
+        ${itemsHTML}
+      </div>
+
+      <div class="history-footer">
+        <div class="history-total">Total: $${total}</div>
+        <button class="delete-btn" onclick="deleteSale(${realIndex})">🗑️</button>
       </div>
     `;
 
@@ -757,28 +883,34 @@ function renderHistory() {
   });
 }
 
-function deleteSale(id) {
-  const confirmDelete = confirm("¿Borrar esta venta?");
-  if (!confirmDelete) return;
+function deleteSale(index) {
+  const data = JSON.parse(localStorage.getItem("history")) || [];
 
-  const index = history.findIndex(s => s.id === id);
-  if (index === -1) return;
+  if (!confirm("¿Borrar esta transacción?")) return;
 
-  const sale = history[index];
+  data.splice(index, 1);
 
-  // recuperar inventario
-  sale.items.forEach(item => {
-    inventory[item.name]++;
-  });
-
-  history.splice(index, 1);
-
-  saveHistory();
-  saveInventory();
+  localStorage.setItem("history", JSON.stringify(data));
 
   renderProducts();
 
   renderHistory();
+}
+
+function groupItems(items) {
+  const grouped = {};
+
+  items.forEach(item => {
+    if (!grouped[item.name]) {
+      grouped[item.name] = {
+        quantity: 0,
+        price: item.price
+      };
+    }
+    grouped[item.name].quantity++;
+  });
+
+  return Object.entries(grouped);
 }
 
 
