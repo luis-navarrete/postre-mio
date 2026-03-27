@@ -480,8 +480,9 @@ let inventory = JSON.parse(localStorage.getItem("inventory")) || {
   "Oreo": 10,
   "Lucky Charms": 10,
   "Conejito Turín": 10,
-  "Crookies": 10,
+  "Crookie": 10,
   "Rol de canela": 10,
+  "Brownie": 10,
   "Carlota de limón": 10
 };
 
@@ -496,30 +497,33 @@ function saveHistory() {
   localStorage.setItem("history", JSON.stringify(history));
 }
 
+let currentSale = null;
+
 const menu = [
   {
     category: "🍪 Galletas",
     items: [
-      { name: "M&Ms", price: 40, img: "mms.jpg" },
-      { name: "Lotus", price: 40, img: "lotus.jpg" },
-      { name: "Kinder Bueno", price: 40, img: "kinder.jpg" },
-      { name: "Red Velvet", price: 40, img: "redvelvet.jpg" },
-      { name: "Oreo", price: 40, img: "oreo.jpg" },
-      { name: "Lucky Charms", price: 40, img: "lucky.jpg" },
-      { name: "Conejito Turín", price: 40, img: "turin.jpg" }
+      { name: "M&Ms", price: 40.00, img: "mms.jpg" },
+      { name: "Lotus", price: 40.00, img: "lotus.jpg" },
+      { name: "Kinder Bueno", price: 40.00, img: "kinder.jpg" },
+      { name: "Red Velvet", price: 40.00, img: "redvelvet.jpg" },
+      { name: "Oreo", price: 40.00, img: "oreo.jpg" },
+      { name: "Lucky Charms", price: 40.00, img: "lucky.jpg" },
+      { name: "Conejito Turín", price: 40.00, img: "turin.jpg" }
     ]
   },
   {
     category: "✨ Especiales",
     items: [
-      { name: "Crookie", price: 60, img: "crookie.jpg" },
-      { name: "Rol de canela", price: 60, img: "rol.jpg" }
+      { name: "Crookie", price: 60.00, img: "crookie.jpg" },
+      { name: "Rol de canela", price: 60.00, img: "rol.jpg" },
+      { name: "Brownie", price: 35.00, img: "brownie.jpg" }
     ]
   },
   {
     category: "🍰 Postres",
     items: [
-      { name: "Carlota de limón", price: 25, img: "carlota.jpg" }
+      { name: "Carlota de limón", price: 25.00, img: "carlota.jpg" }
     ]
   }
 ];
@@ -702,16 +706,31 @@ function handleTransfer(total) {
 }
 
 function showFinalStep(total, method, change) {
+
+  const amount = method === "cash"
+    ? parseFloat(document.getElementById("cashInput")?.value || total)
+    : total;
+
+  // 👉 guardar venta temporal
+  currentSale = {
+    date: new Date().toLocaleString(),
+    items: [...cart],
+    total: total,
+    method: method,
+    amount: amount,
+    change: change
+  };
+
   openModal(`
     <h3>Total: $${total}</h3>
 
     ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
 
-    <button onclick="printLastSale(${total})">
+    <button onclick="generateTicket()">
       Obtener ticket
     </button>
 
-    <button onclick="finalizeSale(${total})">
+    <button onclick="finalizeSale()">
       Finalizar
     </button>
   `);
@@ -749,68 +768,134 @@ function finalizeSale() {
   renderHistory();
 }
 
-function printTicket(sale) {
-  const win = window.open("", "_blank");
+function generateTicket() {
+  if (!currentSale) {
+    alert("No hay venta disponible");
+    return;
+  }
 
-  const itemsHTML = sale.items.map(i => `
-    <div style="display:flex; justify-content:space-between;">
-      <span>${i.name}</span>
-      <span>$${i.price}</span>
-    </div>
-  `).join("");
+  const sale = currentSale;
 
-  win.document.write(`
-    <html>
-    <head>
-      <title>Ticket</title>
-      <style>
-        body {
-          font-family: monospace;
-          padding: 20px;
-          width: 300px;
-        }
-        .center {
-          text-align: center;
-        }
-        img {
-          max-width: 120px;
-          margin-bottom: 10px;
-        }
-        hr {
+  let rows = "";
+
+  sale.items.forEach(item => {
+    const totalItem = item.price * item.qty;
+
+    rows += `
+      <tr>
+        <td>${item.qty} × ${item.name}</td>
+        <td>$ ${item.price}</td>
+        <td style="text-align: right;">$ ${totalItem}</td>
+      </tr>
+    `;
+  });
+
+  const html = `
+  <html>
+  <head>
+    <title>Ticket</title>
+    <style>
+      body {
+        font-family: monospace;
+        padding: 20px;
+        max-width: 300px;
+        margin: auto;
+      }
+
+      .center { text-align: center; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      td {
+        font-size: 12px;
+        padding: 4px 0;
+      }
+
+      .total {
+        margin-top: 10px;
+        font-weight: bold;
+        text-align: right;
+      }
+
+      .footer {
+        margin-top: 15px;
+        text-align: center;
+        font-size: 12px;
+        width: 100%;
+      }
+
+      hr {
           border: none;
           border-top: 1px dashed black;
           margin: 10px 0;
         }
-      </style>
-    </head>
-    <body>
+    </style>
+  </head>
+  <body>
 
-      <div class="center">
-        <img src="logo.jpeg" />
-        <h3>Postre Mío</h3>
-        <p>${sale.date}</p>
-      </div>
+    <div class="center">
+      <img src="ticket_logo_small.jpg" style="max-width:120px;"><br>
+      <strong>POSTRE MÍO</strong><br>
+      ${sale.date}
+    </div>
 
-      <hr/>
+    <hr/>
 
-      ${itemsHTML}
+    <table>
+      <tr>
+        <td style="width: 50%;">DESCRIPCIÓN</td>
+        <td>PRECIO</td>
+        <td style="text-align: right;">TOTAL</td>
+      </tr>
+      ${rows}
+    </table>
 
-      <hr/>
+  <hr/>
 
-      <h3>Total: $${sale.total}</h3>
+    <div class="total">
+      TOTAL     $ ${sale.total}
+    </div>
 
-      <p class="center">¡Gracias por tu compra!</p>
+    <hr style="height: 1px; width: 15%; margin-left:auto;">
 
-      <script>
-        window.onload = () => {
-          window.print();
-        };
-      <\/script>
+    <div>
+      <table>
+        <tr>
+          <td style="width: 35%;"></td>
+          <td style="height: 8px;">Pagos:</td>
+          <td></td>
+        </tr>
+        <tr>
+          <td style="width: 35%; height: 8px;"></td>
+          <td style="width: 35%; height: 8px;">${sale.method === "cash" ? "EFECTIVO" : "TRANSFERENCIA"}</td>
+          <td style="width: 30%; height: 8px; text-align: right;">$ ${sale.amount}</td>
+        </tr>
+        <tr>
+          <td style="width: 35%; height: 8px;"></td>
+          <td style="width: 35%; height: 8px;">CAMBIO</td>
+          <td style="width: 30%; height: 8px; text-align: right;">$ ${sale.change}</td>
+        </tr>
+      </table>
+    </div>
 
-    </body>
-    </html>
-  `);
+    <br><br><br
 
+    <div class="footer">
+      Gracias por su compra ❤️<br><br>
+      TELÉFONO 229 157 4962<br>
+      INSTAGRAM @postremio.mx
+    </div>
+
+  </body>
+  </html>
+  `;
+
+  const win = window.open("", "_blank");
+  win.document.write(html);
   win.document.close();
 }
 
@@ -823,7 +908,7 @@ function printLastSale(total) {
     total: total
   };
 
-  printTicket(sale);
+  generateTicket(sale);
 }
 
 function toggleMenu() {
