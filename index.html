@@ -1,0 +1,2104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Postre Mío</title>
+
+<style>
+
+/* ── DESIGN TOKENS ─────────────────────── */
+:root {
+  --brand:        #7ED0D2;
+  --brand-dark:   #5bb8ba;
+  --brand-light:  #f0fafa;
+  --bg:           #f4f4f4;
+  --card-bg:      #ffffff;
+  --text:         #1a1a1a;
+  --text-muted:   #666;
+  --border:       #e8e8e8;
+  --shadow:       0 2px 8px rgba(0,0,0,0.08);
+  --radius:       12px;
+  --radius-sm:    8px;
+
+  --btn-primary-bg:    #1a1a1a;
+  --btn-primary-color: #ffffff;
+  --btn-secondary-bg:  #f0f0f0;
+  --btn-secondary-color: #1a1a1a;
+  --btn-danger-bg:     #ffebee;
+  --btn-danger-color:  #c62828;
+  --btn-brand-bg:      var(--brand);
+  --btn-brand-color:   #ffffff;
+
+  --green:  #4caf50;
+  --orange: #ff9800;
+  --red:    #e53935;
+  --purple: #7b61ff;
+}
+
+/* ── RESET / BASE ──────────────────────── */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  touch-action: manipulation;
+}
+
+/* ── GLOBAL BUTTON ─────────────────────── */
+button {
+  padding: 12px 16px;
+  margin-top: 8px;
+  border: none;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-color);
+}
+
+button:active { opacity: 0.75; }
+
+/* ── BUTTON VARIANTS ───────────────────── */
+.btn-primary   { background: var(--btn-primary-bg)   !important; color: var(--btn-primary-color)   !important; }
+.btn-brand     { background: var(--btn-brand-bg)      !important; color: var(--btn-brand-color)     !important; }
+.btn-danger    { background: var(--btn-danger-bg)     !important; color: var(--btn-danger-color)    !important; }
+.btn-secondary { background: var(--btn-secondary-bg) !important; color: var(--btn-secondary-color) !important; }
+
+/* pay / clear legacy aliases */
+.pay           { background: var(--btn-primary-bg) !important; color: var(--btn-primary-color) !important; font-weight: 700; }
+.pay:disabled  { background: #999 !important; opacity: 0.6; }
+.clear         { background: var(--btn-secondary-bg) !important; color: var(--btn-secondary-color) !important; }
+
+/* ── PAGE SHELL ────────────────────────── */
+.page {
+  height: calc(100dvh - 100px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-content {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 120px;
+  box-sizing: border-box;
+}
+
+.page-content h2 {
+  margin: 0 0 14px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── HEADER ────────────────────────────── */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  width: 100%;
+  background: var(--brand);
+  padding: 10px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.header img { max-height: 80px; object-fit: contain; }
+
+/* ── SIDE MENU ─────────────────────────── */
+.menu-btn {
+  position: absolute;
+  left: 10px;
+  top: 15px;
+  font-size: 24px;
+  background: none;
+  border: none;
+  color: white;
+  z-index: 10000;
+  margin: 0;
+  padding: 6px;
+}
+
+.side-menu {
+  position: fixed;
+  top: 0;
+  left: -260px;
+  width: 260px;
+  height: 100%;
+  background: var(--card-bg);
+  box-shadow: 3px 0 16px rgba(0,0,0,0.15);
+  transition: left 0.28s ease;
+  z-index: 3000;
+}
+
+.side-menu.open { left: 0; }
+
+.menu-content { padding: 24px 16px; }
+.menu-content h3 {
+  margin: 0 0 16px 4px;
+  font-size: 18px;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.menu-content button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 6px 0;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.menu-content button:hover,
+.menu-content button:active {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+}
+
+/* ── MODAL ─────────────────────────────── */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.hidden { display: none; }
+
+.modal-content {
+  background: var(--card-bg);
+  padding: 22px;
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+
+.modal-content h3 { margin-top: 0; }
+.modal-content button { width: 100%; }
+
+/* ── TOAST ─────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text);
+  color: white;
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  z-index: 9999;
+  white-space: nowrap;
+}
+
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── POS PAGE ──────────────────────────── */
+.container {
+  display: flex;
+  height: 100%;
+}
+
+.products {
+  width: 60%;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.category { margin-bottom: 16px; }
+.category h2 { margin: 8px 4px 6px; font-size: 15px; font-weight: 700; color: var(--text-muted); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.product {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.product img {
+  width: 100%;
+  border-radius: 8px;
+  height: 110px;
+  object-fit: cover;
+}
+
+.product h3 { margin: 6px 0 2px; font-size: 13px; }
+.product p  { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+.product.low-stock-product { border-color: var(--orange); }
+.product.out-of-stock      { opacity: 0.45; cursor: not-allowed; }
+
+.low-stock-badge {
+  display: inline-block;
+  background: var(--orange);
+  color: white;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-top: 3px;
+}
+
+/* ── CART ──────────────────────────────── */
+.cart {
+  width: 38%;
+  background: var(--card-bg);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 1px solid var(--border);
+}
+
+.cart h2 { margin: 0 0 6px; font-size: 17px; }
+
+.cart-items {
+  overflow-y: auto;
+  flex: 1;
+  max-height: 340px;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.item:last-child { border-bottom: none; }
+
+.cart-item-name  { font-weight: 600; font-size: 14px; }
+.cart-item-price { font-size: 13px; color: var(--text-muted); }
+
+.cart-item-controls { display: flex; gap: 8px; margin-top: 2px; }
+.cart-item-controls button {
+  flex: 1;
+  padding: 7px;
+  font-size: 15px;
+  border-radius: var(--radius-sm);
+  background: var(--btn-secondary-bg);
+  margin: 0;
+}
+
+.cart-extra-line {
+  font-size: 12px;
+  color: var(--purple);
+  display: flex;
+  justify-content: space-between;
+  padding-left: 6px;
+}
+
+.cart-discount-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--green);
+  padding: 4px 0;
+  border-top: 1px dashed var(--border);
+}
+
+.total { font-size: 19px; font-weight: 700; padding: 6px 0 2px; }
+
+/* ── INVENTORY PAGE ────────────────────── */
+#inventoryList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.inventory-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 13px;
+  box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.inventory-card.updated   { border-color: var(--green);  background: #f1faf2; }
+.inventory-card.low-stock { border-color: var(--orange); background: #fff8f0; }
+
+.inv-name { font-weight: 700; font-size: 14px; }
+.inv-qty  { font-size: 13px; color: var(--text-muted); }
+
+.inv-price-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.inv-price-row input {
+  width: 58px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: right;
+  background: var(--bg);
+}
+
+.inv-controls { display: flex; gap: 6px; margin-top: 6px; }
+.inv-controls button {
+  flex: 1;
+  margin: 0;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  background: var(--btn-secondary-bg);
+}
+
+/* ── HISTORY PAGE ──────────────────────── */
+#historyList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+/* reuse .inventory-card for history entries — override via specific selector */
+#historyList .inventory-card { border-radius: var(--radius); }
+
+.history-header-row {
+  display: grid;
+  grid-template-columns: 1fr 72px 72px;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.55;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 1fr 72px 72px;
+  gap: 8px;
+  font-size: 13px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.history-row span:nth-child(2),
+.history-row span:nth-child(3),
+.history-header-row span:nth-child(2),
+.history-header-row span:nth-child(3) { text-align: right; }
+
+.history-items  { margin: 4px 0 6px; }
+.history-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+
+.history-total { font-weight: 700; font-size: 14px; }
+
+#cutBtn button { background: var(--btn-danger-bg); color: var(--btn-danger-color); width: 100%; margin-top: 8px; }
+
+/* ── DELETE BUTTON ─────────────────────── */
+.delete-btn {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.5;
+  padding: 4px 6px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.delete-btn:hover { opacity: 1; background: var(--btn-danger-bg); }
+
+/* ── PROMOTIONS PAGE ───────────────────── */
+.promo-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  background: var(--brand);
+  color: white;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  font-size: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 4px 14px rgba(126,208,210,0.5);
+  cursor: pointer;
+  z-index: 500;
+  line-height: 1;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.promo-fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
+
+.promo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.promo-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 40px 20px;
+}
+
+.promo-empty .promo-empty-icon { font-size: 36px; margin-bottom: 10px; }
+
+.promo-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 2px solid transparent;
+}
+
+.promo-card.promo-inactive { opacity: 0.5; }
+
+.promo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.promo-name { font-weight: 700; font-size: 15px; flex: 1; }
+
+.promo-badge {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--brand);
+  color: white;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.promo-badge.type-free  { background: var(--green); }
+.promo-badge.type-price { background: var(--purple); }
+.promo-badge.type-pct   { background: var(--orange); }
+
+.promo-desc { font-size: 13px; color: var(--text-muted); }
+
+.promo-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.promo-toggle {
+  font-size: 12px;
+  padding: 5px 12px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.promo-toggle.active   { background: #e8f5e9; color: #2e7d32; }
+.promo-toggle.inactive { background: var(--btn-danger-bg); color: var(--btn-danger-color); }
+
+/* ── PROMO FORM (modal) ────────────────── */
+.promo-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 10px 0 3px;
+  color: var(--text-muted);
+}
+
+.promo-form input,
+.promo-form select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.promo-form input:focus,
+.promo-form select:focus { border-color: var(--brand); }
+
+.promo-form .row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* ── EXTRAS MODAL ──────────────────────── */
+.extras-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.extra-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  margin: 0;
+  transition: border-color 0.15s, background 0.15s;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.extra-btn:active { background: var(--border); }
+.extra-btn .extra-price { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.extra-btn.natural { border-color: #c8a96e; background: #fdf6ec; }
+.extra-btn.paid    { border-color: var(--brand); background: var(--brand-light); }
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <button class="menu-btn" onclick="toggleMenu()">☰</button>
+  <img src="logo.jpeg" onclick="showPage('pos')" style="cursor:pointer;">
+</div>
+
+
+<!-- 🟢 PÁGINA PRINCIPAL -->
+<div id="posPage" class="page" style="display:block;">
+
+  <div class="container">
+
+    <div class="products" id="products"></div>
+
+    <div class="cart">
+      <h2>🛒 Orden</h2>
+      <div class="cart-items" id="cart"></div>
+      <div class="total">Total: $<span id="total">0</span></div>
+
+      <button id="payBtn" class="pay" onclick="openPaymentOptions();">Cobrar</button>
+      <button class="clear" onclick="clearCart()">Limpiar</button>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="modal hidden">
+  <div class="modal-content" id="modalContent"></div>
+</div>
+
+<!-- TICKET -->
+<div id="ticketModal" style="
+  display:none;
+  position:fixed;
+  top:10px; bottom:10px;
+  left:10px; right:10px;
+  width: 100%; height:100%;
+  background:rgba(0,0,0,0.6);
+  justify-content:center;
+  align-items:center;
+  z-index:9999;
+">
+  <div style="
+    background:white;
+    padding:20px;
+    border-radius:10px;
+    max-width:320px;
+    width:90%;
+    text-align:center;
+  ">
+  </div>
+</div>
+
+<!-- INVENTARIO -->
+<div id="inventoryPage" class="page" style="display:none;">
+  <div class="page-content">
+    <h2>Inventario</h2>
+    <div id="inventoryList"></div>
+  </div>
+</div>
+
+<!-- HISTORIAL -->
+<div id="historyPage" class="page" style="display:none;">
+  <div class="page-content">
+    <h2>Historial</h2>
+    <div id="historyList"></div>
+    <div id="cutBtn" style="display:none; text-align: center;">
+      <button onclick="generateCut() ">Corte de caja</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROMOCIONES -->
+<div id="promoPage" class="page" style="display:none;">
+  <div class="page-content">
+    <h2>Promociones</h2>
+    <div class="promo-list" id="promoList"></div>
+  </div>
+</div>
+
+<!-- FAB: only visible on promo page, toggled via JS -->
+<button id="promoFab" class="promo-fab" onclick="openPromoModal()" title="Agregar promoción" style="display:none;">+</button>
+
+<!-- MENÚ -->
+<div id="sideMenu" class="side-menu">
+  <div class="menu-content">
+    <h3>Menú</h3>
+    <button onclick="showPage('pos')">Caja</button>
+    <button onclick="showPage('inventory')">Inventario</button>
+    <button onclick="showPage('history')">Historial</button>
+    <button onclick="showPage('promos')">Promociones</button>
+  </div>
+</div>
+
+<div id="ticket-container" style="position: fixed; left: -9999px; top: 0;"></div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+
+const defaultInventory = {
+  "M&Ms": 10,
+  "Lotus": 10,
+  "Kinder Bueno": 10,
+  "Red Velvet": 10,
+  "Oreo": 10,
+  "Lucky Charms": 10,
+  "Conejito Turín": 10,
+  "Pistache": 10,
+  "Crookie": 10,
+  "Rol de canela": 10,
+  "Brownie": 10,
+  "Carlota de limón": 10,
+  "Cookie bites": 10,
+  "Besos de nuez": 10,
+  "Mini pastel zanahoria": 10,
+  "Mini pastel red velvet": 10,
+  "Mini pastel golden vanilla": 10,
+  "Mini pastel french vanilla": 10
+};
+
+const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
+let inventory = { ...defaultInventory, ...savedInventory };
+
+let originalInventory = JSON.parse(JSON.stringify(inventory));
+let updatedItems = new Set();
+
+function saveInventory() {
+  localStorage.setItem("inventory", JSON.stringify(inventory));
+}
+
+function saveHistory() {
+  localStorage.setItem("history", JSON.stringify(history));
+}
+
+let currentSale = null;
+
+const menu = [
+  {
+    category: "🍪 Galletas",
+    items: [
+      { name: "M&Ms", price: 49.00, img: "mms.jpg" },
+      { name: "Lotus", price: 49.00, img: "lotus.jpg" },
+      { name: "Kinder Bueno", price: 49.00, img: "kinder.jpg" },
+      { name: "Red Velvet", price: 49.00, img: "redvelvet.jpg" },
+      { name: "Oreo", price: 49.00, img: "oreo.jpg" },
+      { name: "Lucky Charms", price: 49.00, img: "lucky.jpg" },
+      { name: "Conejito Turín", price: 49.00, img: "turin.jpg" },
+      { name: "Pistache", price: 49.00, img: "pistache.jpg" }
+    ]
+  },
+  {
+    category: "✨ Especiales",
+    items: [
+      { name: "Crookie", price: 65.00, img: "crookie.jpg" },
+      { name: "Rol de canela", price: 60.00, img: "rol.jpg" },
+      { name: "Brownie", price: 40.00, img: "brownie.jpg" },
+      { name: "Cookie bites", price: 100.00, img: "bites.jpg" },
+      { name: "Besos de nuez", price: 90.00, img: "besosnuez.jpg" }
+    ]
+  },
+  {
+    category: "🍰 Postres",
+    items: [
+      { name: "Mini pastel zanahoria", price: 220.00, img: "cake_carrot.jpg" },
+      { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
+      { name: "Mini pastel golden vanilla", price: 220.00, img: "cake_gvan.jpg" },
+      { name: "Mini pastel french vanilla", price: 220.00, img: "cake_fvan.jpg" },
+      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" }
+    ]
+  }
+];
+
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+// Render productos
+function renderProducts() {
+  const container = document.getElementById("products");
+  container.innerHTML = "";
+
+  menu.forEach(cat => {
+    const section = document.createElement("div");
+    section.className = "category";
+
+    section.innerHTML = `<h2>${cat.category}</h2>`;
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    cat.items.forEach(item => {
+      const stock = inventory[item.name] ?? 0;
+      const isOut = stock === 0;
+      const isLow = stock > 0 && stock <= 3;
+
+      const div = document.createElement("div");
+      div.className = "product" + (isLow ? " low-stock-product" : "") + (isOut ? " out-of-stock" : "");
+      div.innerHTML = `
+        <img src="${item.img}">
+        <h3>${item.name}</h3>
+        <p>$${parseFloat(item.price).toFixed(2)}</p>
+        <div>Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
+      `;
+      if (!isOut) div.onclick = () => addToCart(item);
+      grid.appendChild(div);
+    });
+
+    section.appendChild(grid);
+    container.appendChild(section);
+  });
+}
+
+// ── EXTRAS CONFIG ─────────────────────────────
+// Items that require an extra selection when added to cart.
+// extrasPrice: 0 means free (Natural), > 0 means charged extra.
+const ITEM_EXTRAS = {
+  "Rol de canela": [
+    { name: "Natural",              price: 0   },
+    { name: "Glaseado queso crema", price: 5  },
+    { name: "Nutella",              price: 10  },
+    { name: "Lotus",                price: 25  },
+  ]
+};
+
+// Carrito
+function addToCart(item) {
+  if (inventory[item.name] <= 0) {
+    alert("Sin stock");
+    return;
+  }
+
+  const extras = ITEM_EXTRAS[item.name];
+  if (extras) {
+    openExtrasModal(item, extras);
+  } else {
+    pushCartItem(item, null);
+  }
+}
+
+function openExtrasModal(item, extras) {
+  const buttonsHTML = extras.map(e => `
+    <button
+      class="extra-btn ${e.price === 0 ? 'natural' : 'paid'}"
+      onclick="confirmExtra(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(e).replace(/"/g, '&quot;')})"
+    >
+      ${e.name}
+      <span class="extra-price">${e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2)}</span>
+    </button>
+  `).join("");
+
+  openModal(`
+    <h3 style="margin-top:0;">🥐 ${item.name}</h3>
+    <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
+    <div class="extras-grid">${buttonsHTML}</div>
+    <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
+  `);
+}
+
+function confirmExtra(item, extra) {
+  closeModal();
+  pushCartItem(item, extra.price > 0 ? extra : null);
+}
+
+// Assigns a unique cartId so each rol is independent in the cart
+function pushCartItem(item, extra) {
+  const cartItem = {
+    ...item,
+    cartId: Date.now() + Math.random(), // unique per instance
+    extra: extra || null                 // { name, price } or null
+  };
+  if (extra) {
+    cartItem.price = item.price + extra.price; // total price includes extra
+  }
+  cart.push(cartItem);
+  renderCart();
+}
+
+function renderCart() {
+  const payBtn = document.getElementById("payBtn");
+  payBtn.disabled = cart.length === 0;
+
+  const container = document.getElementById("cart");
+  container.innerHTML = "";
+  let total = 0;
+
+  // Group ALL items by name + extra variant (one row per unique combination)
+  const grouped = {};
+  cart.forEach(item => {
+    const key = item.name + (item.extra ? '::' + item.extra.name : '');
+    if (!grouped[key]) grouped[key] = { ...item, qty: 0 };
+    grouped[key].qty++;
+  });
+
+  Object.values(grouped).forEach(item => {
+    total += item.price * item.qty;
+    const basePrice = item.extra ? item.price - item.extra.price : item.price;
+    const extraName = item.extra ? item.extra.name : null;
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="cart-item-name">${item.name}</div>
+      <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
+      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${item.extra.name}</span></div>` : ''}
+      <div class="cart-item-controls">
+        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
+        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  document.getElementById("total").innerText = total.toFixed(2);
+  localStorage.setItem("cart", JSON.stringify(cart));
+}
+
+function removeCartItem(cartId) {
+  const idx = cart.findIndex(i => String(i.cartId) === String(cartId));
+  if (idx > -1) cart.splice(idx, 1);
+  renderCart();
+}
+
+// Unified +/− for grouped cart rows (works for both plain and extra-variant items)
+function changeQtyGrouped(name, extraName, delta) {
+  if (delta > 0) {
+    const currentQty = cart.filter(i => {
+      const iExtra = i.extra ? i.extra.name : null;
+      return i.name === name && iExtra === extraName;
+    }).length;
+    if (currentQty >= inventory[name]) { alert("No hay más stock disponible"); return; }
+
+    const menuItem = menu.flatMap(c => c.items).find(i => i.name === name);
+    if (ITEM_EXTRAS[name]) {
+      // Has extras config — open modal so user picks frosting for the new one
+      openExtrasModal(menuItem, ITEM_EXTRAS[name]);
+    } else {
+      cart.push(menuItem);
+      renderCart();
+    }
+  } else {
+    // Remove the last matching instance
+    const idx = [...cart].map((i, idx) => ({ i, idx }))
+      .reverse()
+      .find(({ i }) => {
+        const iExtra = i.extra ? i.extra.name : null;
+        return i.name === name && iExtra === extraName;
+      })?.idx;
+    if (idx !== undefined) { cart.splice(idx, 1); renderCart(); }
+  }
+}
+
+function removeItem(i) {
+  cart.splice(i, 1);
+  renderCart();
+}
+
+function clearCart() {
+  if (cart.length === 0) return;
+  if (!confirm("¿Limpiar la orden?")) return;
+  cart = [];
+  renderCart();
+}
+
+function openModal(html) {
+  const modal = document.getElementById("modal");
+  const content = document.getElementById("modalContent");
+
+  content.innerHTML = html;
+  modal.classList.remove("hidden");
+}
+
+function closeModal() {
+  document.getElementById("modal").classList.add("hidden");
+}
+
+function openPaymentOptions() {
+  const total = parseFloat(document.getElementById("total").innerText);
+
+  openModal(`
+    <h3>Cobrar: $${total}</h3>
+
+    <button onclick="handleCash(${total})">Efectivo</button>
+    <button onclick="handleTransfer(${total})">Transferencia</button>
+    <button onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function handleCash(total) {
+  openModal(`
+    <h3>Total: $${total}</h3>
+
+    <input 
+      id="cashInput"
+      type="number"
+      inputmode="numeric"
+      placeholder="Pago con..."
+      style="width:94%; padding:10px; font-size:18px;"
+    />
+
+    <button id="continueBtn" disabled>Continuar</button>
+    <button onclick="openPaymentOptions(${total})">Regresar</button>
+  `);
+
+  const input = document.getElementById("cashInput");
+  const btn = document.getElementById("continueBtn");
+
+  // 👉 abre teclado automáticamente
+  setTimeout(() => input.focus(), 50);
+
+  input.addEventListener("input", () => {
+    const value = parseFloat(input.value);
+    btn.disabled = !(value >= total);
+  });
+
+  btn.onclick = () => {
+    const value = parseFloat(input.value);
+    const change = value - total;
+    showFinalStep(total, "cash", change);
+  };
+}
+
+function handleTransfer(total) {
+  showFinalStep(total, "transfer", 0);
+}
+
+function showFinalStep(total, method, change) {
+
+  const amount = method === "cash"
+    ? parseFloat(document.getElementById("cashInput")?.value || total)
+    : total;
+
+  // 👉 guardar venta temporal
+  const { appliedPromos } = computeCartTotals();
+
+  const now = new Date();
+  const folio = now.getFullYear().toString().slice(2)
+    + String(now.getMonth() + 1).padStart(2, '0')
+    + String(now.getDate()).padStart(2, '0')
+    + String(now.getHours()).padStart(2, '0')
+    + String(now.getMinutes()).padStart(2, '0');
+
+  currentSale = {
+    folio,
+    date: new Date().toLocaleString(),
+    items: [...cart],
+    total: total,
+    method: method,
+    amount: amount,
+    change: change,
+    promos: appliedPromos.filter(a => a.discount > 0).map(a => ({
+      name: a.promo.name,
+      discount: a.discount,
+      freeCount: a.freeCount || 0,
+      freeItemName: a.freeItemName || ""
+    }))
+
+  };
+
+  openModal(`
+    <h3>Total: $${total}</h3>
+
+    ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
+
+    <button onclick="finalizeSale()">
+      Finalizar
+    </button>
+    <button onclick="openPaymentOptions(${total})">Regresar</button>
+  `);
+}
+
+function finalizeSale() {
+  if (!currentSale) {
+    alert("Error en la venta");
+    return;
+  }
+
+  // guardar en history
+  const history = JSON.parse(localStorage.getItem("history")) || [];
+  history.push(currentSale);
+  localStorage.setItem("history", JSON.stringify(history));
+
+  // descontar inventario
+  currentSale.items.forEach(item => {
+    if (inventory[item.name] > 0) {
+      inventory[item.name]--;
+    }
+  });
+
+  saveInventory();
+  closeModal();
+  showToast("Venta registrada ✅");
+  renderProducts();
+
+  // Auto-clear cart, no confirmation
+  cart = [];
+  localStorage.removeItem("cart");
+  renderCart();
+  renderHistory();
+
+  const sale = currentSale;
+  currentSale = null;
+
+  // Single confirm: send ticket or just close
+  if (confirm("¿Enviar ticket al cliente?")) {
+    generateTicket(sale);
+  }
+}
+
+function generateTicket(sale) {
+  if (!sale) {
+    alert("No hay venta disponible");
+    return;
+  }
+
+  const container = document.getElementById("ticket-container");
+
+  if (!container) {
+    alert("No existe #ticket-container en el HTML");
+    return;
+  }
+
+  let rows = "";
+
+  // Group ALL items by name + extra variant (regardless of cartId)
+  const grouped = {};
+  sale.items.forEach(item => {
+    const key = item.name + (item.extra ? '::' + item.extra.name : '');
+    if (!grouped[key]) grouped[key] = { name: item.name, price: item.price, extra: item.extra || null, qty: 0 };
+    grouped[key].qty++;
+  });
+
+  Object.values(grouped).forEach(info => {
+    const basePrice = info.extra ? info.price - info.extra.price : info.price;
+    const totalItem = info.price * info.qty;
+    const extraTotal = info.extra ? info.extra.price * info.qty : 0;
+
+    rows += `
+      <tr>
+        <td style="text-align:center;width:20px;">${info.qty}</td>
+        <td>${info.name}${info.extra ? `<br><span style="font-size:10px;opacity:0.7;">+ ${info.extra.name}</span>` : ''}</td>
+        <td style="width:8px;text-align:right;padding-right:0;">$</td>
+        <td style="text-align:right;padding-left:2px;">${basePrice.toFixed(2)}${info.extra ? `<br><span style="font-size:10px;opacity:0.7;">${info.extra.price.toFixed(2)}</span>` : ''}</td>
+        <td style="width:8px;text-align:right;padding-right:0;">$</td>
+        <td style="text-align:right;padding-left:2px;">${totalItem.toFixed(2)}</td>
+      </tr>
+    `;
+  });
+
+  // Compute total discount for the summary row
+  const salePromos = sale.promos || [];
+  const totalDiscount = salePromos.reduce((sum, p) => sum + p.discount, 0);
+
+  const ticketHTML = `
+    <div id="ticket" style="
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      padding: 14px;
+      width: 268px;
+      background: white;
+      color: black;
+    ">
+      <div style="text-align:center;">
+        <img src="ticket_logo.jpg" style="max-width:100px;"><br>
+        <strong style="font-size:13px;">POSTRE MÍO</strong><br>
+        ${sale.date}<br>
+        Folio: ${sale.folio || '—'}<br>
+      </div>
+
+      <hr style="border:none;border-top:1px dashed black;margin:8px 0;"/>
+
+      <table style="width:100%;border-collapse:collapse;">
+        <tr style="font-weight:bold;border-bottom:1px solid black;">
+          <td style="width:16px;text-align:center;">Q</td>
+          <td>DESCRIPCIÓN</td>
+          <td style="width:8px;"></td>
+          <td style="text-align:right;white-space:nowrap;">IMP.</td>
+          <td style="width:8px;"></td>
+          <td style="text-align:right;white-space:nowrap;">TOTAL</td>
+        </tr>
+        ${rows}
+      </table>
+
+      <hr style="border:none;border-top:1px dashed black;margin:8px 0;"/>
+
+      <table style="width:100%;border-collapse:collapse;">
+        ${totalDiscount > 0 ? `
+        <tr>
+          <td>Subtotal</td>
+          <td style="width:16px;text-align:right;padding-right:0;">$</td>
+          <td style="text-align:right;padding-left:2px;white-space:nowrap;">${(parseFloat(sale.total) + totalDiscount).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td>Descuentos</td>
+          <td style="width:16px;text-align:right;padding-right:0;">−$</td>
+          <td style="text-align:right;padding-left:2px;white-space:nowrap;">${totalDiscount.toFixed(2)}</td>
+        </tr>
+        ` : ''}
+        <tr style="font-weight:bold;">
+          <td>TOTAL</td>
+          <td style="width:16px;text-align:right;padding-right:0;">$</td>
+          <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.total).toFixed(2)}</td>
+        </tr>
+      </table>
+
+      <hr style="border:none;border-top:1px dashed black;margin:8px 0;width:30%;margin-left:auto;"/>
+
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td colspan="3" style="font-size:10px;opacity:0.6;">FORMA DE PAGO</td></tr>
+        <tr>
+          <td>${sale.method === "cash" ? "Efectivo" : "Transferencia"}</td>
+          <td style="width:16px;text-align:right;padding-right:0;">$</td>
+          <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.amount).toFixed(2)}</td>
+        </tr>
+        <tr>
+          <td>Cambio</td>
+          <td style="width:16px;text-align:right;padding-right:0;">$</td>
+          <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.change).toFixed(2)}</td>
+        </tr>
+      </table>
+
+      <br><br>
+      <div style="text-align:center;font-size:10px;">
+        ¡Gracias por su compra! ❤️<br><br>
+        Tel. 229 157 4962<br>
+        @postremio.mx
+      </div>
+    </div>
+  `;
+
+  // ✅ Insertar correctamente
+  container.innerHTML = ticketHTML;
+
+  // ⏳ Esperar a que el DOM lo procese
+  setTimeout(() => {
+    const ticketElement = document.getElementById("ticket");
+
+    if (!ticketElement) {
+      alert("No se generó el ticket");
+      return;
+    }
+
+    html2canvas(ticketElement, {
+      scale: 2,
+      useCORS: true
+    }).then(canvas => {
+
+      canvas.toBlob(blob => {
+        const file = new File([blob], "ticket_postremio.png", { type: "image/png" });
+
+        // Best path: Web Share API with file (works on Android Chrome and iOS Safari)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({
+            title: "Ticket Postre Mío",
+            text: "Gracias por tu compra en Postre Mío ❤️",
+            files: [file]
+          }).catch(() => {}); // user cancelled — do nothing
+        } else {
+          // Fallback: download image, then open WhatsApp with a message
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `ticket_postremio_${Date.now()}.png`;
+          link.click();
+          URL.revokeObjectURL(url);
+
+          const message = encodeURIComponent("Gracias por tu compra en Postre Mío ❤️\n(Adjunta la imagen del ticket que se acaba de descargar)");
+          setTimeout(() => window.open(`https://wa.me/?text=${message}`, "_blank"), 800);
+        }
+      }, "image/png");
+
+    });
+
+  }, 100);
+}
+
+function toggleMenu() {
+  const menu = document.getElementById("sideMenu");
+  menu.classList.toggle("open");
+}
+
+document.addEventListener("click", function(e) {
+  const menu = document.getElementById("sideMenu");
+  const btn = document.querySelector(".menu-btn");
+
+  if (!menu || !btn) return;
+
+  if (!menu.contains(e.target) && !btn.contains(e.target)) {
+    menu.classList.remove("open");
+  }
+});
+
+function showPage(page) {
+  document.getElementById("posPage").style.display = "none";
+  document.getElementById("inventoryPage").style.display = "none";
+  document.getElementById("historyPage").style.display = "none";
+  document.getElementById("promoPage").style.display = "none";
+
+  if (page === "pos") {
+    document.getElementById("posPage").style.display = "block";
+  }
+
+  if (page === "inventory") {
+    document.getElementById("inventoryPage").style.display = "block";
+
+    originalInventory = JSON.parse(JSON.stringify(inventory));
+    updatedItems.clear();
+
+    renderProducts();
+    renderInventory();
+  }
+
+  if (page === "history") {
+    document.getElementById("historyPage").style.display = "block";
+    updateCutBtn();
+    renderHistory();
+  }
+
+  if (page === "promos") {
+    document.getElementById("promoPage").style.display = "block";
+    document.getElementById("promoFab").style.display = "flex";
+    renderPromos();
+  } else {
+    document.getElementById("promoFab").style.display = "none";
+  }
+
+  if (page !== "inventory") {
+    updatedItems.clear();
+  }
+
+  toggleMenu(); // cerrar menú al seleccionar
+}
+
+// Hold-to-repeat state
+let holdTimer = null;
+let holdInterval = null;
+
+function startHold(name, delta) {
+  updateStock(name, delta);
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => updateStock(name, delta), 80);
+  }, 500);
+}
+
+function stopHold() {
+  clearTimeout(holdTimer);
+  clearInterval(holdInterval);
+  holdTimer = null;
+  holdInterval = null;
+}
+
+function renderInventory() {
+  const container = document.getElementById("inventoryList");
+  container.innerHTML = "";
+
+  Object.keys(inventory).forEach(name => {
+    const qty = inventory[name];
+    const isLow = qty > 0 && qty <= 3;
+    const isOut = qty === 0;
+
+    // Find current price from menu
+    const menuItem = menu.flatMap(c => c.items).find(i => i.name === name);
+    const price = menuItem ? menuItem.price : "—";
+
+    let cardClass = "inventory-card";
+    if (updatedItems.has(name)) cardClass += " updated";
+    else if (isOut) cardClass += " low-stock";
+    else if (isLow) cardClass += " low-stock";
+
+    const div = document.createElement("div");
+    div.className = cardClass;
+
+    div.innerHTML = `
+      <div class="inv-name">${name}</div>
+      <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
+      <div class="inv-price-row">
+        💲<input
+          type="number"
+          inputmode="decimal"
+          value="${menuItem ? menuItem.price : ''}"
+          min="0"
+          step="1"
+          title="Editar precio"
+          onfocus="this.select()"
+          onchange="updatePrice('${name.replace(/'/g, "\\'")}', this.value)"
+        >
+      </div>
+      <div class="inv-controls">
+        <button
+          onpointerdown="startHold('${name.replace(/'/g, "\\'")}', -1)"
+          onpointerup="stopHold()"
+          onpointerleave="stopHold()"
+          oncontextmenu="return false"
+        >−</button>
+        <button
+          onpointerdown="startHold('${name.replace(/'/g, "\\'")}', 1)"
+          onpointerup="stopHold()"
+          onpointerleave="stopHold()"
+          oncontextmenu="return false"
+        >+</button>
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+function updatePrice(name, value) {
+  const price = parseFloat(value);
+  if (isNaN(price) || price < 0) return;
+
+  menu.forEach(cat => {
+    cat.items.forEach(item => {
+      if (item.name === name) item.price = price;
+    });
+  });
+
+  // Also update any cart items already added
+  cart.forEach(item => {
+    if (item.name === name) item.price = price;
+  });
+
+  renderProducts();
+  renderCart();
+  showToast(`Precio de ${name} actualizado a $${price}`);
+}
+
+function updateStock(name, delta) {
+  inventory[name] += delta;
+
+  if (inventory[name] < 0) inventory[name] = 0;
+
+  if (inventory[name] !== originalInventory[name]) {
+    updatedItems.add(name);
+  } else {
+    updatedItems.delete(name);
+  }
+
+  saveInventory();
+  renderInventory();
+  
+  renderProducts();
+}
+
+function renderHistory() {
+  const container = document.getElementById("historyList");
+  if (!container) return;
+
+  container.innerHTML = "";
+
+  const data = JSON.parse(localStorage.getItem("history")) || [];
+
+  if (data.length === 0) {
+    container.innerHTML = "<p>No hay ventas aún.</p>";
+    return;
+  }  
+
+  data.slice().reverse().forEach((sale, reversedIdx) => {
+    const realIndex = data.length - 1 - reversedIdx;
+    const div = document.createElement("div");
+    div.className = "inventory-card";
+
+    // 🔥 Construir filas bonitas
+    let itemsHTML = "";
+    let rawTotal = 0;
+
+    // Items with cartId shown individually; plain items grouped
+    const indivItems = sale.items.filter(i => i.cartId);
+    const plainItems = sale.items.filter(i => !i.cartId);
+
+    const grouped = {};
+    plainItems.forEach(item => {
+      if (!grouped[item.name]) grouped[item.name] = { qty: 0, price: item.price };
+      grouped[item.name].qty++;
+    });
+
+    Object.entries(grouped).forEach(([name, info]) => {
+      const subtotal = info.qty * info.price;
+      rawTotal += subtotal;
+      itemsHTML += `
+        <div class="history-row">
+          <span>${info.qty} × ${name}</span>
+          <span>$${parseFloat(info.price).toFixed(2)}</span>
+          <span>$${subtotal.toFixed(2)}</span>
+        </div>
+      `;
+    });
+
+    indivItems.forEach(item => {
+      const basePrice = item.extra ? item.price - item.extra.price : item.price;
+      rawTotal += item.price;
+      itemsHTML += `
+        <div class="history-row">
+          <span>${item.name}</span>
+          <span>$${basePrice.toFixed(2)}</span>
+          <span>$${basePrice.toFixed(2)}</span>
+        </div>
+        ${item.extra ? `
+        <div class="history-row" style="color:#7b61ff;font-size:12px;">
+          <span style="padding-left:12px;">↳ + ${item.extra.name}</span>
+          <span></span>
+          <span>+$${item.extra.price.toFixed(2)}</span>
+        </div>` : ''}
+      `;
+    });
+
+    // Promo discount lines
+    const salePromos = sale.promos || [];
+    let totalDiscount = 0;
+    salePromos.forEach(p => {
+      totalDiscount += p.discount;
+      let label = `🏷 ${p.name}`;
+      if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
+      itemsHTML += `
+        <div class="history-row" style="color:#4caf50;">
+          <span>${label}</span>
+          <span></span>
+          <span>−$${p.discount.toFixed(2)}</span>
+        </div>
+      `;
+    });
+
+    const finalTotal = sale.total;
+
+    div.innerHTML = `
+      <div class="inv-name">${sale.date || ""}</div>
+      <div style="font-size:11px; color:var(--text-muted);">Folio: ${sale.folio}</div>
+
+      <div class="history-items">
+        <div class="history-header-row">
+          <span>Descripción</span>
+          <span>Precio</span>
+          <span>Total</span>
+        </div>
+
+        ${itemsHTML}
+      </div>
+
+      <div class="history-footer">
+        <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
+        <button onclick="generateTicket(${JSON.stringify(sale).replace(/"/g, '&quot;')})">🧾</button>
+        <button class="delete-btn" onclick="deleteSale(${realIndex})">🗑️</button>
+      </div>
+    `;
+
+    container.appendChild(div);
+  });
+}
+
+function updateCutBtn() {
+  const history = JSON.parse(localStorage.getItem("history")) || [];
+  const container = document.getElementById("cutBtn");
+
+  if (history.length >   0) {
+    container.style.display = "block";
+  } else {
+    container.style.display = "none";
+  }
+}
+
+function deleteSale(index) {
+  const data = JSON.parse(localStorage.getItem("history")) || [];
+
+  if (!confirm("¿Borrar esta transacción?")) return;
+
+  const sale = data[index];
+
+  // 🟢 DEVOLVER INVENTARIO
+  (sale.items || []).forEach(item => {
+    if (!inventory[item.name]) {
+      inventory[item.name] = 0;
+    }
+    inventory[item.name]++;
+  });
+
+  saveInventory();
+
+  // eliminar venta
+  data.splice(index, 1);
+  localStorage.setItem("history", JSON.stringify(data));
+
+  renderProducts();
+  renderInventory();
+  renderHistory();
+}
+
+function generateCut() {
+  const today = new Date().toLocaleDateString();
+
+  const history = JSON.parse(localStorage.getItem("history")) || [];
+
+  const todaySales = history.filter(s => s.date.startsWith(today));
+
+  const total = todaySales.reduce((sum, s) => sum + s.total, 0);
+  const count = todaySales.length;
+
+  let breakdown = {};
+
+  todaySales.forEach(sale => {
+    sale.items.forEach(item => {
+      breakdown[item.name] = (breakdown[item.name] || 0) + 1;
+    });
+  });
+
+  console.log("Corte:", { total, count, breakdown });
+
+  exportToExcel();
+
+  clearSales(count, total);
+}
+
+function clearSales(count, total) {
+  if (confirm("¿Cerrar caja y borrar ventas?")) {
+    localStorage.removeItem("history");
+
+    setTimeout(() => {
+      alert(
+        "Corte del día\n\n" +
+        "Ventas: " + count + "\n" +
+        "Total: $" + total
+      );
+    });
+
+    renderHistory();
+    updateCutBtn();
+  }
+}
+
+function exportToExcel() {
+  const history = JSON.parse(localStorage.getItem("history")) || [];
+
+  let products = new Set();
+
+  history.forEach(sale => {
+    sale.items.forEach(item => {
+      products.add(item.name);
+    });
+  });
+
+  products = Array.from(products);
+
+  let csv = "Folio,Fecha,Hora,";
+
+  products.forEach(p => {
+    csv += p + ",";
+  });
+
+  csv += "Total\n";
+
+  history.forEach(sale => {
+
+    const saleFolio = sale.folio
+    const saleDate = sale.date.split(",")[0]
+    const saleTime = sale.date.split(",")[1]
+
+    let row = `${saleFolio},${saleDate},${saleTime},`;
+
+    products.forEach(p => {
+      
+      let cantidad = 0;
+
+      sale.items.forEach(item => {
+        if ((item.name || item) === p) {
+          cantidad++;
+        }
+      });
+
+      row += cantidad + ",";
+    })
+
+    row += sale.total + "\n";
+
+    csv += row;
+  });
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `postre_mio_corte_${new Date().toLocaleDateString()}.csv`
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+
+function showToast(msg) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = msg;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("show");
+  }, 10);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 2500);
+}
+
+
+renderProducts();
+renderCart();
+
+// ─────────────────────────────────────────────
+//  PROMOTIONS ENGINE
+// ─────────────────────────────────────────────
+//
+//  Promotion schema:
+//  {
+//    id: number (timestamp),
+//    name: string,          — display label
+//    active: bool,
+//    scope: "any" | "category" | "product",
+//    scopeValue: string,    — category name or product name (empty when scope=any)
+//    triggerQty: number,    — how many items must be in cart to trigger
+//    type: "free_item" | "fixed_price" | "pct_discount",
+//    value: number,
+//      — free_item:    number of free items added (usually 1)
+//      — fixed_price:  new total price for the matched group (e.g. 6 cookies for $200)
+//      — pct_discount: discount % applied to matched items (e.g. 10 for 10%)
+//  }
+
+let promotions = JSON.parse(localStorage.getItem("promotions")) || [];
+
+function savePromos() {
+  localStorage.setItem("promotions", JSON.stringify(promotions));
+}
+
+// ── helpers ──────────────────────────────────
+
+function allMenuItems() {
+  return menu.flatMap(c => c.items);
+}
+
+function allCategories() {
+  return menu.map(c => c.category);
+}
+
+function itemMatchesScope(item, promo) {
+  if (promo.scope === "any") return true;
+  if (promo.scope === "product") return item.name === promo.scopeValue;
+  if (promo.scope === "category") {
+    const cat = menu.find(c => c.items.some(i => i.name === item.name));
+    return cat && cat.category === promo.scopeValue;
+  }
+  return false;
+}
+
+// Returns array of { promo, discount, freeItems[] }
+function applyPromotions(cartItems) {
+  const applied = [];
+
+  if (!cartItems.length) return applied;
+
+  for (const promo of promotions) {
+    if (!promo.active) continue;
+
+    // Count how many cart items match this promo's scope
+    const matched = cartItems.filter(i => itemMatchesScope(i, promo));
+    const matchedCount = matched.length;
+
+    if (matchedCount < promo.triggerQty) continue;
+
+    // How many full "sets" of triggerQty fit?
+    const sets = Math.floor(matchedCount / promo.triggerQty);
+
+    if (promo.type === "free_item") {
+      // Add `sets * value` free items (value = qty of free items per trigger)
+      const freeCount = sets * promo.value;
+      // Pick the cheapest matching item to give for free
+      const cheapest = matched.slice().sort((a, b) => a.price - b.price)[0];
+      const discount = cheapest.price * freeCount;
+      applied.push({ promo, discount, freeCount, freeItemName: cheapest.name });
+
+    } else if (promo.type === "fixed_price") {
+      // Each set of triggerQty items costs promo.value instead of sum of prices
+      const normalCost = matched.slice(0, promo.triggerQty * sets)
+        .reduce((s, i) => s + i.price, 0);
+      const discount = normalCost - (promo.value * sets);
+      applied.push({ promo, discount: Math.max(0, discount) });
+
+    } else if (promo.type === "pct_discount") {
+      // Apply % off to the matched items (only triggerQty * sets items)
+      const applicableItems = matched.slice(0, promo.triggerQty * sets);
+      const base = applicableItems.reduce((s, i) => s + i.price, 0);
+      const discount = base * (promo.value / 100);
+      applied.push({ promo, discount });
+    }
+  }
+
+  return applied;
+}
+
+// Computes cart total after promos and returns { rawTotal, discount, finalTotal, appliedPromos }
+function computeCartTotals() {
+  const rawTotal = cart.reduce((s, i) => s + i.price, 0);
+  const appliedPromos = applyPromotions(cart);
+  const discount = appliedPromos.reduce((s, a) => s + a.discount, 0);
+  const finalTotal = Math.max(0, rawTotal - discount);
+  return { rawTotal, discount, finalTotal, appliedPromos };
+}
+
+// ── renderCart override — show promos ────────
+const _originalRenderCart = renderCart;
+
+function renderCart() {
+  const payBtn = document.getElementById("payBtn");
+  payBtn.disabled = cart.length === 0;
+
+  const container = document.getElementById("cart");
+  container.innerHTML = "";
+
+  const { finalTotal, appliedPromos } = computeCartTotals();
+
+  // Group ALL items by name + extra variant
+  const grouped = {};
+  cart.forEach(item => {
+    const key = item.name + (item.extra ? '::' + item.extra.name : '');
+    if (!grouped[key]) grouped[key] = { ...item, qty: 0 };
+    grouped[key].qty++;
+  });
+
+  Object.values(grouped).forEach(item => {
+    const basePrice = item.extra ? item.price - item.extra.price : item.price;
+    const extraName = item.extra ? item.extra.name : null;
+    const div = document.createElement("div");
+    div.className = "item";
+    div.innerHTML = `
+      <div class="cart-item-name">${item.name}</div>
+      <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
+      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${item.extra.name}</span></div>` : ''}
+      <div class="cart-item-controls">
+        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
+        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  // Discount lines
+  appliedPromos.forEach(a => {
+    if (a.discount <= 0) return;
+    const line = document.createElement("div");
+    line.className = "cart-discount-line";
+    let label = `🏷 ${a.promo.name}`;
+    if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
+    line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
+    container.appendChild(line);
+  });
+
+  document.getElementById("total").innerText = finalTotal.toFixed(2);
+  localStorage.setItem("cart", JSON.stringify(cart));
+}
+
+// Override openPaymentOptions to use discounted total
+const _origOpenPayment = openPaymentOptions;
+function openPaymentOptions() {
+  const { finalTotal } = computeCartTotals();
+  openModal(`
+    <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
+    <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
+    <button class="btn-brand"   onclick="handleTransfer(${finalTotal})">Transferencia</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+// ── render promo list ─────────────────────────
+
+function promoTypeLabel(type) {
+  return { free_item: "🎁 Gratis", fixed_price: "💰 Precio fijo", pct_discount: "% Descuento" }[type] || type;
+}
+
+function promoTypeClass(type) {
+  return { free_item: "type-free", fixed_price: "type-price", pct_discount: "type-pct" }[type] || "";
+}
+
+function promoDescription(p) {
+  const scopeStr = p.scope === "any" ? "cualquier producto"
+    : p.scope === "category" ? `categoría "${p.scopeValue}"`
+    : `"${p.scopeValue}"`;
+
+  if (p.type === "free_item") {
+    return `Lleva ${p.triggerQty} de ${scopeStr} y obtén ${p.value} gratis.`;
+  } else if (p.type === "fixed_price") {
+    return `${p.triggerQty} de ${scopeStr} por $${p.value}.`;
+  } else if (p.type === "pct_discount") {
+    return `${p.value}% de descuento al llevar ${p.triggerQty} de ${scopeStr}.`;
+  }
+  return "";
+}
+
+function renderPromos() {
+  const container = document.getElementById("promoList");
+  if (!container) return;
+  container.innerHTML = "";
+
+  if (!promotions.length) {
+    container.innerHTML = `
+      <div class="promo-empty">
+        <div class="promo-empty-icon">🏷️</div>
+        <p>No hay promociones activas.</p>
+        <p style="font-size:12px;">Toca el botón + para agregar una.</p>
+      </div>
+    `;
+    return;
+  }
+
+  promotions.forEach((p, idx) => {
+    const card = document.createElement("div");
+    card.className = "promo-card" + (p.active ? "" : " promo-inactive");
+    card.innerHTML = `
+      <div class="promo-card-header">
+        <div class="promo-name">${p.name}</div>
+        <span class="promo-badge ${promoTypeClass(p.type)}">${promoTypeLabel(p.type)}</span>
+      </div>
+      <div class="promo-desc">${promoDescription(p)}</div>
+      <div class="promo-card-footer">
+        <button class="promo-toggle ${p.active ? 'active' : 'inactive'}"
+          onclick="togglePromo(${idx})">
+          ${p.active ? "✅ Activa" : "⏸ Inactiva"}
+        </button>
+        <button class="delete-btn" onclick="deletePromo(${idx})">🗑️</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function togglePromo(idx) {
+  promotions[idx].active = !promotions[idx].active;
+  savePromos();
+  renderPromos();
+  renderCart(); // re-apply discounts
+}
+
+function deletePromo(idx) {
+  if (!confirm(`¿Eliminar la promoción "${promotions[idx].name}"?`)) return;
+  promotions.splice(idx, 1);
+  savePromos();
+  renderPromos();
+  renderCart();
+}
+
+// ── promo creation modal ──────────────────────
+
+function openPromoModal() {
+  const productOptions = allMenuItems()
+    .map(i => `<option value="${i.name}">${i.name}</option>`).join("");
+  const categoryOptions = allCategories()
+    .map(c => `<option value="${c}">${c}</option>`).join("");
+
+  openModal(`
+    <h3 style="margin-top:0;">Nueva promoción</h3>
+    <div class="promo-form">
+
+      <label>Nombre de la promoción</label>
+      <input id="pf-name" type="text" placeholder="Ej: 6 galletas por $200">
+
+      <label>Tipo de descuento</label>
+      <select id="pf-type" onchange="onPromoTypeChange()">
+        <option value="free_item">🎁 Producto gratis</option>
+        <option value="fixed_price">💰 Precio fijo por grupo</option>
+        <option value="pct_discount">% Descuento</option>
+      </select>
+
+      <label>Aplica a</label>
+      <select id="pf-scope" onchange="onPromoScopeChange()">
+        <option value="any">Cualquier producto</option>
+        <option value="category">Categoría específica</option>
+        <option value="product">Producto específico</option>
+      </select>
+
+      <div id="pf-scope-value-wrap" style="display:none;">
+        <label id="pf-scope-value-label">Producto</label>
+        <select id="pf-scope-product">${productOptions}</select>
+        <select id="pf-scope-category" style="display:none;">${categoryOptions}</select>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label id="pf-trigger-label">Cantidad mínima</label>
+          <input id="pf-trigger" type="number" min="1" value="6" inputmode="numeric">
+        </div>
+        <div>
+          <label id="pf-value-label">Valor</label>
+          <input id="pf-value" type="number" min="0" value="1" inputmode="decimal">
+        </div>
+      </div>
+      <div id="pf-value-hint" style="font-size:12px;color:#888;margin-top:4px;">
+        Número de productos gratis por activación
+      </div>
+
+    </div>
+    <button onclick="savePromo()" class="btn-brand" style="margin-top:14px;">Guardar</button>
+    <button onclick="closeModal()" class="btn-secondary">Cancelar</button>
+  `);
+}
+
+function onPromoTypeChange() {
+  const type = document.getElementById("pf-type").value;
+  const valueLabel = document.getElementById("pf-value-label");
+  const hint = document.getElementById("pf-value-hint");
+  const valueInput = document.getElementById("pf-value");
+
+  if (type === "free_item") {
+    valueLabel.textContent = "Productos gratis";
+    hint.textContent = "Número de productos gratis por activación.";
+    valueInput.value = 1;
+  } else if (type === "fixed_price") {
+    valueLabel.textContent = "Precio total ($)";
+    hint.textContent = "Precio total del grupo de productos (ej: 6 galletas por $200).";
+    valueInput.value = 200;
+  } else if (type === "pct_discount") {
+    valueLabel.textContent = "Descuento (%)";
+    hint.textContent = "Porcentaje de descuento sobre los productos del grupo.";
+    valueInput.value = 10;
+  }
+}
+
+function onPromoScopeChange() {
+  const scope = document.getElementById("pf-scope").value;
+  const wrap = document.getElementById("pf-scope-value-wrap");
+  const prodSel = document.getElementById("pf-scope-product");
+  const catSel = document.getElementById("pf-scope-category");
+  const lbl = document.getElementById("pf-scope-value-label");
+
+  if (scope === "any") {
+    wrap.style.display = "none";
+  } else if (scope === "product") {
+    wrap.style.display = "block";
+    prodSel.style.display = "block";
+    catSel.style.display = "none";
+    lbl.textContent = "Producto";
+  } else if (scope === "category") {
+    wrap.style.display = "block";
+    prodSel.style.display = "none";
+    catSel.style.display = "block";
+    lbl.textContent = "Categoría";
+  }
+}
+
+function savePromo() {
+  const name = document.getElementById("pf-name").value.trim();
+  const type = document.getElementById("pf-type").value;
+  const scope = document.getElementById("pf-scope").value;
+  const triggerQty = parseInt(document.getElementById("pf-trigger").value, 10);
+  const value = parseFloat(document.getElementById("pf-value").value);
+
+  if (!name) { alert("Ponle un nombre a la promoción."); return; }
+  if (isNaN(triggerQty) || triggerQty < 1) { alert("La cantidad mínima debe ser al menos 1."); return; }
+  if (isNaN(value) || value < 0) { alert("El valor no es válido."); return; }
+
+  let scopeValue = "";
+  if (scope === "product") scopeValue = document.getElementById("pf-scope-product").value;
+  if (scope === "category") scopeValue = document.getElementById("pf-scope-category").value;
+
+  const promo = { id: Date.now(), name, active: true, scope, scopeValue, triggerQty, type, value };
+  promotions.push(promo);
+  savePromos();
+
+  closeModal();
+  showToast(`Promoción "${name}" creada ✅`);
+  renderPromos();
+  renderCart();
+}
+
+
+</script>
+
+</body>
+</html>
