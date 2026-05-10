@@ -674,8 +674,145 @@ button:active { opacity: 0.75; }
   text-align: right;
 }
 
+/* ── PENDING ORDERS ── */
+.pending-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  background: var(--btn-primary-bg);
+  color: white;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+  cursor: pointer;
+  z-index: 500;
+  line-height: 1;
+  transition: transform 0.15s;
+}
+.pending-fab:active { transform: scale(0.93); }
+
+.pending-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 4px solid var(--brand);
+}
+
+.pending-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.pending-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.pending-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pending-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pending-items {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pending-footer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.pending-total {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pending-actions button {
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.pending-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 40px 20px;
+}
+
+/* ── DENOMINATION HELPER ── */
+.denom-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.denom-btn {
+  padding: 12px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  margin: 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.denom-btn:active,
+.denom-btn.selected {
+  background: var(--brand-light);
+  border-color: var(--brand);
+  color: var(--brand-dark);
+}
+
+.change-display {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  padding: 8px 0 4px;
+  color: var(--text);
+}
+
+.change-label {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
 </style>
-</head>
 
 <body>
 
@@ -699,6 +836,7 @@ button:active { opacity: 0.75; }
 
       <button id="payBtn" class="pay" onclick="openPaymentOptions();">Cobrar</button>
       <button class="clear" onclick="clearCart()">Limpiar</button>
+      <button class="btn-secondary" onclick="saveAsPending()" style="font-size:13px;padding:10px;">📋 Guardar como pendiente</button>
     </div>
 
   </div>
@@ -761,6 +899,14 @@ button:active { opacity: 0.75; }
   </div>
 </div>
 
+<!-- PEDIDOS PENDIENTES -->
+<div id="pendingPage" class="page" style="display:none;">
+  <div class="page-content">
+    <h2>Pedidos pendientes</h2>
+    <div class="promo-list" id="pendingList"></div>
+  </div>
+</div>
+
 <!-- FAB: only visible on promo page, toggled via JS -->
 <button id="promoFab" class="promo-fab" onclick="openPromoModal()" title="Agregar promoción" style="display:none;">+</button>
 
@@ -772,6 +918,7 @@ button:active { opacity: 0.75; }
     <button onclick="showPage('inventory')">Inventario</button>
     <button onclick="showPage('history')">Historial</button>
     <button onclick="showPage('promos')">Promociones</button>
+    <button onclick="showPage('pending')">Pedidos pendientes</button>
   </div>
 </div>
 
@@ -1031,48 +1178,112 @@ function openPaymentOptions() {
 }
 
 function handleCash(total) {
+  const denominations = [50, 100, 200, 500, 1000];
+
   openModal(`
-    <h3>Total: $${total}</h3>
+    <h3 style="margin-top:0;">💵 Pago en efectivo</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin:4px 0 8px;">Total: <strong>$${total.toFixed(2)}</strong></p>
 
-    <input 
-      id="cashInput"
-      type="number"
-      inputmode="numeric"
-      placeholder="Pago con..."
-      style="width:94%; padding:10px; font-size:18px;"
-    />
+    <div class="denom-grid">
+      ${denominations.map(d => `
+        <button class="denom-btn" onclick="selectDenom(${d}, ${total})">$${d}</button>
+      `).join('')}
+      <button class="denom-btn" onclick="selectDenom('custom', ${total})" id="denom-custom">Otro</button>
+    </div>
 
-    <button id="continueBtn" disabled>Continuar</button>
-    <button onclick="openPaymentOptions(${total})">Regresar</button>
+    <div id="custom-input-wrap" style="display:none;margin-bottom:8px;">
+      <input
+        id="cashInput"
+        type="number"
+        inputmode="numeric"
+        placeholder="Cantidad recibida..."
+        style="width:100%;box-sizing:border-box;padding:10px;font-size:16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);"
+        oninput="updateChange(${total})"
+      >
+    </div>
+
+    <div class="change-display" id="changeDisplay" style="display:none;"></div>
+    <div class="change-label" id="changeLabel" style="display:none;">Cambio</div>
+
+    <button class="btn-primary" id="continueBtn" onclick="confirmCash(${total})" disabled style="margin-top:8px;">Continuar</button>
+    <button class="btn-secondary" onclick="openPaymentOptions()">Regresar</button>
   `);
+}
 
-  const input = document.getElementById("cashInput");
-  const btn = document.getElementById("continueBtn");
+function selectDenom(value, total) {
+  // Clear selected state
+  document.querySelectorAll('.denom-btn').forEach(b => b.classList.remove('selected'));
 
-  // 👉 abre teclado automáticamente
-  setTimeout(() => input.focus(), 50);
+  if (value === 'custom') {
+    document.getElementById('denom-custom').classList.add('selected');
+    document.getElementById('custom-input-wrap').style.display = 'block';
+    document.getElementById('changeDisplay').style.display = 'none';
+    document.getElementById('changeLabel').style.display = 'none';
+    document.getElementById('continueBtn').disabled = true;
+    setTimeout(() => document.getElementById('cashInput')?.focus(), 50);
+    return;
+  }
 
-  input.addEventListener("input", () => {
-    const value = parseFloat(input.value);
-    btn.disabled = !(value >= total);
+  // Hide custom input
+  document.getElementById('custom-input-wrap').style.display = 'none';
+
+  // Mark selected
+  document.querySelectorAll('.denom-btn').forEach(b => {
+    if (b.textContent.trim() === `$${value}`) b.classList.add('selected');
   });
 
-  btn.onclick = () => {
-    const value = parseFloat(input.value);
-    const change = value - total;
-    showFinalStep(total, "cash", change);
-  };
+  const change = value - total;
+  const changeDisplay = document.getElementById('changeDisplay');
+  const changeLabel = document.getElementById('changeLabel');
+
+  if (change >= 0) {
+    changeDisplay.textContent = `$${change.toFixed(2)}`;
+    changeDisplay.style.color = change === 0 ? 'var(--text-muted)' : 'var(--green)';
+    changeDisplay.style.display = 'block';
+    changeLabel.style.display = 'block';
+    document.getElementById('continueBtn').disabled = false;
+    document.getElementById('continueBtn').onclick = () => showFinalStep(total, "cash", change, value);
+  } else {
+    changeDisplay.textContent = `Insuficiente`;
+    changeDisplay.style.color = 'var(--red)';
+    changeDisplay.style.display = 'block';
+    changeLabel.style.display = 'none';
+    document.getElementById('continueBtn').disabled = true;
+  }
+}
+
+function updateChange(total) {
+  const input = document.getElementById('cashInput');
+  const value = parseFloat(input?.value);
+  const changeDisplay = document.getElementById('changeDisplay');
+  const changeLabel = document.getElementById('changeLabel');
+  const btn = document.getElementById('continueBtn');
+
+  if (isNaN(value) || value < total) {
+    changeDisplay.style.display = 'none';
+    changeLabel.style.display = 'none';
+    btn.disabled = true;
+    return;
+  }
+
+  const change = value - total;
+  changeDisplay.textContent = `$${change.toFixed(2)}`;
+  changeDisplay.style.color = change === 0 ? 'var(--text-muted)' : 'var(--green)';
+  changeDisplay.style.display = 'block';
+  changeLabel.style.display = 'block';
+  btn.disabled = false;
+  btn.onclick = () => showFinalStep(total, "cash", change, value);
 }
 
 function handleTransfer(total) {
   showFinalStep(total, "transfer", 0);
 }
 
-function showFinalStep(total, method, change) {
-
-  const amount = method === "cash"
-    ? parseFloat(document.getElementById("cashInput")?.value || total)
-    : total;
+function showFinalStep(total, method, change, amount) {
+  const paidAmount = amount !== undefined ? amount
+    : method === "cash"
+      ? parseFloat(document.getElementById("cashInput")?.value || total)
+      : total;
 
   // 👉 guardar venta temporal
   const { appliedPromos } = computeCartTotals();
@@ -1094,7 +1305,7 @@ function showFinalStep(total, method, change) {
     items: [...cart],
     total: total,
     method: method,
-    amount: amount,
+    amount: paidAmount,
     change: change,
     promos: appliedPromos.filter(a => a.discount > 0).map(a => ({
       name: a.promo.name,
@@ -1352,6 +1563,8 @@ function showPage(page) {
   document.getElementById("inventoryPage").style.display = "none";
   document.getElementById("historyPage").style.display = "none";
   document.getElementById("promoPage").style.display = "none";
+  document.getElementById("pendingPage").style.display = "none";
+  document.getElementById("promoFab").style.display = "none";
 
   if (page === "pos") {
     document.getElementById("posPage").style.display = "block";
@@ -1359,10 +1572,8 @@ function showPage(page) {
 
   if (page === "inventory") {
     document.getElementById("inventoryPage").style.display = "block";
-
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
-
     renderProducts();
     renderInventory();
     renderMermaLog();
@@ -1378,15 +1589,16 @@ function showPage(page) {
     document.getElementById("promoPage").style.display = "block";
     document.getElementById("promoFab").style.display = "flex";
     renderPromos();
-  } else {
-    document.getElementById("promoFab").style.display = "none";
   }
 
-  if (page !== "inventory") {
-    updatedItems.clear();
+  if (page === "pending") {
+    document.getElementById("pendingPage").style.display = "block";
+    renderPending();
   }
 
-  toggleMenu(); // cerrar menú al seleccionar
+  if (page !== "inventory") updatedItems.clear();
+
+  toggleMenu();
 }
 
 // Hold-to-repeat state
@@ -2232,7 +2444,138 @@ function clearMermaLog() {
   renderMermaLog();
 }
 
-</script>
+// ─────────────────────────────────────────────
+//  PENDING ORDERS ENGINE
+// ─────────────────────────────────────────────
 
-</body>
-</html>
+function getPending() {
+  return JSON.parse(localStorage.getItem("pendingOrders")) || [];
+}
+
+function savePendingList(list) {
+  localStorage.setItem("pendingOrders", JSON.stringify(list));
+}
+
+function saveAsPending() {
+  if (cart.length === 0) {
+    showToast("El carrito está vacío");
+    return;
+  }
+
+  openModal(`
+    <h3 style="margin-top:0;">📋 Guardar pedido</h3>
+    <div class="promo-form">
+      <label>Nombre del cliente</label>
+      <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off">
+      <label>Nota (opcional)</label>
+      <input id="pending-note" type="text" placeholder="Ej: Pasa a las 5pm">
+    </div>
+    <button class="btn-primary" onclick="confirmSaveAsPending()" style="margin-top:14px;">Guardar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+
+  setTimeout(() => document.getElementById('pending-name')?.focus(), 80);
+}
+
+function confirmSaveAsPending() {
+  const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
+  const note = document.getElementById('pending-note').value.trim();
+  const { finalTotal } = computeCartTotals();
+
+  const order = {
+    id: Date.now(),
+    date: new Date().toLocaleString(),
+    name,
+    note,
+    items: [...cart],
+    total: finalTotal,
+    promos: computeCartTotals().appliedPromos
+      .filter(a => a.discount > 0)
+      .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0 }))
+  };
+
+  const list = getPending();
+  list.unshift(order);
+  savePendingList(list);
+
+  cart = [];
+  localStorage.removeItem("cart");
+  renderCart();
+
+  closeModal();
+  showToast(`Pedido de ${name} guardado ✅`);
+}
+
+function loadPending(id) {
+  const list = getPending();
+  const order = list.find(o => o.id === id);
+  if (!order) return;
+
+  if (cart.length > 0 && !confirm("El carrito actual se reemplazará. ¿Continuar?")) return;
+
+  cart = order.items.map(item => ({ ...item }));
+  renderCart();
+  showPage('pos');
+  showToast(`Pedido de ${order.name} cargado`);
+}
+
+function deletePending(id) {
+  const list = getPending();
+  const order = list.find(o => o.id === id);
+  if (!confirm(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`)) return;
+  savePendingList(list.filter(o => o.id !== id));
+  renderPending();
+}
+
+function renderPending() {
+  const container = document.getElementById("pendingList");
+  if (!container) return;
+
+  const list = getPending();
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="pending-empty">
+        <div style="font-size:36px;margin-bottom:10px;">📋</div>
+        <p>No hay pedidos pendientes.</p>
+        <p style="font-size:12px;">Usa "Guardar como pendiente" desde el carrito.</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = "";
+
+  list.forEach(order => {
+    // Summarise items
+    const grouped = {};
+    order.items.forEach(item => {
+      const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+      grouped[key] = (grouped[key] || 0) + 1;
+    });
+    const summary = Object.entries(grouped)
+      .map(([k, qty]) => `${qty} × ${k}`)
+      .join(', ');
+
+    const card = document.createElement("div");
+    card.className = "pending-card";
+    card.innerHTML = `
+      <div class="pending-card-header">
+        <div class="pending-name">${order.name}</div>
+        <div class="pending-date">${order.date}</div>
+      </div>
+      ${order.note ? `<div class="pending-note">📝 ${order.note}</div>` : ''}
+      <div class="pending-items">${summary}</div>
+      <div class="pending-footer">
+        <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
+        <div class="pending-actions">
+          <button class="btn-brand" onclick="loadPending(${order.id})">🛒 Cobrar</button>
+          <button class="delete-btn" onclick="deletePending(${order.id})">🗑️</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+</script>
