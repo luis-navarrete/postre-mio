@@ -822,13 +822,14 @@ function renderProducts() {
       const isOut = stock === 0;
       const isLow = stock > 0 && stock <= 3;
 
+      const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
       const div = document.createElement("div");
       div.className = "product" + (isLow ? " low-stock-product" : "") + (isOut ? " out-of-stock" : "");
       div.innerHTML = `
         <img src="${item.img}">
         <h3>${item.name}</h3>
         <p>$${parseFloat(item.price).toFixed(2)}</p>
-        <div>Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
+        <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
       grid.appendChild(div);
@@ -853,8 +854,9 @@ const ITEM_EXTRAS = {
 
 // Carrito
 function addToCart(item) {
-  if (inventory[item.name] <= 0) {
-    alert("Sin stock");
+  const inCart = cart.filter(i => i.name === item.name).length;
+  if (inCart >= (inventory[item.name] ?? 0)) {
+    alert("Sin stock disponible");
     return;
   }
 
@@ -913,15 +915,15 @@ function removeCartItem(cartId) {
 // Unified +/− for grouped cart rows (works for both plain and extra-variant items)
 function changeQtyGrouped(name, extraName, delta) {
   if (delta > 0) {
-    const currentQty = cart.filter(i => {
-      const iExtra = i.extra ? i.extra.name : null;
-      return i.name === name && iExtra === extraName;
-    }).length;
-    if (currentQty >= inventory[name]) { alert("No hay más stock disponible"); return; }
+    // Check total in cart for this item name (all variants combined) vs stock
+    const totalInCart = cart.filter(i => i.name === name).length;
+    if (totalInCart >= (inventory[name] ?? 0)) {
+      alert("No hay más stock disponible");
+      return;
+    }
 
     const menuItem = menu.flatMap(c => c.items).find(i => i.name === name);
     if (ITEM_EXTRAS[name]) {
-      // Has extras config — open modal so user picks frosting for the new one
       openExtrasModal(menuItem, ITEM_EXTRAS[name]);
     } else {
       cart.push(menuItem);
@@ -1835,6 +1837,27 @@ function renderCart() {
 
   document.getElementById("total").innerText = finalTotal.toFixed(2);
   localStorage.setItem("cart", JSON.stringify(cart));
+
+  // Update stock counters on product cards dynamically
+  menu.flatMap(c => c.items).forEach(item => {
+    const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
+    const el = document.getElementById('stock-' + safeId);
+    if (!el) return;
+    const inCart = cart.filter(i => i.name === item.name).length;
+    const remaining = (inventory[item.name] ?? 0) - inCart;
+    const isLow = remaining > 0 && remaining <= 3;
+    const isOut = remaining <= 0;
+    el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
+    el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
+
+    // Also update the card's clickability and class
+    const card = el.closest('.product');
+    if (card) {
+      const menuItem = menu.flatMap(c => c.items).find(i => i.name === item.name);
+      card.className = 'product' + (isLow ? ' low-stock-product' : '') + (isOut ? ' out-of-stock' : '');
+      card.onclick = isOut ? null : () => addToCart(menuItem);
+    }
+  });
 }
 
 // ── render promo list ─────────────────────────
