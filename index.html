@@ -1418,7 +1418,7 @@ function renderInventory() {
 
     div.innerHTML = `
       <div class="inv-name">${name}</div>
-      <p id="stock-${item.name.replace(/\s+/g,'-')}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}</p>
+      <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
       <div class="inv-price-row">
         💲<input
           type="number"
@@ -1511,13 +1511,11 @@ function renderHistory() {
     let rawTotal = 0;
 
 // Items with cartId shown individually; plain items grouped
-    const indivItems = sale.items.filter(i => i.cartId);
-    const plainItems = sale.items.filter(i => !i.cartId);
-
     const grouped = {};
-    plainItems.forEach(item => {
-      if (!grouped[item.name]) grouped[item.name] = { qty: 0, price: item.price };
-      grouped[item.name].qty++;
+    sale.items.forEach(item => {
+      const key = item.name + (item.extra ? '::' + item.extra.name : '');
+      if (!grouped[key]) grouped[key] = { name: item.name, price: item.extra ? item.price - item.extra.price : item.price, extra: item.extra || null, qty: 0 };
+      grouped[key].qty++;
     });
 
     // Header row
@@ -1530,28 +1528,15 @@ function renderHistory() {
       </div>
     `;
 
-    Object.entries(grouped).forEach(([name, info]) => {
-      const subtotal = info.qty * info.price;
+    Object.values(grouped).forEach(info => {
+      const subtotal = (info.price + (info.extra ? info.extra.price : 0)) * info.qty;
       rawTotal += subtotal;
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:13px;padding:3px 0;">
           <span style="text-align:center;">${info.qty}</span>
-          <span>${name}</span>
-          <span style="text-align:right;">$${parseFloat(info.price).toFixed(2)}</span>
+          <span>${info.name}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${info.extra.name}</span>` : ''}</span>
+          <span style="text-align:right;">$${info.price.toFixed(2)}</span>
           <span style="text-align:right;">$${subtotal.toFixed(2)}</span>
-        </div>
-      `;
-    });
-
-    indivItems.forEach(item => {
-      const basePrice = item.extra ? item.price - item.extra.price : item.price;
-      rawTotal += item.price;
-      itemsHTML += `
-        <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:13px;padding:3px 0;">
-          <span style="text-align:center;">1</span>
-          <span>${item.name}${item.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${item.extra.name}</span>` : ''}</span>
-          <span style="text-align:right;">$${basePrice.toFixed(2)}</span>
-          <span style="text-align:right;">$${item.price.toFixed(2)}</span>
         </div>
       `;
     });
