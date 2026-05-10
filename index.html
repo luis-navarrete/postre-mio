@@ -904,54 +904,6 @@ function pushCartItem(item, extra) {
   renderCart();
 }
 
-function renderCart() {
-  const payBtn = document.getElementById("payBtn");
-  payBtn.disabled = cart.length === 0;
-
-  const container = document.getElementById("cart");
-  container.innerHTML = "";
-  let total = 0;
-
-  // Group ALL items by name + extra variant (one row per unique combination)
-  const grouped = {};
-  cart.forEach(item => {
-    const key = item.name + (item.extra ? '::' + item.extra.name : '');
-    if (!grouped[key]) grouped[key] = { ...item, qty: 0 };
-    grouped[key].qty++;
-  });
-
-  Object.values(grouped).forEach(item => {
-    total += item.price * item.qty;
-    const basePrice = item.extra ? item.price - item.extra.price : item.price;
-    const extraName = item.extra ? item.extra.name : null;
-    const div = document.createElement("div");
-    div.className = "item";
-    div.innerHTML = `
-      <div class="cart-item-name">${item.name}</div>
-      <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
-      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${item.extra.name}</span></div>` : ''}
-      <div class="cart-item-controls">
-        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
-        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
-      </div>
-    `;
-    container.appendChild(div);
-  });
-
-  document.getElementById("total").innerText = total.toFixed(2);
-  localStorage.setItem("cart", JSON.stringify(cart));
-
-  // Update stock counters on product cards dynamically
-  menu.flatMap(c => c.items).forEach(item => {
-    const el = document.getElementById('stock-' + item.name.replace(/\s+/g, '-'));
-    if (!el) return;
-    const inCart = cart.filter(i => i.name === item.name).length;
-    const remaining = (inventory[item.name] ?? 0) - inCart;
-    el.textContent = 'Stock: ' + remaining;
-    el.style.color = remaining <= 0 ? 'var(--red)' : remaining <= 3 ? 'var(--orange)' : 'var(--text-muted)';
-  });
-}
-
 function removeCartItem(cartId) {
   const idx = cart.findIndex(i => String(i.cartId) === String(cartId));
   if (idx > -1) cart.splice(idx, 1);
@@ -1840,9 +1792,7 @@ function computeCartTotals() {
   return { rawTotal, discount, finalTotal, appliedPromos };
 }
 
-// ── renderCart override — show promos ────────
-const _originalRenderCart = renderCart;
-
+// ── renderCart — groups items, shows promos ──
 function renderCart() {
   const payBtn = document.getElementById("payBtn");
   payBtn.disabled = cart.length === 0;
