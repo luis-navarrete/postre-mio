@@ -620,6 +620,60 @@ button:active { opacity: 0.75; }
 .extra-btn.natural { border-color: #c8a96e; background: #fdf6ec; }
 .extra-btn.paid    { border-color: var(--brand); background: var(--brand-light); }
 
+/* ── MERMAS ── */
+.inv-merma-btn {
+  width: 100%;
+  margin: 6px 0 0;
+  padding: 6px;
+  font-size: 12px;
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-color);
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+}
+
+.merma-log {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.merma-log h3 {
+  font-size: 15px;
+  margin: 0 0 10px;
+  color: var(--text-muted);
+}
+
+.merma-entry {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.merma-entry:last-child { border-bottom: none; }
+
+.merma-reason {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.merma-reason.merma   { background: #ffebee; color: #c62828; }
+.merma-reason.mkt     { background: #e8f5e9; color: #2e7d32; }
+
+.merma-qty {
+  font-weight: 700;
+  font-size: 14px;
+  text-align: right;
+}
+
 </style>
 </head>
 
@@ -684,6 +738,7 @@ button:active { opacity: 0.75; }
   <div class="page-content">
     <h2>Inventario</h2>
     <div id="inventoryList"></div>
+    <div class="merma-log" id="mermaLog"></div>
   </div>
 </div>
 
@@ -1023,11 +1078,15 @@ function showFinalStep(total, method, change) {
   const { appliedPromos } = computeCartTotals();
 
   const now = new Date();
-  const folio = now.getFullYear().toString().slice(2)
+  const dateStr = now.getFullYear().toString().slice(2)
     + String(now.getMonth() + 1).padStart(2, '0')
-    + String(now.getDate()).padStart(2, '0')
-    + String(now.getHours()).padStart(2, '0')
-    + String(now.getMinutes()).padStart(2, '0');
+    + String(now.getDate()).padStart(2, '0');
+
+  const folioKey = 'folioCounter_' + dateStr;
+  const counter = (parseInt(localStorage.getItem(folioKey)) || 0) + 1;
+  localStorage.setItem(folioKey, counter);
+
+  const folio = dateStr + String(counter).padStart(2, '0');
 
   currentSale = {
     folio,
@@ -1306,6 +1365,7 @@ function showPage(page) {
 
     renderProducts();
     renderInventory();
+    renderMermaLog();
   }
 
   if (page === "history") {
@@ -1385,18 +1445,23 @@ function renderInventory() {
       </div>
       <div class="inv-controls">
         <button
+          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
           onpointerdown="startHold('${name.replace(/'/g, "\\'")}', -1)"
           onpointerup="stopHold()"
           onpointerleave="stopHold()"
           oncontextmenu="return false"
+          ontouchstart="this.ontouchend=stopHold;return true;"
         >−</button>
         <button
+          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
           onpointerdown="startHold('${name.replace(/'/g, "\\'")}', 1)"
           onpointerup="stopHold()"
           onpointerleave="stopHold()"
           oncontextmenu="return false"
+          ontouchstart="this.ontouchend=stopHold;return true;"
         >+</button>
       </div>
+      <button class="inv-merma-btn" onclick="openMermaModal('${name.replace(/'/g, "\\'")}')">📉 Registrar merma</button>
     `;
 
     container.appendChild(div);
@@ -2063,6 +2128,109 @@ function savePromo() {
 // ── Init ──────────────────────────────────────
 renderProducts();
 renderCart();
+
+// ─────────────────────────────────────────────
+//  MERMA ENGINE
+// ─────────────────────────────────────────────
+
+function getMermas() {
+  return JSON.parse(localStorage.getItem("mermas")) || [];
+}
+
+function saveMermas(mermas) {
+  localStorage.setItem("mermas", JSON.stringify(mermas));
+}
+
+function openMermaModal(name) {
+  const stock = inventory[name] ?? 0;
+  if (stock === 0) {
+    showToast("Sin stock para registrar merma");
+    return;
+  }
+
+  openModal(`
+    <h3 style="margin-top:0;">📉 Merma — ${name}</h3>
+    <p style="color:var(--text-muted);font-size:13px;margin:4px 0 12px;">Stock disponible: ${stock}</p>
+
+    <div class="promo-form">
+      <label>Motivo</label>
+      <select id="merma-reason">
+        <option value="merma">🍪 Merma (rotura / caducidad)</option>
+        <option value="mkt">📣 Marketing (muestra / degustación)</option>
+      </select>
+
+      <label>Cantidad</label>
+      <input id="merma-qty" type="number" inputmode="numeric" min="1" max="${stock}" value="1">
+    </div>
+
+    <button class="btn-danger" onclick="confirmMerma('${name.replace(/'/g, "\\'")}', ${stock})" style="margin-top:14px;">Registrar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function confirmMerma(name, maxStock) {
+  const reason = document.getElementById("merma-reason").value;
+  const qty = parseInt(document.getElementById("merma-qty").value, 10);
+
+  if (isNaN(qty) || qty < 1) { alert("Cantidad inválida"); return; }
+  if (qty > maxStock) { alert(`Solo hay ${maxStock} en stock`); return; }
+
+  // Deduct from inventory
+  inventory[name] = Math.max(0, (inventory[name] ?? 0) - qty);
+  saveInventory();
+
+  // Log the loss
+  const mermas = getMermas();
+  mermas.unshift({
+    id: Date.now(),
+    date: new Date().toLocaleString(),
+    name,
+    qty,
+    reason
+  });
+  saveMermas(mermas);
+
+  closeModal();
+  showToast(`Merma de ${qty} × ${name} registrada`);
+  renderInventory();
+  renderMermaLog();
+  renderProducts();
+}
+
+function renderMermaLog() {
+  const container = document.getElementById("mermaLog");
+  if (!container) return;
+
+  const mermas = getMermas();
+
+  if (!mermas.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const rows = mermas.map(m => `
+    <div class="merma-entry">
+      <div>
+        <div style="font-weight:600;">${m.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${m.date}</div>
+      </div>
+      <span class="merma-reason ${m.reason}">${m.reason === "merma" ? "Merma" : "Marketing"}</span>
+      <span class="merma-qty">−${m.qty}</span>
+    </div>
+  `).join("");
+
+  container.innerHTML = `
+    <h3>Registro de mermas</h3>
+    ${rows}
+    <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
+  `;
+}
+
+function clearMermaLog() {
+  if (!confirm("¿Borrar todo el registro de mermas?")) return;
+  localStorage.removeItem("mermas");
+  renderMermaLog();
+}
 
 </script>
 
