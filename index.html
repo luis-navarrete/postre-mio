@@ -964,14 +964,12 @@ function closeModal() {
 }
 
 function openPaymentOptions() {
-  const total = parseFloat(document.getElementById("total").innerText);
-
+  const { finalTotal } = computeCartTotals();
   openModal(`
-    <h3>Cobrar: $${total}</h3>
-
-    <button onclick="handleCash(${total})">Efectivo</button>
-    <button onclick="handleTransfer(${total})">Transferencia</button>
-    <button onclick="closeModal()">Cancelar</button>
+    <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
+    <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
+    <button class="btn-brand" onclick="handleTransfer(${finalTotal})">Transferencia</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
 
@@ -1690,9 +1688,6 @@ function showToast(msg) {
 }
 
 
-renderProducts();
-renderCart();
-
 // ─────────────────────────────────────────────
 //  PROMOTIONS ENGINE
 // ─────────────────────────────────────────────
@@ -1840,18 +1835,6 @@ function renderCart() {
 
   document.getElementById("total").innerText = finalTotal.toFixed(2);
   localStorage.setItem("cart", JSON.stringify(cart));
-}
-
-// Override openPaymentOptions to use discounted total
-const _origOpenPayment = openPaymentOptions;
-function openPaymentOptions() {
-  const { finalTotal } = computeCartTotals();
-  openModal(`
-    <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
-    <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
-    <button class="btn-brand"   onclick="handleTransfer(${finalTotal})">Transferencia</button>
-    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
-  `);
 }
 
 // ── render promo list ─────────────────────────
@@ -2054,6 +2037,9 @@ function savePromo() {
   renderCart();
 }
 
+// ── Init ──────────────────────────────────────
+renderProducts();
+renderCart();
 
 </script>
 
