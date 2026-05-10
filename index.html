@@ -1166,12 +1166,20 @@ function generateTicket(sale) {
     rows += `
       <tr>
         <td style="text-align:center;width:20px;">${info.qty}</td>
-        <td>${info.name}${info.extra ? `<br><span style="font-size:10px;opacity:0.7;">+ ${info.extra.name}</span>` : ''}</td>
+        <td>${info.name}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
-        <td style="text-align:right;padding-left:2px;">${basePrice.toFixed(2)}${info.extra ? `<br><span style="font-size:10px;opacity:0.7;">${info.extra.price.toFixed(2)}</span>` : ''}</td>
+        <td style="text-align:right;padding-left:2px;">${basePrice.toFixed(2)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${totalItem.toFixed(2)}</td>
       </tr>
+      ${info.extra ? `
+      <tr style="font-size:10px;opacity:0.8;">
+        <td></td>
+        <td style="padding-left:8px;">+ ${info.extra.name}</td>
+        <td style="width:8px;text-align:right;padding-right:0;">$</td>
+        <td style="text-align:right;padding-left:2px;">${info.extra.price.toFixed(2)}</td>
+        <td colspan="2" style="text-align:right;padding-left:2px;font-style:italic;">(incl.)</td>
+      </tr>` : ''}
     `;
   });
 
