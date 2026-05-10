@@ -1178,7 +1178,7 @@ function openPaymentOptions() {
 }
 
 function handleCash(total) {
-  const denominations = [50, 100, 200, 500, 1000];
+  const denominations = [50, 100, 200, 500];
 
   openModal(`
     <h3 style="margin-top:0;">💵 Pago en efectivo</h3>
@@ -1188,10 +1188,9 @@ function handleCash(total) {
       ${denominations.map(d => `
         <button class="denom-btn" onclick="selectDenom(${d}, ${total})">$${d}</button>
       `).join('')}
-      <button class="denom-btn" onclick="selectDenom('custom', ${total})" id="denom-custom">Otro</button>
     </div>
 
-    <div id="custom-input-wrap" style="display:none;margin-bottom:8px;">
+    <div style="margin-bottom:8px;">
       <input
         id="cashInput"
         type="number"
@@ -1211,26 +1210,14 @@ function handleCash(total) {
 }
 
 function selectDenom(value, total) {
-  // Clear selected state
   document.querySelectorAll('.denom-btn').forEach(b => b.classList.remove('selected'));
-
-  if (value === 'custom') {
-    document.getElementById('denom-custom').classList.add('selected');
-    document.getElementById('custom-input-wrap').style.display = 'block';
-    document.getElementById('changeDisplay').style.display = 'none';
-    document.getElementById('changeLabel').style.display = 'none';
-    document.getElementById('continueBtn').disabled = true;
-    setTimeout(() => document.getElementById('cashInput')?.focus(), 50);
-    return;
-  }
-
-  // Hide custom input
-  document.getElementById('custom-input-wrap').style.display = 'none';
-
-  // Mark selected
   document.querySelectorAll('.denom-btn').forEach(b => {
     if (b.textContent.trim() === `$${value}`) b.classList.add('selected');
   });
+
+  // Fill the input with the selected denomination
+  const input = document.getElementById('cashInput');
+  if (input) { input.value = value; }
 
   const change = value - total;
   const changeDisplay = document.getElementById('changeDisplay');
