@@ -621,37 +621,13 @@ button:active { opacity: 0.75; }
 .extra-btn.paid    { border-color: var(--brand); background: var(--brand-light); }
 
 /* ── MERMAS ── */
-.inv-merma-btn {
-  width: 100%;
-  margin: 6px 0 0;
-  padding: 6px;
-  font-size: 12px;
-  background: var(--btn-danger-bg);
-  color: var(--btn-danger-color);
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: pointer;
-}
-
-.merma-log {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.merma-log h3 {
-  font-size: 15px;
-  margin: 0 0 10px;
-  color: var(--text-muted);
-}
-
 .merma-entry {
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 8px;
   align-items: center;
   font-size: 13px;
-  padding: 7px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -667,12 +643,38 @@ button:active { opacity: 0.75; }
 
 .merma-reason.merma   { background: #ffebee; color: #c62828; }
 .merma-reason.mkt     { background: #e8f5e9; color: #2e7d32; }
+.merma-reason.muestra { background: #e3f2fd; color: #1565c0; }
+.merma-reason.regalo  { background: #f3e5f5; color: #6a1b9a; }
+.merma-reason.consumo { background: #fff8e1; color: #f57f17; }
 
 .merma-qty {
   font-weight: 700;
   font-size: 14px;
   text-align: right;
 }
+
+.merma-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-color);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  box-shadow: 0 4px 14px rgba(229,57,53,0.2);
+  cursor: pointer;
+  z-index: 500;
+  transition: transform 0.15s;
+}
+.merma-fab:active { transform: scale(0.93); }
 
 /* ── PENDING ORDERS ── */
 .pending-fab {
@@ -773,14 +775,14 @@ button:active { opacity: 0.75; }
 /* ── DENOMINATION HELPER ── */
 .denom-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  margin: 10px 0;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 8px 0;
 }
 
 .denom-btn {
-  padding: 12px 6px;
-  font-size: 14px;
+  padding: 9px 4px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: var(--radius-sm);
   background: var(--bg);
@@ -876,7 +878,6 @@ button:active { opacity: 0.75; }
   <div class="page-content">
     <h2>Inventario</h2>
     <div id="inventoryList"></div>
-    <div class="merma-log" id="mermaLog"></div>
   </div>
 </div>
 
@@ -907,6 +908,16 @@ button:active { opacity: 0.75; }
   </div>
 </div>
 
+<!-- MERMAS -->
+<div id="mermaPage" class="page" style="display:none;">
+  <div class="page-content">
+    <h2>Mermas</h2>
+    <div id="mermaList"></div>
+  </div>
+</div>
+
+<button id="mermaFab" class="merma-fab" onclick="openMermaModal()" title="Registrar merma" style="display:none;">📉</button>
+
 <!-- FAB: only visible on promo page, toggled via JS -->
 <button id="promoFab" class="promo-fab" onclick="openPromoModal()" title="Agregar promoción" style="display:none;">+</button>
 
@@ -919,6 +930,7 @@ button:active { opacity: 0.75; }
     <button onclick="showPage('history')">Historial</button>
     <button onclick="showPage('promos')">Promociones</button>
     <button onclick="showPage('pending')">Pedidos pendientes</button>
+    <button onclick="showPage('mermas')">Mermas</button>
   </div>
 </div>
 
@@ -1546,45 +1558,42 @@ document.addEventListener("click", function(e) {
 });
 
 function showPage(page) {
-  document.getElementById("posPage").style.display = "none";
-  document.getElementById("inventoryPage").style.display = "none";
-  document.getElementById("historyPage").style.display = "none";
-  document.getElementById("promoPage").style.display = "none";
-  document.getElementById("pendingPage").style.display = "none";
-  document.getElementById("promoFab").style.display = "none";
+  ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage"]
+    .forEach(id => document.getElementById(id).style.display = "none");
+  ["promoFab","mermaFab"]
+    .forEach(id => document.getElementById(id).style.display = "none");
 
   if (page === "pos") {
     document.getElementById("posPage").style.display = "block";
   }
-
   if (page === "inventory") {
     document.getElementById("inventoryPage").style.display = "block";
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
     renderProducts();
     renderInventory();
-    renderMermaLog();
   }
-
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
     updateCutBtn();
     renderHistory();
   }
-
   if (page === "promos") {
     document.getElementById("promoPage").style.display = "block";
     document.getElementById("promoFab").style.display = "flex";
     renderPromos();
   }
-
   if (page === "pending") {
     document.getElementById("pendingPage").style.display = "block";
     renderPending();
   }
+  if (page === "mermas") {
+    document.getElementById("mermaPage").style.display = "block";
+    document.getElementById("mermaFab").style.display = "flex";
+    renderMermaLog();
+  }
 
   if (page !== "inventory") updatedItems.clear();
-
   toggleMenu();
 }
 
@@ -1660,7 +1669,6 @@ function renderInventory() {
           ontouchstart="this.ontouchend=stopHold;return true;"
         >+</button>
       </div>
-      <button class="inv-merma-btn" onclick="openMermaModal('${name.replace(/'/g, "\\'")}')">📉 Registrar merma</button>
     `;
 
     container.appendChild(div);
@@ -2332,6 +2340,17 @@ renderCart();
 //  MERMA ENGINE
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+//  MERMA ENGINE
+// ─────────────────────────────────────────────
+
+const MERMA_REASONS = {
+  merma:   { label: "Merma",            emoji: "🗑️" },
+  muestra: { label: "Muestra/Degusto",  emoji: "🍽️" },
+  regalo:  { label: "Regalo",           emoji: "🎁" },
+  consumo: { label: "Consumo propio",   emoji: "👩‍🍳" },
+};
+
 function getMermas() {
   return JSON.parse(localStorage.getItem("mermas")) || [];
 }
@@ -2340,88 +2359,117 @@ function saveMermas(mermas) {
   localStorage.setItem("mermas", JSON.stringify(mermas));
 }
 
-function openMermaModal(name) {
-  const stock = inventory[name] ?? 0;
-  if (stock === 0) {
-    showToast("Sin stock para registrar merma");
-    return;
-  }
+function openMermaModal() {
+  // Build category options
+  const catOptions = menu.map(c =>
+    `<option value="${c.category}">${c.category}</option>`
+  ).join('');
+
+  // Build item options for first category
+  const firstCatItems = menu[0]?.items || [];
+  const itemOptions = firstCatItems.map(i =>
+    `<option value="${i.name}">${i.name} (stock: ${inventory[i.name] ?? 0})</option>`
+  ).join('');
+
+  const reasonOptions = Object.entries(MERMA_REASONS).map(([k, v]) =>
+    `<option value="${k}">${v.emoji} ${v.label}</option>`
+  ).join('');
 
   openModal(`
-    <h3 style="margin-top:0;">📉 Merma — ${name}</h3>
-    <p style="color:var(--text-muted);font-size:13px;margin:4px 0 12px;">Stock disponible: ${stock}</p>
-
+    <h3 style="margin-top:0;">📉 Registrar merma</h3>
     <div class="promo-form">
+
+      <label>Categoría</label>
+      <select id="merma-cat" onchange="onMermaCatChange()">
+        ${catOptions}
+      </select>
+
+      <label>Producto</label>
+      <select id="merma-item">
+        ${itemOptions}
+      </select>
+
       <label>Motivo</label>
       <select id="merma-reason">
-        <option value="merma">🍪 Merma (rotura / caducidad)</option>
-        <option value="mkt">📣 Marketing (muestra / degustación)</option>
+        ${reasonOptions}
       </select>
 
       <label>Cantidad</label>
-      <input id="merma-qty" type="number" inputmode="numeric" min="1" max="${stock}" value="1">
+      <input id="merma-qty" type="number" inputmode="numeric" min="1" value="1">
     </div>
-
-    <button class="btn-danger" onclick="confirmMerma('${name.replace(/'/g, "\\'")}', ${stock})" style="margin-top:14px;">Registrar</button>
+    <button class="btn-danger" onclick="confirmMerma()" style="margin-top:14px;">Registrar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
 
-function confirmMerma(name, maxStock) {
-  const reason = document.getElementById("merma-reason").value;
-  const qty = parseInt(document.getElementById("merma-qty").value, 10);
+function onMermaCatChange() {
+  const cat = document.getElementById('merma-cat')?.value;
+  const catData = menu.find(c => c.category === cat);
+  const itemSel = document.getElementById('merma-item');
+  if (!catData || !itemSel) return;
+  itemSel.innerHTML = catData.items.map(i =>
+    `<option value="${i.name}">${i.name} (stock: ${inventory[i.name] ?? 0})</option>`
+  ).join('');
+}
 
-  if (isNaN(qty) || qty < 1) { alert("Cantidad inválida"); return; }
-  if (qty > maxStock) { alert(`Solo hay ${maxStock} en stock`); return; }
+function confirmMerma() {
+  const name   = document.getElementById("merma-item")?.value;
+  const reason = document.getElementById("merma-reason")?.value;
+  const qty    = parseInt(document.getElementById("merma-qty")?.value, 10);
+  const stock  = inventory[name] ?? 0;
 
-  // Deduct from inventory
-  inventory[name] = Math.max(0, (inventory[name] ?? 0) - qty);
+  if (!name)              { alert("Selecciona un producto");  return; }
+  if (isNaN(qty) || qty < 1) { alert("Cantidad inválida");   return; }
+  if (qty > stock)        { alert(`Solo hay ${stock} en stock`); return; }
+
+  inventory[name] = stock - qty;
   saveInventory();
 
-  // Log the loss
   const mermas = getMermas();
-  mermas.unshift({
-    id: Date.now(),
-    date: new Date().toLocaleString(),
-    name,
-    qty,
-    reason
-  });
+  mermas.unshift({ id: Date.now(), date: new Date().toLocaleString(), name, qty, reason });
   saveMermas(mermas);
 
   closeModal();
   showToast(`Merma de ${qty} × ${name} registrada`);
-  renderInventory();
-  renderMermaLog();
   renderProducts();
+  renderMermaLog();
 }
 
 function renderMermaLog() {
-  const container = document.getElementById("mermaLog");
+  const container = document.getElementById("mermaList");
   if (!container) return;
 
   const mermas = getMermas();
 
   if (!mermas.length) {
-    container.innerHTML = "";
+    container.innerHTML = `
+      <div class="pending-empty">
+        <div style="font-size:36px;margin-bottom:10px;">📋</div>
+        <p>No hay mermas registradas.</p>
+      </div>
+    `;
     return;
   }
 
-  const rows = mermas.map(m => `
-    <div class="merma-entry">
-      <div>
-        <div style="font-weight:600;">${m.name}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${m.date}</div>
+  const rows = mermas.map(m => {
+    const r = MERMA_REASONS[m.reason] || { label: m.reason, emoji: "📦" };
+    return `
+      <div class="merma-entry">
+        <div>
+          <div style="font-weight:600;">${m.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${m.date}</div>
+        </div>
+        <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
+        <span class="merma-qty">−${m.qty}</span>
       </div>
-      <span class="merma-reason ${m.reason}">${m.reason === "merma" ? "Merma" : "Marketing"}</span>
-      <span class="merma-qty">−${m.qty}</span>
-    </div>
-  `).join("");
+    `;
+  }).join('');
 
   container.innerHTML = `
-    <h3>Registro de mermas</h3>
-    ${rows}
-    <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
+    <div style="background:var(--card-bg);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);">
+      ${rows}
+    </div>
+    <button class="btn-secondary" style="width:100%;margin-top:12px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
   `;
 }
 
@@ -2481,6 +2529,12 @@ function confirmSaveAsPending() {
       .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0 }))
   };
 
+  // Reserve stock — deduct each item from inventory
+  order.items.forEach(item => {
+    if (inventory[item.name] > 0) inventory[item.name]--;
+  });
+  saveInventory();
+
   const list = getPending();
   list.unshift(order);
   savePendingList(list);
@@ -2488,6 +2542,7 @@ function confirmSaveAsPending() {
   cart = [];
   localStorage.removeItem("cart");
   renderCart();
+  renderProducts();
 
   closeModal();
   showToast(`Pedido de ${name} guardado ✅`);
@@ -2500,8 +2555,18 @@ function loadPending(id) {
 
   if (cart.length > 0 && !confirm("El carrito actual se reemplazará. ¿Continuar?")) return;
 
+  // Restore reserved stock — finalizeSale will deduct again on completion
+  order.items.forEach(item => {
+    inventory[item.name] = (inventory[item.name] ?? 0) + 1;
+  });
+  saveInventory();
+
+  // Remove from pending list
+  savePendingList(list.filter(o => o.id !== id));
+
   cart = order.items.map(item => ({ ...item }));
   renderCart();
+  renderProducts();
   showPage('pos');
   showToast(`Pedido de ${order.name} cargado`);
 }
@@ -2510,6 +2575,16 @@ function deletePending(id) {
   const list = getPending();
   const order = list.find(o => o.id === id);
   if (!confirm(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`)) return;
+
+  // Restore reserved stock
+  if (order) {
+    order.items.forEach(item => {
+      inventory[item.name] = (inventory[item.name] ?? 0) + 1;
+    });
+    saveInventory();
+    renderProducts();
+  }
+
   savePendingList(list.filter(o => o.id !== id));
   renderPending();
 }
