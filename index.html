@@ -814,6 +814,45 @@ button:active { opacity: 0.75; }
   margin-bottom: 8px;
 }
 
+/* ── COSTS TABLE ── */
+.costs-section {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.costs-section h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.costs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  font-size: 14px;
+}
+
+.costs-row:last-child { border-bottom: none; }
+.costs-row span { flex: 1; }
+
+.costs-row input {
+  width: 72px;
+  padding: 5px 8px;
+  text-align: right;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  background: var(--bg);
+}
+
+.costs-row input:focus { border-color: var(--brand); outline: none; }
+
 </style>
 
 <body>
@@ -913,6 +952,10 @@ button:active { opacity: 0.75; }
   <div class="page-content">
     <h2>Mermas</h2>
     <div id="mermaList"></div>
+    <div class="costs-section">
+      <h3>💰 Costo por producto</h3>
+      <div id="costsList"></div>
+    </div>
   </div>
 </div>
 
@@ -959,8 +1002,8 @@ const defaultInventory = {
   "Besos de nuez": 10,
   "Mini pastel zanahoria": 10,
   "Mini pastel red velvet": 10,
-  "Mini pastel Nutella": 10,
-  "Mini pastel dulce de leche": 10
+  "Mini pastel golden vanilla": 10,
+  "Mini pastel french vanilla": 10
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
@@ -1008,8 +1051,8 @@ const menu = [
     items: [
       { name: "Mini pastel zanahoria", price: 220.00, img: "cake_carrot.jpg" },
       { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
-      { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
-      { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
+      { name: "Mini pastel golden vanilla", price: 220.00, img: "cake_gvan.jpg" },
+      { name: "Mini pastel french vanilla", price: 220.00, img: "cake_fvan.jpg" },
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" }
     ]
   }
@@ -1591,6 +1634,7 @@ function showPage(page) {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
     renderMermaLog();
+    renderCosts();
   }
 
   if (page !== "inventory") updatedItems.clear();
@@ -1888,60 +1932,138 @@ function clearSales(count, total) {
 
 function exportToExcel() {
   const history = JSON.parse(localStorage.getItem("history")) || [];
+  const mermas  = JSON.parse(localStorage.getItem("mermas"))  || [];
+  const costs   = JSON.parse(localStorage.getItem("costs"))   || {};
 
+  // Collect all product names from sales
   let products = new Set();
-
-  history.forEach(sale => {
-    sale.items.forEach(item => {
-      products.add(item.name);
-    });
-  });
-
+  history.forEach(sale => sale.items.forEach(item => products.add(item.name)));
   products = Array.from(products);
 
+  // ── SALES ROWS ──
   let csv = "Folio,Fecha,Hora,";
-
-  products.forEach(p => {
-    csv += p + ",";
-  });
-
+  products.forEach(p => { csv += `"${p}",`; });
   csv += "Total\n";
 
   history.forEach(sale => {
-
-    const saleFolio = sale.folio
-    const saleDate = sale.date.split(",")[0]
-    const saleTime = sale.date.split(",")[1]
-
+    const saleFolio = sale.folio || "";
+    const saleDate  = sale.date.split(",")[0];
+    const saleTime  = sale.date.split(",")[1] || "";
     let row = `${saleFolio},${saleDate},${saleTime},`;
 
     products.forEach(p => {
-      
-      let cantidad = 0;
-
-      sale.items.forEach(item => {
-        if ((item.name || item) === p) {
-          cantidad++;
-        }
-      });
-
-      row += cantidad + ",";
-    })
+      let qty = 0;
+      sale.items.forEach(item => { if (item.name === p) qty++; });
+      row += qty + ",";
+    });
 
     row += sale.total + "\n";
-
     csv += row;
   });
 
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
+  // ── MERMA ROWS ──
+  // Group mermas by type, then by date
+  const MERMA_SUFFIX = { merma: "W", muestra: "S", regalo: "G", consumo: "C" };
+  const MERMA_LABELS = { merma: "Merma", muestra: "Muestra", regalo: "Regalo", consumo: "Consumo" };
 
+  const byType = {};
+  mermas.forEach(m => {
+    if (!byType[m.reason]) byType[m.reason] = {};
+    // Group by date (strip time)
+    const dateKey = m.date.split(",")[0];
+    if (!byType[m.reason][dateKey]) byType[m.reason][dateKey] = {};
+    byType[m.reason][dateKey][m.name] = (byType[m.reason][dateKey][m.name] || 0) + m.qty;
+  });
+
+  if (Object.keys(byType).length > 0) {
+    csv += "\n"; // blank separator
+
+    Object.entries(byType).forEach(([reason, byDate]) => {
+      Object.entries(byDate).forEach(([date, items]) => {
+        // Build folio: AAMMDD + suffix
+        const parts = date.split("/"); // depends on locale — handle both dd/mm/yyyy and mm/dd/yyyy
+        let dateStr = "";
+        try {
+          const d = new Date(date);
+          const yy = String(d.getFullYear()).slice(2);
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          dateStr = yy + mm + dd;
+        } catch (e) { dateStr = date.replace(/\//g, ""); }
+
+        const folio = dateStr + "-" + (MERMA_SUFFIX[reason] || "X");
+        const label = MERMA_LABELS[reason] || reason;
+
+        // Build row: folio, date, label, then product columns, then total cost
+        let row = `${folio},${date},${label},`;
+        let totalCost = 0;
+
+        products.forEach(p => {
+          const qty = items[p] || 0;
+          const cost = parseFloat(costs[p] || 0);
+          totalCost += qty * cost;
+          row += qty + ",";
+        });
+
+        row += totalCost.toFixed(2) + "\n";
+        csv += row;
+      });
+    });
+  }
+
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `postre_mio_corte_${new Date().toLocaleDateString()}.csv`
+  link.download = `postre_mio_corte_${new Date().toLocaleDateString()}.csv`;
   link.click();
-
   URL.revokeObjectURL(url);
+}
+
+// ── COSTS ENGINE ──────────────────────────────
+
+function getCosts() {
+  return JSON.parse(localStorage.getItem("costs")) || {};
+}
+
+function saveCosts(costs) {
+  localStorage.setItem("costs", JSON.stringify(costs));
+}
+
+function renderCosts() {
+  const container = document.getElementById("costsList");
+  if (!container) return;
+
+  const costs = getCosts();
+  const allItems = menu.flatMap(c => c.items);
+
+  container.innerHTML = allItems.map(item => `
+    <div class="costs-row">
+      <span>${item.name}</span>
+      <span style="color:var(--text-muted);font-size:12px;">$</span>
+      <input
+        type="number"
+        inputmode="decimal"
+        min="0"
+        step="0.01"
+        value="${costs[item.name] !== undefined ? costs[item.name] : ''}"
+        placeholder="0.00"
+        onfocus="this.select()"
+        onchange="updateCost('${item.name.replace(/'/g, "\\'")}', this.value)"
+      >
+    </div>
+  `).join('');
+}
+
+function updateCost(name, value) {
+  const cost = parseFloat(value);
+  const costs = getCosts();
+  if (isNaN(cost) || cost < 0) {
+    delete costs[name];
+  } else {
+    costs[name] = cost;
+  }
+  saveCosts(costs);
 }
 
 
