@@ -814,7 +814,86 @@ button:active { opacity: 0.75; }
   margin-bottom: 8px;
 }
 
-/* ── COSTS TABLE ── */
+/* ── HIDING MODE ── */
+.hide-mode-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  margin: 0 0 12px;
+  border-radius: var(--radius-sm);
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-color);
+  border: none;
+  cursor: pointer;
+}
+
+.hide-mode-btn.active {
+  background: #fff3e0;
+  color: #e65100;
+  font-weight: 700;
+}
+
+.inventory-card.hidden-item {
+  opacity: 0.35;
+  border: 2px dashed var(--border);
+}
+
+.inventory-card.hide-mode-target {
+  cursor: pointer;
+  outline: 2px dashed var(--orange);
+}
+
+/* ── HISTORY EDIT MODE ── */
+.edit-mode-btn {
+  font-size: 12px;
+  padding: 5px 10px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-color);
+  border: none;
+  cursor: pointer;
+}
+
+.edit-mode-btn.active {
+  background: #e3f2fd;
+  color: #1565c0;
+  font-weight: 700;
+}
+
+</style>
+.restock-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.restock-section h3 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.restock-entry {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.restock-entry:last-child { border-bottom: none; }
+
+.restock-qty {
+  font-weight: 700;
+  color: var(--green);
+  font-size: 14px;
+  text-align: right;
+}
+
+</style>
 .costs-section {
   margin-top: 28px;
   padding-top: 16px;
@@ -915,18 +994,29 @@ button:active { opacity: 0.75; }
 <!-- INVENTARIO -->
 <div id="inventoryPage" class="page" style="display:none;">
   <div class="page-content">
-    <h2>Inventario</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <h2 style="margin:0;">Inventario</h2>
+      <button id="hideModeBtn" class="hide-mode-btn" onclick="toggleHideMode()">👁 Ocultar productos</button>
+    </div>
     <div id="inventoryList"></div>
+    <div class="restock-section" id="restockSection" style="display:none;">
+      <h3>📦 Reabastecimientos</h3>
+      <div id="restockList"></div>
+      <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="clearRestockLog()">Borrar registro</button>
+    </div>
   </div>
 </div>
 
 <!-- HISTORIAL -->
 <div id="historyPage" class="page" style="display:none;">
   <div class="page-content">
-    <h2>Historial</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <h2 style="margin:0;">Historial</h2>
+      <button id="editModeBtn" class="edit-mode-btn" onclick="toggleEditMode()">✏️ Editar</button>
+    </div>
     <div id="historyList"></div>
     <div id="cutBtn" style="display:none; text-align: center;">
-      <button onclick="generateCut() ">Corte de caja</button>
+      <button onclick="generateCut()">Corte de caja</button>
     </div>
   </div>
 </div>
@@ -1075,6 +1165,9 @@ function renderProducts() {
     grid.className = "grid";
 
     cat.items.forEach(item => {
+      const hiddenItems = getHiddenItems();
+      if (hiddenItems.includes(item.name)) return; // skip hidden
+
       const stock = inventory[item.name] ?? 0;
       const isOut = stock === 0;
       const isLow = stock > 0 && stock <= 3;
@@ -1615,6 +1708,7 @@ function showPage(page) {
     updatedItems.clear();
     renderProducts();
     renderInventory();
+    renderRestockLog();
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
@@ -1637,7 +1731,13 @@ function showPage(page) {
     renderCosts();
   }
 
-  if (page !== "inventory") updatedItems.clear();
+  if (page !== "inventory") {
+    hideModeActive = false;
+    updatedItems.clear();
+  }
+  if (page !== "history") {
+    editModeActive = false;
+  }
   toggleMenu();
 }
 
@@ -1663,57 +1763,79 @@ function renderInventory() {
   const container = document.getElementById("inventoryList");
   container.innerHTML = "";
 
+  const validNames = Object.keys(defaultInventory);
+  const hiddenItems = getHiddenItems();
+
+  // Clean up stale keys
   Object.keys(inventory).forEach(name => {
+    if (!validNames.includes(name)) delete inventory[name];
+  });
+  saveInventory();
+
+  validNames.forEach(name => {
+    if (!(name in inventory)) inventory[name] = defaultInventory[name];
+
+    const isHidden = hiddenItems.includes(name);
+
+    // In normal mode, skip hidden items
+    if (!hideModeActive && isHidden) return;
+
     const qty = inventory[name];
     const isLow = qty > 0 && qty <= 3;
     const isOut = qty === 0;
-
-    // Find current price from menu
     const menuItem = menu.flatMap(c => c.items).find(i => i.name === name);
-    const price = menuItem ? menuItem.price : "—";
 
     let cardClass = "inventory-card";
-    if (updatedItems.has(name)) cardClass += " updated";
-    else if (isOut) cardClass += " low-stock";
-    else if (isLow) cardClass += " low-stock";
+    if (hideModeActive) cardClass += " hide-mode-target";
+    if (isHidden) cardClass += " hidden-item";
+    else if (updatedItems.has(name)) cardClass += " updated";
+    else if (isOut || isLow) cardClass += " low-stock";
 
     const div = document.createElement("div");
     div.className = cardClass;
 
-    div.innerHTML = `
-      <div class="inv-name">${name}</div>
-      <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
-      <div class="inv-price-row">
-        💲<input
-          type="number"
-          inputmode="decimal"
-          value="${menuItem ? menuItem.price : ''}"
-          min="0"
-          step="1"
-          title="Editar precio"
-          onfocus="this.select()"
-          onchange="updatePrice('${name.replace(/'/g, "\\'")}', this.value)"
-        >
-      </div>
-      <div class="inv-controls">
-        <button
-          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-          onpointerdown="startHold('${name.replace(/'/g, "\\'")}', -1)"
-          onpointerup="stopHold()"
-          onpointerleave="stopHold()"
-          oncontextmenu="return false"
-          ontouchstart="this.ontouchend=stopHold;return true;"
-        >−</button>
-        <button
-          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-          onpointerdown="startHold('${name.replace(/'/g, "\\'")}', 1)"
-          onpointerup="stopHold()"
-          onpointerleave="stopHold()"
-          oncontextmenu="return false"
-          ontouchstart="this.ontouchend=stopHold;return true;"
-        >+</button>
-      </div>
-    `;
+    if (hideModeActive) {
+      div.onclick = () => toggleItemHidden(name);
+      div.innerHTML = `
+        <div class="inv-name">${name}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${isHidden ? '🚫 Oculto — toca para mostrar' : '👁 Visible — toca para ocultar'}</div>
+      `;
+    } else {
+      div.innerHTML = `
+        <div class="inv-name">${name}</div>
+        <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
+        <div class="inv-price-row">
+          💲<input
+            type="number"
+            inputmode="decimal"
+            value="${menuItem ? menuItem.price : ''}"
+            min="0"
+            step="1"
+            title="Editar precio"
+            onfocus="this.select()"
+            onchange="updatePrice('${name.replace(/'/g, "\\'")}', this.value)"
+          >
+        </div>
+        <div class="inv-controls">
+          <button
+            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+            onpointerdown="startHold('${name.replace(/'/g, "\\'")}', -1)"
+            onpointerup="stopHold()"
+            onpointerleave="stopHold()"
+            oncontextmenu="return false"
+            ontouchstart="this.ontouchend=stopHold;return true;"
+          >−</button>
+          <button
+            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+            onpointerdown="startHold('${name.replace(/'/g, "\\'")}', 1)"
+            onpointerup="stopHold()"
+            onpointerleave="stopHold()"
+            oncontextmenu="return false"
+            ontouchstart="this.ontouchend=stopHold;return true;"
+          >+</button>
+        </div>
+      `;
+    }
 
     container.appendChild(div);
   });
@@ -1729,7 +1851,6 @@ function updatePrice(name, value) {
     });
   });
 
-  // Also update any cart items already added
   cart.forEach(item => {
     if (item.name === name) item.price = price;
   });
@@ -1741,7 +1862,6 @@ function updatePrice(name, value) {
 
 function updateStock(name, delta) {
   inventory[name] += delta;
-
   if (inventory[name] < 0) inventory[name] = 0;
 
   if (inventory[name] !== originalInventory[name]) {
@@ -1750,10 +1870,109 @@ function updateStock(name, delta) {
     updatedItems.delete(name);
   }
 
+  if (delta > 0) {
+    const log = JSON.parse(localStorage.getItem("restockLog")) || [];
+    log.unshift({ date: new Date().toLocaleString(), name, qty: delta });
+    localStorage.setItem("restockLog", JSON.stringify(log));
+    renderRestockLog();
+  }
+
   saveInventory();
   renderInventory();
-  
   renderProducts();
+}
+
+// ── HIDING MODE ──────────────────────────────
+let hideModeActive = false;
+
+function getHiddenItems() {
+  return JSON.parse(localStorage.getItem("hiddenItems")) || [];
+}
+
+function saveHiddenItems(list) {
+  localStorage.setItem("hiddenItems", JSON.stringify(list));
+}
+
+function toggleHideMode() {
+  hideModeActive = !hideModeActive;
+  const btn = document.getElementById("hideModeBtn");
+  if (btn) {
+    btn.textContent = hideModeActive ? "✅ Modo ocultar activo" : "👁 Ocultar productos";
+    btn.classList.toggle("active", hideModeActive);
+  }
+  renderInventory();
+}
+
+function toggleItemHidden(name) {
+  const hidden = getHiddenItems();
+  const idx = hidden.indexOf(name);
+  if (idx > -1) {
+    hidden.splice(idx, 1);
+    showToast(`${name} visible de nuevo`);
+  } else {
+    hidden.push(name);
+    showToast(`${name} ocultado`);
+  }
+  saveHiddenItems(hidden);
+  renderInventory();
+  renderProducts();
+}
+
+// ── EDIT MODE ────────────────────────────────
+let editModeActive = false;
+
+function toggleEditMode() {
+  editModeActive = !editModeActive;
+  const btn = document.getElementById("editModeBtn");
+  if (btn) {
+    btn.textContent = editModeActive ? "✅ Editando" : "✏️ Editar";
+    btn.classList.toggle("active", editModeActive);
+  }
+  renderHistory();
+}
+
+function openEditSale(index) {
+  const data = JSON.parse(localStorage.getItem("history")) || [];
+  const sale = data[index];
+  if (!sale) return;
+
+  openModal(`
+    <h3 style="margin-top:0;">✏️ Editar venta</h3>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${sale.folio || '—'} · ${sale.date}</p>
+    <div class="promo-form">
+      <label>Total ($)</label>
+      <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
+
+      <label>Método de pago</label>
+      <select id="edit-method">
+        <option value="cash"     ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
+        <option value="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+      </select>
+
+      <label>Nota (opcional)</label>
+      <input id="edit-note" type="text" value="${sale.note || ''}" placeholder="Ej: cobro parcial, error de precio...">
+    </div>
+    <button class="btn-brand" onclick="confirmEditSale(${index})" style="margin-top:14px;">Guardar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function confirmEditSale(index) {
+  const data = JSON.parse(localStorage.getItem("history")) || [];
+  const total  = parseFloat(document.getElementById("edit-total").value);
+  const method = document.getElementById("edit-method").value;
+  const note   = document.getElementById("edit-note").value.trim();
+
+  if (isNaN(total) || total < 0) { alert("Total inválido"); return; }
+
+  data[index].total  = total;
+  data[index].method = method;
+  if (note) data[index].note = note;
+
+  localStorage.setItem("history", JSON.stringify(data));
+  closeModal();
+  showToast("Venta actualizada ✅");
+  renderHistory();
 }
 
 function renderHistory() {
@@ -1841,6 +2060,7 @@ function renderHistory() {
       <div class="history-footer">
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;">
+          ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale(${realIndex})">✏️</button>` : ''}
           <button onclick="generateTicket(${JSON.stringify(sale).replace(/"/g, '&quot;')})">🧾</button>
           <button class="delete-btn" onclick="deleteSale(${realIndex})">🗑️</button>
         </div>
@@ -1916,6 +2136,8 @@ function generateCut() {
 function clearSales(count, total) {
   if (confirm("¿Cerrar caja y borrar ventas?")) {
     localStorage.removeItem("history");
+    localStorage.removeItem("mermas");
+    localStorage.removeItem("restockLog");
 
     setTimeout(() => {
       alert(
@@ -2454,13 +2676,41 @@ function savePromo() {
   renderCart();
 }
 
+// ─────────────────────────────────────────────
+//  RESTOCK LOG ENGINE
+// ─────────────────────────────────────────────
+
+function renderRestockLog() {
+  const section = document.getElementById("restockSection");
+  const container = document.getElementById("restockList");
+  if (!section || !container) return;
+
+  const log = JSON.parse(localStorage.getItem("restockLog")) || [];
+
+  if (!log.length) {
+    section.style.display = "none";
+    return;
+  }
+
+  section.style.display = "block";
+
+  // Consolidate consecutive entries of the same item on the same date
+  const rows = log.map(entry => `
+    <div class="restock-entry">
+      <div>
+        <div style="font-weight:600;">${entry.name}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${entry.date}</div>
+      </div>
+      <span class="restock-qty">+${entry.qty}</span>
+    </div>
+  `).join('');
+
+  container.innerHTML = rows;
+}
+
 // ── Init ──────────────────────────────────────
 renderProducts();
 renderCart();
-
-// ─────────────────────────────────────────────
-//  MERMA ENGINE
-// ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
 //  MERMA ENGINE
