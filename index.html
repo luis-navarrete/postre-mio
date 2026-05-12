@@ -860,7 +860,6 @@ button:active { opacity: 0.75; }
   font-weight: 700;
 }
 
-</style>
 .restock-section {
   margin-top: 24px;
   padding-top: 16px;
@@ -893,7 +892,6 @@ button:active { opacity: 0.75; }
   text-align: right;
 }
 
-</style>
 .costs-section {
   margin-top: 28px;
   padding-top: 16px;
@@ -1092,8 +1090,8 @@ const defaultInventory = {
   "Besos de nuez": 10,
   "Mini pastel zanahoria": 10,
   "Mini pastel red velvet": 10,
-  "Mini pastel golden vanilla": 10,
-  "Mini pastel french vanilla": 10
+  "Mini pastel Nutella": 10,
+  "Mini pastel dulce de leche": 10
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
@@ -1141,8 +1139,8 @@ const menu = [
     items: [
       { name: "Mini pastel zanahoria", price: 220.00, img: "cake_carrot.jpg" },
       { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
-      { name: "Mini pastel golden vanilla", price: 220.00, img: "cake_gvan.jpg" },
-      { name: "Mini pastel french vanilla", price: 220.00, img: "cake_fvan.jpg" },
+      { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
+      { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" }
     ]
   }
@@ -1408,6 +1406,14 @@ function updateChange(total) {
   changeLabel.style.display = 'block';
   btn.disabled = false;
   btn.onclick = () => showFinalStep(total, "cash", change, value);
+}
+
+function confirmCash(total) {
+  const input = document.getElementById('cashInput');
+  const value = parseFloat(input?.value);
+  if (isNaN(value) || value < total) return;
+  const change = value - total;
+  showFinalStep(total, "cash", change, value);
 }
 
 function handleTransfer(total) {
@@ -2706,6 +2712,12 @@ function renderRestockLog() {
   `).join('');
 
   container.innerHTML = rows;
+}
+
+function clearRestockLog() {
+  if (!confirm("¿Borrar el registro de reabastecimientos?")) return;
+  localStorage.removeItem("restockLog");
+  renderRestockLog();
 }
 
 // ── Init ──────────────────────────────────────
