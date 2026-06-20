@@ -934,7 +934,7 @@ button:active { opacity: 0.75; }
 .auth-gate {
   position: fixed;
   inset: 0;
-  background: var(--bg);
+  background: linear-gradient(135deg, #7ED0D2 0%, #5BB8BA 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -942,41 +942,50 @@ button:active { opacity: 0.75; }
 }
 
 .auth-card {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  padding: 32px 28px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px 32px 32px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
   text-align: center;
   width: 90%;
   max-width: 320px;
 }
 
 .auth-card img { max-height: 60px; margin-bottom: 12px; }
-.auth-card h2 { margin: 0 0 4px; font-size: 18px; }
-.auth-card p { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); }
+.auth-card h2 { margin: 0 0 4px; font-size: 18px; color: #333; }
+.auth-card p { margin: 0 0 20px; font-size: 13px; color: #888; }
 
 .pin-input {
   display: flex;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .pin-input input {
-  width: 44px;
-  height: 52px;
+  width: 52px;
+  height: 58px;
   text-align: center;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  border: 2px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
+  border: none;
+  border-radius: 14px;
+  background: #f0f5f5;
   outline: none;
-  transition: border-color 0.15s;
+  transition: box-shadow 0.2s, background 0.2s;
   -webkit-text-security: disc;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+  caret-color: var(--brand);
 }
 
-.pin-input input:focus { border-color: var(--brand); }
+.pin-input input:focus {
+  background: #e6f3f3;
+  box-shadow: 0 0 0 2.5px var(--brand), inset 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.pin-input input.filled {
+  background: #e6f3f3;
+}
 
 .auth-error {
   color: var(--red);
@@ -1214,6 +1223,7 @@ document.querySelectorAll("#pinInput input").forEach(input => {
   input.addEventListener("input", (e) => {
     const val = e.target.value.replace(/\D/g, "");
     e.target.value = val;
+    e.target.classList.toggle("filled", val.length > 0);
     if (val && e.target.dataset.idx < 3) {
       e.target.nextElementSibling?.focus();
     }
@@ -1221,7 +1231,9 @@ document.querySelectorAll("#pinInput input").forEach(input => {
   });
   input.addEventListener("keydown", (e) => {
     if (e.key === "Backspace" && !e.target.value && e.target.dataset.idx > 0) {
-      e.target.previousElementSibling?.focus();
+      const prev = e.target.previousElementSibling;
+      prev?.focus();
+      if (prev) prev.classList.remove("filled");
     }
   });
 });
@@ -1231,7 +1243,7 @@ function getPin() {
 }
 
 function clearPin() {
-  document.querySelectorAll("#pinInput input").forEach(i => { i.value = ""; });
+  document.querySelectorAll("#pinInput input").forEach(i => { i.value = ""; i.classList.remove("filled"); });
   document.querySelector("#pinInput input")?.focus();
 }
 
