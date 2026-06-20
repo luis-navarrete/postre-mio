@@ -930,13 +930,105 @@ button:active { opacity: 0.75; }
 
 .costs-row input:focus { border-color: var(--brand); outline: none; }
 
+/* ── AUTH GATE ─────────────────────────── */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+}
+
+.auth-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 32px 28px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  text-align: center;
+  width: 90%;
+  max-width: 320px;
+}
+
+.auth-card img { max-height: 60px; margin-bottom: 12px; }
+.auth-card h2 { margin: 0 0 4px; font-size: 18px; }
+.auth-card p { margin: 0 0 16px; font-size: 13px; color: var(--text-muted); }
+
+.pin-input {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.pin-input input {
+  width: 44px;
+  height: 52px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  outline: none;
+  transition: border-color 0.15s;
+  -webkit-text-security: disc;
+}
+
+.pin-input input:focus { border-color: var(--brand); }
+
+.auth-error {
+  color: var(--red);
+  font-size: 13px;
+  min-height: 20px;
+  margin-bottom: 8px;
+}
+
+/* ── ONLINE/OFFLINE INDICATOR ─────────── */
+.conn-badge {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.conn-badge.online  { background: rgba(255,255,255,0.25); color: white; }
+.conn-badge.offline { background: #ffebee; color: #c62828; }
+
 </style>
+</head>
 
 <body>
+
+<!-- AUTH GATE -->
+<div id="authGate" class="auth-gate">
+  <div class="auth-card">
+    <img src="logo.jpeg">
+    <h2>Postre Mío</h2>
+    <p id="authSubtitle">Ingresa el PIN para continuar</p>
+    <div class="pin-input" id="pinInput">
+      <input type="tel" maxlength="1" inputmode="numeric" data-idx="0">
+      <input type="tel" maxlength="1" inputmode="numeric" data-idx="1">
+      <input type="tel" maxlength="1" inputmode="numeric" data-idx="2">
+      <input type="tel" maxlength="1" inputmode="numeric" data-idx="3">
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <button class="btn-primary" id="authBtn" onclick="submitPin()" style="width:100%;">Entrar</button>
+  </div>
+</div>
+
+<div id="appShell" style="display:none;">
 
 <div class="header">
   <button class="menu-btn" onclick="toggleMenu()">☰</button>
   <img src="logo.jpeg" onclick="showPage('pos')" style="cursor:pointer;">
+  <span id="connBadge" class="conn-badge online">En línea</span>
 </div>
 
 
@@ -1062,16 +1154,437 @@ button:active { opacity: 0.75; }
     <button onclick="showPage('promos')">Promociones</button>
     <button onclick="showPage('pending')">Pedidos pendientes</button>
     <button onclick="showPage('mermas')">Mermas</button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
+    <button onclick="logout()" style="color:var(--red);">Cerrar sesión</button>
   </div>
 </div>
 
 <div id="ticket-container" style="position: fixed; left: -9999px; top: 0;"></div>
 
+</div><!-- /appShell -->
 
-
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <script>
+
+// ─────────────────────────────────────────────
+//  FIREBASE CONFIG
+// ─────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "AIzaSyB6n8i2IhhquFkswMwfHfL1TscbxOBrAvE",
+  authDomain:        "postre-mio.firebaseapp.com",
+  projectId:         "postre-mio",
+  storageBucket:     "postre-mio.firebasestorage.app",
+  messagingSenderId: "15227550841",
+  appId:             "1:15227550841:web:a01be146ce95b7b267e8a8"
+};
+
+const STORE_ID = "postremio_main";
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+function storeRef(path) {
+  return db.collection("stores").doc(STORE_ID).collection(path);
+}
+
+function configRef(docName) {
+  return db.collection("stores").doc(STORE_ID).collection("config").doc(docName);
+}
+
+// ─────────────────────────────────────────────
+//  PIN AUTH
+// ─────────────────────────────────────────────
+
+async function hashPin(pin) {
+  const data = new TextEncoder().encode(pin);
+  const buf  = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+let _isSettingUp = false;
+
+// Wire up PIN input fields
+document.querySelectorAll("#pinInput input").forEach(input => {
+  input.addEventListener("input", (e) => {
+    const val = e.target.value.replace(/\D/g, "");
+    e.target.value = val;
+    if (val && e.target.dataset.idx < 3) {
+      e.target.nextElementSibling?.focus();
+    }
+    if (getPin().length === 4) submitPin();
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Backspace" && !e.target.value && e.target.dataset.idx > 0) {
+      e.target.previousElementSibling?.focus();
+    }
+  });
+});
+
+function getPin() {
+  return Array.from(document.querySelectorAll("#pinInput input")).map(i => i.value).join("");
+}
+
+function clearPin() {
+  document.querySelectorAll("#pinInput input").forEach(i => { i.value = ""; });
+  document.querySelector("#pinInput input")?.focus();
+}
+
+async function submitPin() {
+  const pin = getPin();
+  if (pin.length !== 4) return;
+
+  const errEl = document.getElementById("authError");
+  errEl.textContent = "";
+
+  try {
+    // Sign in anonymously first to access Firestore
+    if (!auth.currentUser) {
+      await auth.signInAnonymously();
+    }
+
+    const authDoc = await configRef("auth").get();
+
+    if (!authDoc.exists || !authDoc.data().pinHash) {
+      // First-time setup
+      if (!_isSettingUp) {
+        _isSettingUp = true;
+        document.getElementById("authSubtitle").textContent = "Crea un PIN de 4 dígitos para tu negocio";
+        document.getElementById("authBtn").textContent = "Crear PIN";
+        clearPin();
+        return;
+      }
+      // Save new PIN
+      const hash = await hashPin(pin);
+      await configRef("auth").set({ pinHash: hash });
+      _isSettingUp = false;
+      showApp();
+    } else {
+      // Verify PIN
+      const hash = await hashPin(pin);
+      if (hash === authDoc.data().pinHash) {
+        showApp();
+      } else {
+        errEl.textContent = "PIN incorrecto";
+        clearPin();
+      }
+    }
+  } catch (e) {
+    errEl.textContent = "Error de conexión. Intenta de nuevo.";
+    clearPin();
+  }
+}
+
+function showApp() {
+  document.getElementById("authGate").style.display = "none";
+  document.getElementById("appShell").style.display = "block";
+  initApp();
+}
+
+function logout() {
+  stopListeners();
+  auth.signOut();
+  document.getElementById("appShell").style.display = "none";
+  document.getElementById("authGate").style.display = "flex";
+  document.getElementById("authSubtitle").textContent = "Ingresa el PIN para continuar";
+  document.getElementById("authBtn").textContent = "Entrar";
+  document.getElementById("authError").textContent = "";
+  _isSettingUp = false;
+  clearPin();
+}
+
+// Online/offline indicator
+window.addEventListener("online",  () => updateConnBadge(true));
+window.addEventListener("offline", () => updateConnBadge(false));
+
+function updateConnBadge(online) {
+  const el = document.getElementById("connBadge");
+  if (!el) return;
+  el.textContent = online ? "En línea" : "Sin conexión";
+  el.className   = "conn-badge " + (online ? "online" : "offline");
+}
+
+updateConnBadge(navigator.onLine);
+
+// ─────────────────────────────────────────────
+//  UTILITIES
+// ─────────────────────────────────────────────
+//  DATA STORE (Firestore-backed)
+// ─────────────────────────────────────────────
+
+const DataStore = {
+  // ── Inventory ──
+  async getInventory() {
+    const snap = await storeRef("inventory").get();
+    const inv = {};
+    snap.forEach(doc => { inv[doc.id] = doc.data().qty; });
+    return inv;
+  },
+
+  async setStock(name, qty) {
+    await storeRef("inventory").doc(name).set({ qty });
+  },
+
+  async decrementStock(name, qty) {
+    const ref = storeRef("inventory").doc(name);
+    return db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      const current = doc.exists ? doc.data().qty : 0;
+      if (current < qty) throw new Error("insufficient_stock");
+      tx.set(ref, { qty: current - qty });
+    });
+  },
+
+  async incrementStock(name, qty) {
+    const ref = storeRef("inventory").doc(name);
+    await ref.set({ qty: firebase.firestore.FieldValue.increment(qty) }, { merge: true });
+  },
+
+  // ── Sales History ──
+  async getSales() {
+    const snap = await storeRef("sales").orderBy("isoDate", "desc").get();
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  async addSale(sale) {
+    const ref = await storeRef("sales").add(sale);
+    return ref.id;
+  },
+
+  async updateSale(id, fields) {
+    await storeRef("sales").doc(id).update(fields);
+  },
+
+  async deleteSale(id) {
+    await storeRef("sales").doc(id).delete();
+  },
+
+  // ── Folio Counter (atomic) ──
+  async getNextFolio(dateStr) {
+    const ref = storeRef("counters").doc(dateStr);
+    await ref.set({ value: firebase.firestore.FieldValue.increment(1) }, { merge: true });
+    const doc = await ref.get();
+    return dateStr + String(doc.data().value).padStart(2, "0");
+  },
+
+  // ── Promotions ──
+  async getPromotions() {
+    const snap = await storeRef("promotions").get();
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  async addPromotion(promo) {
+    await storeRef("promotions").add(promo);
+  },
+
+  async updatePromotion(id, fields) {
+    await storeRef("promotions").doc(id).update(fields);
+  },
+
+  async deletePromotion(id) {
+    await storeRef("promotions").doc(id).delete();
+  },
+
+  // ── Pending Orders ──
+  async getPending() {
+    const snap = await storeRef("pendingOrders").orderBy("date", "desc").get();
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  async addPending(order) {
+    await storeRef("pendingOrders").add(order);
+  },
+
+  async deletePending(id) {
+    await storeRef("pendingOrders").doc(id).delete();
+  },
+
+  // ── Mermas ──
+  async getMermas() {
+    const snap = await storeRef("mermas").orderBy("date", "desc").get();
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  async addMerma(merma) {
+    await storeRef("mermas").add(merma);
+  },
+
+  async clearMermas() {
+    const snap = await storeRef("mermas").get();
+    const batch = db.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  },
+
+  // ── Restock Log ──
+  async getRestockLog() {
+    const snap = await storeRef("restockLog").orderBy("date", "desc").get();
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  async addRestock(entry) {
+    await storeRef("restockLog").add(entry);
+  },
+
+  async clearRestockLog() {
+    const snap = await storeRef("restockLog").get();
+    const batch = db.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+  },
+
+  // ── Config (costs, prices, hidden) ──
+  async getCosts() {
+    const doc = await configRef("costs").get();
+    return doc.exists ? doc.data() : {};
+  },
+
+  async saveCosts(costs) {
+    await configRef("costs").set(costs);
+  },
+
+  async getCustomPrices() {
+    const doc = await configRef("prices").get();
+    return doc.exists ? doc.data() : {};
+  },
+
+  async saveCustomPrice(name, price) {
+    await configRef("prices").set({ [name]: price }, { merge: true });
+  },
+
+  async getHiddenItems() {
+    const doc = await configRef("hidden").get();
+    return doc.exists ? (doc.data().items || []) : [];
+  },
+
+  async saveHiddenItems(items) {
+    await configRef("hidden").set({ items });
+  },
+
+  // ── Bulk clear for daily cut ──
+  async clearDayData() {
+    const collections = ["sales", "mermas", "restockLog"];
+    for (const col of collections) {
+      const snap = await storeRef(col).get();
+      const batch = db.batch();
+      snap.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+  }
+};
+
+// ─────────────────────────────────────────────
+//  REAL-TIME LISTENERS
+// ─────────────────────────────────────────────
+
+let _unsubscribers = [];
+
+function startListeners() {
+  // Inventory
+  _unsubscribers.push(
+    storeRef("inventory").onSnapshot(snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type === "removed") {
+          delete inventory[change.doc.id];
+        } else {
+          inventory[change.doc.id] = change.doc.data().qty;
+        }
+      });
+      saveInventory();
+      renderProducts();
+      if (document.getElementById("inventoryPage").style.display !== "none") {
+        renderInventory();
+      }
+    })
+  );
+
+  // Sales — just re-render history if visible
+  _unsubscribers.push(
+    storeRef("sales").onSnapshot(() => {
+      if (document.getElementById("historyPage").style.display !== "none") {
+        renderHistoryFromFirestore();
+      }
+    })
+  );
+
+  // Promotions
+  _unsubscribers.push(
+    storeRef("promotions").onSnapshot(async () => {
+      promotions = await DataStore.getPromotions();
+      renderCart();
+      if (document.getElementById("promoPage").style.display !== "none") {
+        renderPromos();
+      }
+    })
+  );
+
+  // Config (prices, hidden)
+  _unsubscribers.push(
+    configRef("prices").onSnapshot(doc => {
+      if (!doc.exists) return;
+      const prices = doc.data();
+      menu.forEach(cat => {
+        cat.items.forEach(item => {
+          if (prices[item.name] !== undefined) item.price = prices[item.name];
+        });
+      });
+      renderProducts();
+      renderCart();
+    })
+  );
+
+  // Mermas — re-render if visible
+  _unsubscribers.push(
+    storeRef("mermas").onSnapshot(() => {
+      if (document.getElementById("mermaPage").style.display !== "none") {
+        renderMermaLog();
+      }
+    })
+  );
+
+  // Pending orders — re-render if visible
+  _unsubscribers.push(
+    storeRef("pendingOrders").onSnapshot(() => {
+      if (document.getElementById("pendingPage").style.display !== "none") {
+        renderPending();
+      }
+    })
+  );
+
+  // Restock log — re-render if visible
+  _unsubscribers.push(
+    storeRef("restockLog").onSnapshot(() => {
+      if (document.getElementById("inventoryPage").style.display !== "none") {
+        renderRestockLogFromFirestore();
+      }
+    })
+  );
+}
+
+function stopListeners() {
+  _unsubscribers.forEach(unsub => unsub());
+  _unsubscribers = [];
+}
+
+// Helper to render history from Firestore
+async function renderHistoryFromFirestore() {
+  const data = await DataStore.getSales();
+  _historyData = data;
+  renderHistoryWithData(data);
+}
+
+// ─────────────────────────────────────────────
+
+function esc(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
 
 const defaultInventory = {
   "M&Ms": 10,
@@ -1102,10 +1615,6 @@ let updatedItems = new Set();
 
 function saveInventory() {
   localStorage.setItem("inventory", JSON.stringify(inventory));
-}
-
-function saveHistory() {
-  localStorage.setItem("history", JSON.stringify(history));
 }
 
 let currentSale = null;
@@ -1175,7 +1684,7 @@ function renderProducts() {
       div.className = "product" + (isLow ? " low-stock-product" : "") + (isOut ? " out-of-stock" : "");
       div.innerHTML = `
         <img src="${item.img}">
-        <h3>${item.name}</h3>
+        <h3>${esc(item.name)}</h3>
         <p>$${parseFloat(item.price).toFixed(2)}</p>
         <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
@@ -1204,7 +1713,7 @@ const ITEM_EXTRAS = {
 function addToCart(item) {
   const inCart = cart.filter(i => i.name === item.name).length;
   if (inCart >= (inventory[item.name] ?? 0)) {
-    alert("Sin stock disponible");
+    showToast("Sin stock disponible");
     return;
   }
 
@@ -1222,13 +1731,13 @@ function openExtrasModal(item, extras) {
       class="extra-btn ${e.price === 0 ? 'natural' : 'paid'}"
       onclick="confirmExtra(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(e).replace(/"/g, '&quot;')})"
     >
-      ${e.name}
+      ${esc(e.name)}
       <span class="extra-price">${e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2)}</span>
     </button>
   `).join("");
 
   openModal(`
-    <h3 style="margin-top:0;">🥐 ${item.name}</h3>
+    <h3 style="margin-top:0;">🥐 ${esc(item.name)}</h3>
     <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
     <div class="extras-grid">${buttonsHTML}</div>
     <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
@@ -1241,11 +1750,13 @@ function confirmExtra(item, extra) {
 }
 
 // Assigns a unique cartId so each rol is independent in the cart
+let _cartIdCounter = 0;
+
 function pushCartItem(item, extra) {
   const cartItem = {
     ...item,
-    cartId: Date.now() + Math.random(), // unique per instance
-    extra: extra || null                 // { name, price } or null
+    cartId: ++_cartIdCounter,
+    extra: extra || null
   };
   if (extra) {
     cartItem.price = item.price + extra.price; // total price includes extra
@@ -1266,7 +1777,7 @@ function changeQtyGrouped(name, extraName, delta) {
     // Check total in cart for this item name (all variants combined) vs stock
     const totalInCart = cart.filter(i => i.name === name).length;
     if (totalInCart >= (inventory[name] ?? 0)) {
-      alert("No hay más stock disponible");
+      showToast("No hay más stock disponible");
       return;
     }
 
@@ -1296,9 +1807,10 @@ function removeItem(i) {
 
 function clearCart() {
   if (cart.length === 0) return;
-  if (!confirm("¿Limpiar la orden?")) return;
-  cart = [];
-  renderCart();
+  confirmModal("¿Limpiar la orden?", () => {
+    cart = [];
+    renderCart();
+  });
 }
 
 function openModal(html) {
@@ -1420,13 +1932,12 @@ function handleTransfer(total) {
   showFinalStep(total, "transfer", 0);
 }
 
-function showFinalStep(total, method, change, amount) {
+async function showFinalStep(total, method, change, amount) {
   const paidAmount = amount !== undefined ? amount
     : method === "cash"
       ? parseFloat(document.getElementById("cashInput")?.value || total)
       : total;
 
-  // 👉 guardar venta temporal
   const { appliedPromos } = computeCartTotals();
 
   const now = new Date();
@@ -1434,15 +1945,12 @@ function showFinalStep(total, method, change, amount) {
     + String(now.getMonth() + 1).padStart(2, '0')
     + String(now.getDate()).padStart(2, '0');
 
-  const folioKey = 'folioCounter_' + dateStr;
-  const counter = (parseInt(localStorage.getItem(folioKey)) || 0) + 1;
-  localStorage.setItem(folioKey, counter);
-
-  const folio = dateStr + String(counter).padStart(2, '0');
+  const folio = await DataStore.getNextFolio(dateStr);
 
   currentSale = {
     folio,
     date: new Date().toLocaleString(),
+    isoDate: new Date().toISOString(),
     items: [...cart],
     total: total,
     method: method,
@@ -1469,54 +1977,58 @@ function showFinalStep(total, method, change, amount) {
   `);
 }
 
-function finalizeSale() {
+async function finalizeSale() {
   if (!currentSale) {
-    alert("Error en la venta");
+    showToast("Error en la venta");
     return;
   }
 
-  // guardar en history
-  const history = JSON.parse(localStorage.getItem("history")) || [];
-  history.push(currentSale);
-  localStorage.setItem("history", JSON.stringify(history));
-
-  // descontar inventario
-  currentSale.items.forEach(item => {
-    if (inventory[item.name] > 0) {
-      inventory[item.name]--;
+  try {
+    // Deduct inventory via transactions
+    const itemCounts = {};
+    currentSale.items.forEach(item => {
+      itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
+    });
+    for (const [name, qty] of Object.entries(itemCounts)) {
+      await DataStore.decrementStock(name, qty);
+      inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
     }
-  });
+
+    // Save sale to Firestore
+    const saleId = await DataStore.addSale(currentSale);
+    currentSale._id = saleId;
+  } catch (e) {
+    showToast("Error: " + (e.message === "insufficient_stock" ? "Stock insuficiente" : "No se pudo guardar"));
+    return;
+  }
 
   saveInventory();
   closeModal();
   showToast("Venta registrada ✅");
   renderProducts();
 
-  // Auto-clear cart, no confirmation
   cart = [];
   localStorage.removeItem("cart");
   renderCart();
-  renderHistory();
 
   const sale = currentSale;
   currentSale = null;
 
-  // Single confirm: send ticket or just close
-  if (confirm("¿Enviar ticket al cliente?")) {
+  confirmModal("¿Enviar ticket al cliente?", () => {
     generateTicket(sale);
-  }
+  });
 }
 
 function generateTicket(sale) {
   if (!sale) {
-    alert("No hay venta disponible");
+    showToast("No hay venta disponible");
     return;
   }
 
   const container = document.getElementById("ticket-container");
 
   if (!container) {
-    alert("No existe #ticket-container en el HTML");
+    showToast("Error al generar ticket");
     return;
   }
 
@@ -1538,7 +2050,7 @@ function generateTicket(sale) {
     rows += `
       <tr>
         <td style="text-align:center;width:20px;">${info.qty}</td>
-        <td>${info.name}</td>
+        <td>${esc(info.name)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${basePrice.toFixed(2)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
@@ -1547,7 +2059,7 @@ function generateTicket(sale) {
       ${info.extra ? `
       <tr style="font-size:10px;opacity:0.8;">
         <td></td>
-        <td style="padding-left:8px;">+ ${info.extra.name}</td>
+        <td style="padding-left:8px;">+ ${esc(info.extra.name)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${info.extra.price.toFixed(2)}</td>
         <td colspan="2" style="text-align:right;padding-left:2px;font-style:italic;">(incl.)</td>
@@ -1645,7 +2157,7 @@ function generateTicket(sale) {
     const ticketElement = document.getElementById("ticket");
 
     if (!ticketElement) {
-      alert("No se generó el ticket");
+      showToast("No se generó el ticket");
       return;
     }
 
@@ -1714,11 +2226,10 @@ function showPage(page) {
     updatedItems.clear();
     renderProducts();
     renderInventory();
-    renderRestockLog();
+    renderRestockLogFromFirestore();
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
-    updateCutBtn();
     renderHistory();
   }
   if (page === "promos") {
@@ -1750,11 +2261,19 @@ function showPage(page) {
 // Hold-to-repeat state
 let holdTimer = null;
 let holdInterval = null;
+let _holdRestockName = null;
+let _holdRestockAccum = 0;
 
 function startHold(name, delta) {
+  _holdRestockName = name;
+  _holdRestockAccum = 0;
   updateStock(name, delta);
+  if (delta > 0) _holdRestockAccum += delta;
   holdTimer = setTimeout(() => {
-    holdInterval = setInterval(() => updateStock(name, delta), 80);
+    holdInterval = setInterval(() => {
+      updateStock(name, delta);
+      if (delta > 0) _holdRestockAccum += delta;
+    }, 80);
   }, 500);
 }
 
@@ -1763,6 +2282,12 @@ function stopHold() {
   clearInterval(holdInterval);
   holdTimer = null;
   holdInterval = null;
+  if (_holdRestockAccum > 0 && _holdRestockName) {
+    DataStore.addRestock({ date: new Date().toLocaleString(), name: _holdRestockName, qty: _holdRestockAccum });
+    renderRestockLogFromFirestore();
+  }
+  _holdRestockName = null;
+  _holdRestockAccum = 0;
 }
 
 function renderInventory() {
@@ -1803,12 +2328,12 @@ function renderInventory() {
     if (hideModeActive) {
       div.onclick = () => toggleItemHidden(name);
       div.innerHTML = `
-        <div class="inv-name">${name}</div>
+        <div class="inv-name">${esc(name)}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${isHidden ? '🚫 Oculto — toca para mostrar' : '👁 Visible — toca para ocultar'}</div>
       `;
     } else {
       div.innerHTML = `
-        <div class="inv-name">${name}</div>
+        <div class="inv-name">${esc(name)}</div>
         <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
         <div class="inv-price-row">
           💲<input
@@ -1848,14 +2373,16 @@ function renderInventory() {
 }
 
 function updatePrice(name, value) {
-  const price = parseFloat(value);
-  if (isNaN(price) || price < 0) return;
+  const price = Math.max(0, parseFloat(value));
+  if (isNaN(price)) return;
 
   menu.forEach(cat => {
     cat.items.forEach(item => {
       if (item.name === name) item.price = price;
     });
   });
+
+  DataStore.saveCustomPrice(name, price);
 
   cart.forEach(item => {
     if (item.name === name) item.price = price;
@@ -1876,13 +2403,7 @@ function updateStock(name, delta) {
     updatedItems.delete(name);
   }
 
-  if (delta > 0) {
-    const log = JSON.parse(localStorage.getItem("restockLog")) || [];
-    log.unshift({ date: new Date().toLocaleString(), name, qty: delta });
-    localStorage.setItem("restockLog", JSON.stringify(log));
-    renderRestockLog();
-  }
-
+  DataStore.setStock(name, inventory[name]);
   saveInventory();
   renderInventory();
   renderProducts();
@@ -1897,6 +2418,7 @@ function getHiddenItems() {
 
 function saveHiddenItems(list) {
   localStorage.setItem("hiddenItems", JSON.stringify(list));
+  DataStore.saveHiddenItems(list);
 }
 
 function toggleHideMode() {
@@ -1937,14 +2459,13 @@ function toggleEditMode() {
   renderHistory();
 }
 
-function openEditSale(index) {
-  const data = JSON.parse(localStorage.getItem("history")) || [];
-  const sale = data[index];
+function openEditSale(saleId) {
+  const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
   openModal(`
     <h3 style="margin-top:0;">✏️ Editar venta</h3>
-    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${sale.folio || '—'} · ${sale.date}</p>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
     <div class="promo-form">
       <label>Total ($)</label>
       <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
@@ -1956,54 +2477,55 @@ function openEditSale(index) {
       </select>
 
       <label>Nota (opcional)</label>
-      <input id="edit-note" type="text" value="${sale.note || ''}" placeholder="Ej: cobro parcial, error de precio...">
+      <input id="edit-note" type="text" value="${esc(sale.note || '')}" placeholder="Ej: cobro parcial, error de precio...">
     </div>
-    <button class="btn-brand" onclick="confirmEditSale(${index})" style="margin-top:14px;">Guardar</button>
+    <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
 
-function confirmEditSale(index) {
-  const data = JSON.parse(localStorage.getItem("history")) || [];
+async function confirmEditSale(saleId) {
   const total  = parseFloat(document.getElementById("edit-total").value);
   const method = document.getElementById("edit-method").value;
   const note   = document.getElementById("edit-note").value.trim();
 
-  if (isNaN(total) || total < 0) { alert("Total inválido"); return; }
+  if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
 
-  data[index].total  = total;
-  data[index].method = method;
-  if (note) data[index].note = note;
+  const updates = { total, method };
+  if (note) updates.note = note;
 
-  localStorage.setItem("history", JSON.stringify(data));
+  await DataStore.updateSale(saleId, updates);
   closeModal();
   showToast("Venta actualizada ✅");
-  renderHistory();
+  await renderHistoryFromFirestore();
 }
 
-function renderHistory() {
+let _historyData = [];
+
+async function renderHistory() {
+  await renderHistoryFromFirestore();
+}
+
+function renderHistoryWithData(data) {
   const container = document.getElementById("historyList");
   if (!container) return;
 
   container.innerHTML = "";
-
-  const data = JSON.parse(localStorage.getItem("history")) || [];
+  _historyData = data;
 
   if (data.length === 0) {
     container.innerHTML = "<p>No hay ventas aún.</p>";
+    updateCutBtnWithData(data);
     return;
-  }  
+  }
 
-  data.slice().reverse().forEach((sale, reversedIdx) => {
-    const realIndex = data.length - 1 - reversedIdx;
+  data.forEach(sale => {
     const div = document.createElement("div");
     div.className = "inventory-card";
 
-    // 🔥 Construir filas bonitas
     let itemsHTML = "";
     let rawTotal = 0;
 
-// Items with cartId shown individually; plain items grouped
     const grouped = {};
     sale.items.forEach(item => {
       const key = item.name + (item.extra ? '::' + item.extra.name : '');
@@ -2011,7 +2533,6 @@ function renderHistory() {
       grouped[key].qty++;
     });
 
-    // Header row
     itemsHTML += `
       <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:11px;font-weight:700;opacity:0.5;padding:2px 0;border-bottom:1px solid var(--border);">
         <span style="text-align:center;">Q</span>
@@ -2027,19 +2548,18 @@ function renderHistory() {
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:13px;padding:3px 0;">
           <span style="text-align:center;">${info.qty}</span>
-          <span>${info.name}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${info.extra.name}</span>` : ''}</span>
+          <span>${esc(info.name)}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${esc(info.extra.name)}</span>` : ''}</span>
           <span style="text-align:right;">$${info.price.toFixed(2)}</span>
           <span style="text-align:right;">$${subtotal.toFixed(2)}</span>
         </div>
       `;
     });
 
-    // Promo discount lines
     const salePromos = sale.promos || [];
     let totalDiscount = 0;
     salePromos.forEach(p => {
       totalDiscount += p.discount;
-      let label = `🏷 ${p.name}`;
+      let label = `🏷 ${esc(p.name)}`;
       if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
@@ -2052,11 +2572,12 @@ function renderHistory() {
     });
 
     const finalTotal = sale.total;
+    const saleId = sale._id;
 
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div class="inv-name">${sale.date || ""}</div>
-        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">Folio: ${sale.folio}</div>` : ''}
+        <div class="inv-name">${esc(sale.date || "")}</div>
+        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">Folio: ${esc(sale.folio)}</div>` : ''}
       </div>
 
       <div class="history-items">
@@ -2066,102 +2587,83 @@ function renderHistory() {
       <div class="history-footer">
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;">
-          ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale(${realIndex})">✏️</button>` : ''}
-          <button onclick="generateTicket(${JSON.stringify(sale).replace(/"/g, '&quot;')})">🧾</button>
-          <button class="delete-btn" onclick="deleteSale(${realIndex})">🗑️</button>
+          ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale('${saleId}')">✏️</button>` : ''}
+          <button onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">🧾</button>
+          <button class="delete-btn" onclick="deleteSale('${saleId}')">🗑️</button>
         </div>
       </div>
     `;
 
     container.appendChild(div);
   });
+
+  updateCutBtnWithData(data);
 }
 
-function updateCutBtn() {
-  const history = JSON.parse(localStorage.getItem("history")) || [];
+function updateCutBtnWithData(data) {
   const container = document.getElementById("cutBtn");
-
-  if (history.length >   0) {
+  if (data.length > 0) {
     container.style.display = "block";
   } else {
     container.style.display = "none";
   }
 }
 
-function deleteSale(index) {
-  const data = JSON.parse(localStorage.getItem("history")) || [];
+function deleteSale(saleId) {
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (!sale) return;
+  confirmModal("¿Borrar esta transacción?", async () => {
+    (sale.items || []).forEach(item => {
+      if (!(item.name in defaultInventory)) return;
+      if (!inventory[item.name]) inventory[item.name] = 0;
+      inventory[item.name]++;
+      DataStore.incrementStock(item.name, 1);
+    });
 
-  if (!confirm("¿Borrar esta transacción?")) return;
+    saveInventory();
+    await DataStore.deleteSale(saleId);
 
-  const sale = data[index];
-
-  // 🟢 DEVOLVER INVENTARIO
-  (sale.items || []).forEach(item => {
-    if (!inventory[item.name]) {
-      inventory[item.name] = 0;
-    }
-    inventory[item.name]++;
+    renderProducts();
+    renderInventory();
+    await renderHistoryFromFirestore();
   });
-
-  saveInventory();
-
-  // eliminar venta
-  data.splice(index, 1);
-  localStorage.setItem("history", JSON.stringify(data));
-
-  renderProducts();
-  renderInventory();
-  renderHistory();
 }
 
-function generateCut() {
-  const today = new Date().toLocaleDateString();
+async function generateCut() {
+  const todayISO = new Date().toISOString().slice(0, 10);
 
-  const history = JSON.parse(localStorage.getItem("history")) || [];
+  const history = _historyData || await DataStore.getSales();
 
-  const todaySales = history.filter(s => s.date.startsWith(today));
+  const todaySales = history.filter(s =>
+    s.isoDate ? s.isoDate.startsWith(todayISO) : true
+  );
 
   const total = todaySales.reduce((sum, s) => sum + s.total, 0);
   const count = todaySales.length;
 
-  let breakdown = {};
-
-  todaySales.forEach(sale => {
-    sale.items.forEach(item => {
-      breakdown[item.name] = (breakdown[item.name] || 0) + 1;
-    });
-  });
-
-  console.log("Corte:", { total, count, breakdown });
-
-  exportToExcel();
-
+  await exportToExcel(history);
   clearSales(count, total);
 }
 
 function clearSales(count, total) {
-  if (confirm("¿Cerrar caja y borrar ventas?")) {
-    localStorage.removeItem("history");
-    localStorage.removeItem("mermas");
-    localStorage.removeItem("restockLog");
+  confirmModal("¿Cerrar caja y borrar ventas?", async () => {
+    await DataStore.clearDayData();
 
-    setTimeout(() => {
-      alert(
-        "Corte del día\n\n" +
-        "Ventas: " + count + "\n" +
-        "Total: $" + total
-      );
-    });
+    await renderHistoryFromFirestore();
 
-    renderHistory();
-    updateCutBtn();
-  }
+    openModal(`
+      <h3 style="margin-top:0;">Corte del día</h3>
+      <p>Ventas: <strong>${count}</strong></p>
+      <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
+      <button class="btn-primary" onclick="closeModal()">Cerrar</button>
+    `);
+  });
 }
 
-function exportToExcel() {
-  const history = JSON.parse(localStorage.getItem("history")) || [];
-  const mermas  = JSON.parse(localStorage.getItem("mermas"))  || [];
-  const costs   = JSON.parse(localStorage.getItem("costs"))   || {};
+async function exportToExcel(historyOverride) {
+  const history = historyOverride || await DataStore.getSales();
+  const mermas  = await DataStore.getMermas();
+  const costs   = await DataStore.getCosts();
 
   // Collect all product names from sales
   let products = new Set();
@@ -2243,38 +2745,32 @@ function exportToExcel() {
   const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `postre_mio_corte_${new Date().toLocaleDateString()}.csv`;
+  link.download = `postre_mio_corte_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
 
 // ── COSTS ENGINE ──────────────────────────────
 
-function getCosts() {
-  return JSON.parse(localStorage.getItem("costs")) || {};
-}
+let _costsCache = {};
 
-function saveCosts(costs) {
-  localStorage.setItem("costs", JSON.stringify(costs));
-}
-
-function renderCosts() {
+async function renderCosts() {
   const container = document.getElementById("costsList");
   if (!container) return;
 
-  const costs = getCosts();
+  _costsCache = await DataStore.getCosts();
   const allItems = menu.flatMap(c => c.items);
 
   container.innerHTML = allItems.map(item => `
     <div class="costs-row">
-      <span>${item.name}</span>
+      <span>${esc(item.name)}</span>
       <span style="color:var(--text-muted);font-size:12px;">$</span>
       <input
         type="number"
         inputmode="decimal"
         min="0"
         step="0.01"
-        value="${costs[item.name] !== undefined ? costs[item.name] : ''}"
+        value="${_costsCache[item.name] !== undefined ? _costsCache[item.name] : ''}"
         placeholder="0.00"
         onfocus="this.select()"
         onchange="updateCost('${item.name.replace(/'/g, "\\'")}', this.value)"
@@ -2284,14 +2780,13 @@ function renderCosts() {
 }
 
 function updateCost(name, value) {
-  const cost = parseFloat(value);
-  const costs = getCosts();
-  if (isNaN(cost) || cost < 0) {
-    delete costs[name];
+  const cost = Math.max(0, parseFloat(value));
+  if (isNaN(cost)) {
+    delete _costsCache[name];
   } else {
-    costs[name] = cost;
+    _costsCache[name] = cost;
   }
-  saveCosts(costs);
+  DataStore.saveCosts(_costsCache);
 }
 
 
@@ -2309,6 +2804,16 @@ function showToast(msg) {
   setTimeout(() => {
     toast.remove();
   }, 2500);
+}
+
+function confirmModal(message, onConfirm) {
+  openModal(`
+    <h3 style="margin-top:0;">${esc(message)}</h3>
+    <button class="btn-primary" id="_confirmYes">Sí</button>
+    <button class="btn-secondary" id="_confirmNo">Cancelar</button>
+  `);
+  document.getElementById("_confirmYes").onclick = () => { closeModal(); onConfirm(); };
+  document.getElementById("_confirmNo").onclick = () => { closeModal(); };
 }
 
 
@@ -2331,11 +2836,7 @@ function showToast(msg) {
 //      — pct_discount: discount % applied to matched items (e.g. 10 for 10%)
 //  }
 
-let promotions = JSON.parse(localStorage.getItem("promotions")) || [];
-
-function savePromos() {
-  localStorage.setItem("promotions", JSON.stringify(promotions));
-}
+let promotions = [];
 
 // ── helpers ──────────────────────────────────
 
@@ -2417,7 +2918,7 @@ function renderCart() {
   payBtn.disabled = cart.length === 0;
 
   const container = document.getElementById("cart");
-  container.innerHTML = "";
+  const frag = document.createDocumentFragment();
 
   const { finalTotal, appliedPromos } = computeCartTotals();
 
@@ -2435,15 +2936,15 @@ function renderCart() {
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
-      <div class="cart-item-name">${item.name}</div>
+      <div class="cart-item-name">${esc(item.name)}</div>
       <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
-      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${item.extra.name}</span></div>` : ''}
+      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${esc(item.extra.name)}</span></div>` : ''}
       <div class="cart-item-controls">
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
       </div>
     `;
-    container.appendChild(div);
+    frag.appendChild(div);
   });
 
   // Discount lines
@@ -2451,33 +2952,46 @@ function renderCart() {
     if (a.discount <= 0) return;
     const line = document.createElement("div");
     line.className = "cart-discount-line";
-    let label = `🏷 ${a.promo.name}`;
+    let label = `🏷 ${esc(a.promo.name)}`;
     if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
     line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
-    container.appendChild(line);
+    frag.appendChild(line);
   });
+
+  container.innerHTML = "";
+  container.appendChild(frag);
 
   document.getElementById("total").innerText = finalTotal.toFixed(2);
   localStorage.setItem("cart", JSON.stringify(cart));
 
-  // Update stock counters on product cards dynamically
-  menu.flatMap(c => c.items).forEach(item => {
+  // Build a set of product names in the cart for targeted stock updates
+  const cartNames = new Set(cart.map(i => i.name));
+  const allItems = menu.flatMap(c => c.items);
+  const itemsToUpdate = allItems.filter(i => cartNames.has(i.name) || i._prevInCart);
+
+  // Count items in cart once
+  const cartCounts = {};
+  cart.forEach(i => { cartCounts[i.name] = (cartCounts[i.name] || 0) + 1; });
+
+  allItems.forEach(item => {
+    const inCart = cartCounts[item.name] || 0;
+    const wasInCart = item._prevInCart || 0;
+    item._prevInCart = inCart;
+    if (inCart === 0 && wasInCart === 0) return;
+
     const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
     const el = document.getElementById('stock-' + safeId);
     if (!el) return;
-    const inCart = cart.filter(i => i.name === item.name).length;
     const remaining = (inventory[item.name] ?? 0) - inCart;
     const isLow = remaining > 0 && remaining <= 3;
     const isOut = remaining <= 0;
     el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
 
-    // Also update the card's clickability and class
     const card = el.closest('.product');
     if (card) {
-      const menuItem = menu.flatMap(c => c.items).find(i => i.name === item.name);
       card.className = 'product' + (isLow ? ' low-stock-product' : '') + (isOut ? ' out-of-stock' : '');
-      card.onclick = isOut ? null : () => addToCart(menuItem);
+      card.onclick = isOut ? null : () => addToCart(item);
     }
   });
 }
@@ -2528,10 +3042,10 @@ function renderPromos() {
     card.className = "promo-card" + (p.active ? "" : " promo-inactive");
     card.innerHTML = `
       <div class="promo-card-header">
-        <div class="promo-name">${p.name}</div>
+        <div class="promo-name">${esc(p.name)}</div>
         <span class="promo-badge ${promoTypeClass(p.type)}">${promoTypeLabel(p.type)}</span>
       </div>
-      <div class="promo-desc">${promoDescription(p)}</div>
+      <div class="promo-desc">${esc(promoDescription(p))}</div>
       <div class="promo-card-footer">
         <button class="promo-toggle ${p.active ? 'active' : 'inactive'}"
           onclick="togglePromo(${idx})">
@@ -2544,19 +3058,22 @@ function renderPromos() {
   });
 }
 
-function togglePromo(idx) {
-  promotions[idx].active = !promotions[idx].active;
-  savePromos();
+async function togglePromo(idx) {
+  const promo = promotions[idx];
+  promo.active = !promo.active;
+  if (promo._id) await DataStore.updatePromotion(promo._id, { active: promo.active });
   renderPromos();
-  renderCart(); // re-apply discounts
+  renderCart();
 }
 
 function deletePromo(idx) {
-  if (!confirm(`¿Eliminar la promoción "${promotions[idx].name}"?`)) return;
-  promotions.splice(idx, 1);
-  savePromos();
-  renderPromos();
-  renderCart();
+  confirmModal(`¿Eliminar la promoción "${promotions[idx].name}"?`, async () => {
+    const promo = promotions[idx];
+    if (promo._id) await DataStore.deletePromotion(promo._id);
+    promotions.splice(idx, 1);
+    renderPromos();
+    renderCart();
+  });
 }
 
 // ── promo creation modal ──────────────────────
@@ -2664,17 +3181,17 @@ function savePromo() {
   const triggerQty = parseInt(document.getElementById("pf-trigger").value, 10);
   const value = parseFloat(document.getElementById("pf-value").value);
 
-  if (!name) { alert("Ponle un nombre a la promoción."); return; }
-  if (isNaN(triggerQty) || triggerQty < 1) { alert("La cantidad mínima debe ser al menos 1."); return; }
-  if (isNaN(value) || value < 0) { alert("El valor no es válido."); return; }
+  if (!name) { showToast("Ponle un nombre a la promoción"); return; }
+  if (isNaN(triggerQty) || triggerQty < 1) { showToast("La cantidad mínima debe ser al menos 1"); return; }
+  if (isNaN(value) || value < 0) { showToast("El valor no es válido"); return; }
 
   let scopeValue = "";
   if (scope === "product") scopeValue = document.getElementById("pf-scope-product").value;
   if (scope === "category") scopeValue = document.getElementById("pf-scope-category").value;
 
-  const promo = { id: Date.now(), name, active: true, scope, scopeValue, triggerQty, type, value };
+  const promo = { name, active: true, scope, scopeValue, triggerQty, type, value };
+  DataStore.addPromotion(promo);
   promotions.push(promo);
-  savePromos();
 
   closeModal();
   showToast(`Promoción "${name}" creada ✅`);
@@ -2686,12 +3203,15 @@ function savePromo() {
 //  RESTOCK LOG ENGINE
 // ─────────────────────────────────────────────
 
-function renderRestockLog() {
+async function renderRestockLogFromFirestore() {
+  const log = await DataStore.getRestockLog();
+  renderRestockLogWithData(log);
+}
+
+function renderRestockLogWithData(log) {
   const section = document.getElementById("restockSection");
   const container = document.getElementById("restockList");
   if (!section || !container) return;
-
-  const log = JSON.parse(localStorage.getItem("restockLog")) || [];
 
   if (!log.length) {
     section.style.display = "none";
@@ -2700,12 +3220,11 @@ function renderRestockLog() {
 
   section.style.display = "block";
 
-  // Consolidate consecutive entries of the same item on the same date
   const rows = log.map(entry => `
     <div class="restock-entry">
       <div>
-        <div style="font-weight:600;">${entry.name}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${entry.date}</div>
+        <div style="font-weight:600;">${esc(entry.name)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
     </div>
@@ -2715,14 +3234,54 @@ function renderRestockLog() {
 }
 
 function clearRestockLog() {
-  if (!confirm("¿Borrar el registro de reabastecimientos?")) return;
-  localStorage.removeItem("restockLog");
-  renderRestockLog();
+  confirmModal("¿Borrar el registro de reabastecimientos?", async () => {
+    await DataStore.clearRestockLog();
+    renderRestockLogWithData([]);
+  });
 }
 
-// ── Init ──────────────────────────────────────
-renderProducts();
-renderCart();
+// ── Init (called after auth) ─────────────────
+async function initApp() {
+  // Load initial data from Firestore
+  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden] = await Promise.all([
+    DataStore.getInventory(),
+    DataStore.getCustomPrices(),
+    DataStore.getPromotions(),
+    DataStore.getHiddenItems(),
+  ]);
+
+  // Seed inventory if Firestore is empty (first run)
+  if (Object.keys(firestoreInv).length === 0) {
+    const batch = db.batch();
+    Object.entries(defaultInventory).forEach(([name, qty]) => {
+      batch.set(storeRef("inventory").doc(name), { qty });
+    });
+    await batch.commit();
+    Object.assign(inventory, defaultInventory);
+  } else {
+    Object.keys(inventory).forEach(k => delete inventory[k]);
+    Object.assign(inventory, firestoreInv);
+  }
+
+  // Apply custom prices
+  menu.forEach(cat => {
+    cat.items.forEach(item => {
+      if (firestorePrices[item.name] !== undefined) item.price = firestorePrices[item.name];
+    });
+  });
+
+  // Load promotions
+  promotions = firestorePromos;
+
+  // Store hidden items locally for quick access
+  localStorage.setItem("hiddenItems", JSON.stringify(firestoreHidden));
+
+  saveInventory();
+  renderProducts();
+  renderCart();
+
+  startListeners();
+}
 
 // ─────────────────────────────────────────────
 //  MERMA ENGINE
@@ -2735,13 +3294,7 @@ const MERMA_REASONS = {
   consumo: { label: "Consumo propio",   emoji: "👩‍🍳" },
 };
 
-function getMermas() {
-  return JSON.parse(localStorage.getItem("mermas")) || [];
-}
 
-function saveMermas(mermas) {
-  localStorage.setItem("mermas", JSON.stringify(mermas));
-}
 
 function openMermaModal() {
   // Build category options
@@ -2796,22 +3349,20 @@ function onMermaCatChange() {
   ).join('');
 }
 
-function confirmMerma() {
+async function confirmMerma() {
   const name   = document.getElementById("merma-item")?.value;
   const reason = document.getElementById("merma-reason")?.value;
   const qty    = parseInt(document.getElementById("merma-qty")?.value, 10);
   const stock  = inventory[name] ?? 0;
 
-  if (!name)              { alert("Selecciona un producto");  return; }
-  if (isNaN(qty) || qty < 1) { alert("Cantidad inválida");   return; }
-  if (qty > stock)        { alert(`Solo hay ${stock} en stock`); return; }
+  if (!name)              { showToast("Selecciona un producto");  return; }
+  if (isNaN(qty) || qty < 1) { showToast("Cantidad inválida");   return; }
+  if (qty > stock)        { showToast(`Solo hay ${stock} en stock`); return; }
 
   inventory[name] = stock - qty;
-  saveInventory();
+  DataStore.setStock(name, inventory[name]);
 
-  const mermas = getMermas();
-  mermas.unshift({ id: Date.now(), date: new Date().toLocaleString(), name, qty, reason });
-  saveMermas(mermas);
+  await DataStore.addMerma({ date: new Date().toLocaleString(), name, qty, reason });
 
   closeModal();
   showToast(`Merma de ${qty} × ${name} registrada`);
@@ -2819,11 +3370,11 @@ function confirmMerma() {
   renderMermaLog();
 }
 
-function renderMermaLog() {
+async function renderMermaLog() {
   const container = document.getElementById("mermaList");
   if (!container) return;
 
-  const mermas = getMermas();
+  const mermas = await DataStore.getMermas();
 
   if (!mermas.length) {
     container.innerHTML = `
@@ -2840,8 +3391,8 @@ function renderMermaLog() {
     return `
       <div class="merma-entry">
         <div>
-          <div style="font-weight:600;">${m.name}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${m.date}</div>
+          <div style="font-weight:600;">${esc(m.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${esc(m.date)}</div>
         </div>
         <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
@@ -2858,22 +3409,17 @@ function renderMermaLog() {
 }
 
 function clearMermaLog() {
-  if (!confirm("¿Borrar todo el registro de mermas?")) return;
-  localStorage.removeItem("mermas");
-  renderMermaLog();
+  confirmModal("¿Borrar todo el registro de mermas?", async () => {
+    await DataStore.clearMermas();
+    renderMermaLog();
+  });
 }
 
 // ─────────────────────────────────────────────
 //  PENDING ORDERS ENGINE
 // ─────────────────────────────────────────────
 
-function getPending() {
-  return JSON.parse(localStorage.getItem("pendingOrders")) || [];
-}
 
-function savePendingList(list) {
-  localStorage.setItem("pendingOrders", JSON.stringify(list));
-}
 
 function saveAsPending() {
   if (cart.length === 0) {
@@ -2896,13 +3442,12 @@ function saveAsPending() {
   setTimeout(() => document.getElementById('pending-name')?.focus(), 80);
 }
 
-function confirmSaveAsPending() {
+async function confirmSaveAsPending() {
   const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
   const note = document.getElementById('pending-note').value.trim();
   const { finalTotal } = computeCartTotals();
 
   const order = {
-    id: Date.now(),
     date: new Date().toLocaleString(),
     name,
     note,
@@ -2913,15 +3458,14 @@ function confirmSaveAsPending() {
       .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0 }))
   };
 
-  // Reserve stock — deduct each item from inventory
-  order.items.forEach(item => {
-    if (inventory[item.name] > 0) inventory[item.name]--;
-  });
-  saveInventory();
+  for (const item of order.items) {
+    if (inventory[item.name] > 0) {
+      inventory[item.name]--;
+      DataStore.setStock(item.name, inventory[item.name]);
+    }
+  }
 
-  const list = getPending();
-  list.unshift(order);
-  savePendingList(list);
+  await DataStore.addPending(order);
 
   cart = [];
   localStorage.removeItem("cart");
@@ -2929,55 +3473,55 @@ function confirmSaveAsPending() {
   renderProducts();
 
   closeModal();
-  showToast(`Pedido de ${name} guardado ✅`);
+  showToast(`Pedido de ${name} guardado`);
 }
 
-function loadPending(id) {
-  const list = getPending();
-  const order = list.find(o => o.id === id);
+async function loadPending(id) {
+  const list = await DataStore.getPending();
+  const order = list.find(o => o._id === id);
   if (!order) return;
 
-  if (cart.length > 0 && !confirm("El carrito actual se reemplazará. ¿Continuar?")) return;
-
-  // Restore reserved stock — finalizeSale will deduct again on completion
-  order.items.forEach(item => {
-    inventory[item.name] = (inventory[item.name] ?? 0) + 1;
-  });
-  saveInventory();
-
-  // Remove from pending list
-  savePendingList(list.filter(o => o.id !== id));
-
-  cart = order.items.map(item => ({ ...item }));
-  renderCart();
-  renderProducts();
-  showPage('pos');
-  showToast(`Pedido de ${order.name} cargado`);
-}
-
-function deletePending(id) {
-  const list = getPending();
-  const order = list.find(o => o.id === id);
-  if (!confirm(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`)) return;
-
-  // Restore reserved stock
-  if (order) {
-    order.items.forEach(item => {
+  const doLoad = async () => {
+    for (const item of order.items) {
       inventory[item.name] = (inventory[item.name] ?? 0) + 1;
-    });
-    saveInventory();
+      DataStore.setStock(item.name, inventory[item.name]);
+    }
+    await DataStore.deletePending(id);
+    cart = order.items.map(item => ({ ...item }));
+    renderCart();
     renderProducts();
-  }
+    showPage('pos');
+    showToast(`Pedido de ${order.name} cargado`);
+  };
 
-  savePendingList(list.filter(o => o.id !== id));
-  renderPending();
+  if (cart.length > 0) {
+    confirmModal("El carrito actual se reemplazará. ¿Continuar?", doLoad);
+  } else {
+    await doLoad();
+  }
 }
 
-function renderPending() {
+async function deletePending(id) {
+  const list = await DataStore.getPending();
+  const order = list.find(o => o._id === id);
+  confirmModal(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`, async () => {
+    if (order) {
+      for (const item of order.items) {
+        inventory[item.name] = (inventory[item.name] ?? 0) + 1;
+        DataStore.setStock(item.name, inventory[item.name]);
+      }
+      renderProducts();
+    }
+    await DataStore.deletePending(id);
+    renderPending();
+  });
+}
+
+async function renderPending() {
   const container = document.getElementById("pendingList");
   if (!container) return;
 
-  const list = getPending();
+  const list = await DataStore.getPending();
 
   if (!list.length) {
     container.innerHTML = `
@@ -2993,7 +3537,6 @@ function renderPending() {
   container.innerHTML = "";
 
   list.forEach(order => {
-    // Summarise items
     const grouped = {};
     order.items.forEach(item => {
       const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
@@ -3007,16 +3550,16 @@ function renderPending() {
     card.className = "pending-card";
     card.innerHTML = `
       <div class="pending-card-header">
-        <div class="pending-name">${order.name}</div>
-        <div class="pending-date">${order.date}</div>
+        <div class="pending-name">${esc(order.name)}</div>
+        <div class="pending-date">${esc(order.date)}</div>
       </div>
-      ${order.note ? `<div class="pending-note">📝 ${order.note}</div>` : ''}
-      <div class="pending-items">${summary}</div>
+      ${order.note ? `<div class="pending-note">📝 ${esc(order.note)}</div>` : ''}
+      <div class="pending-items">${esc(summary)}</div>
       <div class="pending-footer">
         <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
-          <button class="btn-brand" onclick="loadPending(${order.id})">🛒 Cobrar</button>
-          <button class="delete-btn" onclick="deletePending(${order.id})">🗑️</button>
+          <button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>
+          <button class="delete-btn" onclick="deletePending('${order._id}')">🗑️</button>
         </div>
       </div>
     `;
