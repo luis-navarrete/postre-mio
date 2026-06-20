@@ -934,7 +934,7 @@ button:active { opacity: 0.75; }
 .auth-gate {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #7ED0D2 0%, #5BB8BA 100%);
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -942,7 +942,7 @@ button:active { opacity: 0.75; }
 }
 
 .auth-card {
-  background: #fff;
+  background: linear-gradient(135deg, #7ED0D2 0%, #5BB8BA 100%);
   border-radius: 20px;
   padding: 40px 32px 32px;
   box-shadow: 0 12px 40px rgba(0,0,0,0.15);
@@ -952,43 +952,39 @@ button:active { opacity: 0.75; }
 }
 
 .auth-card img { max-height: 60px; margin-bottom: 12px; }
-.auth-card h2 { margin: 0 0 4px; font-size: 18px; color: #333; }
-.auth-card p { margin: 0 0 20px; font-size: 13px; color: #888; }
+.auth-card h2 { margin: 0 0 4px; font-size: 18px; color: #fff; }
+.auth-card p { margin: 0 0 24px; font-size: 13px; color: rgba(255,255,255,0.8); }
 
-.pin-input {
+.pin-dots {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 18px;
+  margin-bottom: 24px;
 }
 
-.pin-input input {
-  width: 52px;
-  height: 58px;
-  text-align: center;
-  font-size: 24px;
-  font-weight: 700;
-  border: none;
-  border-radius: 14px;
-  background: #f0f5f5;
-  outline: none;
-  transition: box-shadow 0.2s, background 0.2s;
-  -webkit-text-security: disc;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
-  caret-color: var(--brand);
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.7);
+  background: transparent;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
 }
 
-.pin-input input:focus {
-  background: #e6f3f3;
-  box-shadow: 0 0 0 2.5px var(--brand), inset 0 2px 4px rgba(0,0,0,0.04);
+.pin-dot.filled {
+  background: #fff;
+  border-color: #fff;
+  transform: scale(1.15);
 }
 
-.pin-input input.filled {
-  background: #e6f3f3;
+.pin-hidden-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .auth-error {
-  color: var(--red);
+  color: #ffe0e0;
   font-size: 13px;
   min-height: 20px;
   margin-bottom: 8px;
@@ -1021,14 +1017,15 @@ button:active { opacity: 0.75; }
     <img src="logo.jpeg">
     <h2>Postre Mío</h2>
     <p id="authSubtitle">Ingresa el PIN para continuar</p>
-    <div class="pin-input" id="pinInput">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="0">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="1">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="2">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="3">
+    <input type="tel" id="pinHiddenInput" class="pin-hidden-input" maxlength="4" inputmode="numeric" autocomplete="off">
+    <div class="pin-dots" id="pinDots" onclick="document.getElementById('pinHiddenInput').focus()">
+      <div class="pin-dot" data-idx="0"></div>
+      <div class="pin-dot" data-idx="1"></div>
+      <div class="pin-dot" data-idx="2"></div>
+      <div class="pin-dot" data-idx="3"></div>
     </div>
     <div class="auth-error" id="authError"></div>
-    <button class="btn-primary" id="authBtn" onclick="submitPin()" style="width:100%;">Entrar</button>
+    <button class="btn-primary" id="authBtn" onclick="submitPin()" style="width:100%;background:#fff;color:#3a9a9c;font-weight:700;border:none;">Entrar</button>
   </div>
 </div>
 
@@ -1218,33 +1215,27 @@ async function hashPin(pin) {
 
 let _isSettingUp = false;
 
-// Wire up PIN input fields
-document.querySelectorAll("#pinInput input").forEach(input => {
-  input.addEventListener("input", (e) => {
-    const val = e.target.value.replace(/\D/g, "");
-    e.target.value = val;
-    e.target.classList.toggle("filled", val.length > 0);
-    if (val && e.target.dataset.idx < 3) {
-      e.target.nextElementSibling?.focus();
-    }
-    if (getPin().length === 4) submitPin();
-  });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Backspace" && !e.target.value && e.target.dataset.idx > 0) {
-      const prev = e.target.previousElementSibling;
-      prev?.focus();
-      if (prev) prev.classList.remove("filled");
-    }
-  });
+// Wire up hidden PIN input → dot indicators
+const pinInput = document.getElementById("pinHiddenInput");
+const pinDots  = document.querySelectorAll("#pinDots .pin-dot");
+
+pinInput.addEventListener("input", () => {
+  const val = pinInput.value.replace(/\D/g, "").slice(0, 4);
+  pinInput.value = val;
+  pinDots.forEach((dot, i) => dot.classList.toggle("filled", i < val.length));
+  if (val.length === 4) submitPin();
 });
 
+setTimeout(() => pinInput.focus(), 100);
+
 function getPin() {
-  return Array.from(document.querySelectorAll("#pinInput input")).map(i => i.value).join("");
+  return pinInput.value;
 }
 
 function clearPin() {
-  document.querySelectorAll("#pinInput input").forEach(i => { i.value = ""; i.classList.remove("filled"); });
-  document.querySelector("#pinInput input")?.focus();
+  pinInput.value = "";
+  pinDots.forEach(dot => dot.classList.remove("filled"));
+  pinInput.focus();
 }
 
 async function submitPin() {
