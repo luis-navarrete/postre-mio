@@ -112,7 +112,8 @@ button:active { opacity: 0.75; }
   box-sizing: border-box;
 }
 
-.header img { max-height: 80px; object-fit: contain; }
+.header img { max-height: 80px; object-fit: contain; transition: opacity 0.1s; }
+.header img:active { opacity: 0.7; }
 
 /* ── SIDE MENU ─────────────────────────── */
 .menu-btn {
@@ -126,7 +127,10 @@ button:active { opacity: 0.75; }
   z-index: 10000;
   margin: 0;
   padding: 6px;
+  transition: opacity 0.1s;
 }
+
+.menu-btn:active { opacity: 0.5; }
 
 .side-menu {
   position: fixed;
@@ -246,7 +250,7 @@ button:active { opacity: 0.75; }
   cursor: pointer;
   box-shadow: var(--shadow);
   border: 2px solid transparent;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, transform 0.1s;
 }
 
 .product img {
@@ -258,6 +262,8 @@ button:active { opacity: 0.75; }
 
 .product h3 { margin: 6px 0 2px; font-size: 13px; }
 .product p  { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+.product:active { transform: scale(0.96); }
 
 .product.low-stock-product { border-color: var(--orange); }
 .product.out-of-stock      { opacity: 0.45; cursor: not-allowed; }
@@ -456,6 +462,7 @@ button:active { opacity: 0.75; }
 }
 
 .delete-btn:hover { opacity: 1; background: var(--btn-danger-bg); }
+.delete-btn:active { opacity: 1; transform: scale(0.9); }
 
 /* ── PROMOTIONS PAGE ───────────────────── */
 .promo-fab {
@@ -553,6 +560,7 @@ button:active { opacity: 0.75; }
   font-weight: 600;
 }
 
+.promo-toggle:active { opacity: 0.7; }
 .promo-toggle.active   { background: #e8f5e9; color: #2e7d32; }
 .promo-toggle.inactive { background: var(--btn-danger-bg); color: var(--btn-danger-color); }
 
@@ -827,6 +835,8 @@ button:active { opacity: 0.75; }
   cursor: pointer;
 }
 
+.hide-mode-btn:active { opacity: 0.7; }
+
 .hide-mode-btn.active {
   background: #fff3e0;
   color: #e65100;
@@ -840,8 +850,11 @@ button:active { opacity: 0.75; }
 
 .inventory-card.hide-mode-target {
   cursor: pointer;
+  transition: transform 0.1s;
   outline: 2px dashed var(--orange);
 }
+
+.inventory-card.hide-mode-target:active { transform: scale(0.96); }
 
 /* ── HISTORY EDIT MODE ── */
 .edit-mode-btn {
@@ -854,6 +867,8 @@ button:active { opacity: 0.75; }
   border: none;
   cursor: pointer;
 }
+
+.edit-mode-btn:active { opacity: 0.7; }
 
 .edit-mode-btn.active {
   background: #e3f2fd;
@@ -1717,6 +1732,7 @@ let cart = JSON.parse(localStorage.getItem("cart")) || [];
 function renderProducts() {
   const container = document.getElementById("products");
   container.innerHTML = "";
+  const hiddenItems = getHiddenItems();
 
   menu.forEach(cat => {
     const section = document.createElement("div");
@@ -1728,8 +1744,7 @@ function renderProducts() {
     grid.className = "grid";
 
     cat.items.forEach(item => {
-      const hiddenItems = getHiddenItems();
-      if (hiddenItems.includes(item.name)) return; // skip hidden
+      if (hiddenItems.includes(item.name)) return;
 
       const stock = inventory[item.name] ?? 0;
       const isOut = stock === 0;
