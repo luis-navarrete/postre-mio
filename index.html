@@ -1219,7 +1219,7 @@ const ITEM_EXTRAS = {
 function addToCart(item) {
   const inCart = cart.filter(i => i.name === item.name).length;
   if (inCart >= (inventory[item.name] ?? 0)) {
-    alert("Sin stock disponible");
+    showToast("Sin stock disponible");
     return;
   }
 
@@ -1283,7 +1283,7 @@ function changeQtyGrouped(name, extraName, delta) {
     // Check total in cart for this item name (all variants combined) vs stock
     const totalInCart = cart.filter(i => i.name === name).length;
     if (totalInCart >= (inventory[name] ?? 0)) {
-      alert("No hay más stock disponible");
+      showToast("No hay más stock disponible");
       return;
     }
 
@@ -1313,9 +1313,10 @@ function removeItem(i) {
 
 function clearCart() {
   if (cart.length === 0) return;
-  if (!confirm("¿Limpiar la orden?")) return;
-  cart = [];
-  renderCart();
+  confirmModal("¿Limpiar la orden?", () => {
+    cart = [];
+    renderCart();
+  });
 }
 
 function openModal(html) {
@@ -1489,7 +1490,7 @@ function showFinalStep(total, method, change, amount) {
 
 function finalizeSale() {
   if (!currentSale) {
-    alert("Error en la venta");
+    showToast("Error en la venta");
     return;
   }
 
@@ -1519,22 +1520,21 @@ function finalizeSale() {
   const sale = currentSale;
   currentSale = null;
 
-  // Single confirm: send ticket or just close
-  if (confirm("¿Enviar ticket al cliente?")) {
+  confirmModal("¿Enviar ticket al cliente?", () => {
     generateTicket(sale);
-  }
+  });
 }
 
 function generateTicket(sale) {
   if (!sale) {
-    alert("No hay venta disponible");
+    showToast("No hay venta disponible");
     return;
   }
 
   const container = document.getElementById("ticket-container");
 
   if (!container) {
-    alert("No existe #ticket-container en el HTML");
+    showToast("Error al generar ticket");
     return;
   }
 
@@ -1663,7 +1663,7 @@ function generateTicket(sale) {
     const ticketElement = document.getElementById("ticket");
 
     if (!ticketElement) {
-      alert("No se generó el ticket");
+      showToast("No se generó el ticket");
       return;
     }
 
@@ -1768,11 +1768,19 @@ function showPage(page) {
 // Hold-to-repeat state
 let holdTimer = null;
 let holdInterval = null;
+let _holdRestockName = null;
+let _holdRestockAccum = 0;
 
 function startHold(name, delta) {
+  _holdRestockName = name;
+  _holdRestockAccum = 0;
   updateStock(name, delta);
+  if (delta > 0) _holdRestockAccum += delta;
   holdTimer = setTimeout(() => {
-    holdInterval = setInterval(() => updateStock(name, delta), 80);
+    holdInterval = setInterval(() => {
+      updateStock(name, delta);
+      if (delta > 0) _holdRestockAccum += delta;
+    }, 80);
   }, 500);
 }
 
@@ -1781,6 +1789,14 @@ function stopHold() {
   clearInterval(holdInterval);
   holdTimer = null;
   holdInterval = null;
+  if (_holdRestockAccum > 0 && _holdRestockName) {
+    const log = JSON.parse(localStorage.getItem("restockLog")) || [];
+    log.unshift({ date: new Date().toLocaleString(), name: _holdRestockName, qty: _holdRestockAccum });
+    localStorage.setItem("restockLog", JSON.stringify(log));
+    renderRestockLog();
+  }
+  _holdRestockName = null;
+  _holdRestockAccum = 0;
 }
 
 function renderInventory() {
@@ -1898,13 +1914,6 @@ function updateStock(name, delta) {
     updatedItems.delete(name);
   }
 
-  if (delta > 0) {
-    const log = JSON.parse(localStorage.getItem("restockLog")) || [];
-    log.unshift({ date: new Date().toLocaleString(), name, qty: delta });
-    localStorage.setItem("restockLog", JSON.stringify(log));
-    renderRestockLog();
-  }
-
   saveInventory();
   renderInventory();
   renderProducts();
@@ -1991,7 +2000,7 @@ function confirmEditSale(index) {
   const method = document.getElementById("edit-method").value;
   const note   = document.getElementById("edit-note").value.trim();
 
-  if (isNaN(total) || total < 0) { alert("Total inválido"); return; }
+  if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
 
   data[index].total  = total;
   data[index].method = method;
@@ -2114,30 +2123,26 @@ function updateCutBtn() {
 }
 
 function deleteSale(index) {
-  const data = JSON.parse(localStorage.getItem("history")) || [];
+  confirmModal("¿Borrar esta transacción?", () => {
+    const data = JSON.parse(localStorage.getItem("history")) || [];
+    const sale = data[index];
 
-  if (!confirm("¿Borrar esta transacción?")) return;
+    (sale.items || []).forEach(item => {
+      if (!(item.name in defaultInventory)) return;
+      if (!inventory[item.name]) {
+        inventory[item.name] = 0;
+      }
+      inventory[item.name]++;
+    });
 
-  const sale = data[index];
+    saveInventory();
+    data.splice(index, 1);
+    localStorage.setItem("history", JSON.stringify(data));
 
-  // 🟢 DEVOLVER INVENTARIO
-  (sale.items || []).forEach(item => {
-    if (!(item.name in defaultInventory)) return;
-    if (!inventory[item.name]) {
-      inventory[item.name] = 0;
-    }
-    inventory[item.name]++;
+    renderProducts();
+    renderInventory();
+    renderHistory();
   });
-
-  saveInventory();
-
-  // eliminar venta
-  data.splice(index, 1);
-  localStorage.setItem("history", JSON.stringify(data));
-
-  renderProducts();
-  renderInventory();
-  renderHistory();
 }
 
 function generateCut() {
@@ -2169,22 +2174,21 @@ function generateCut() {
 }
 
 function clearSales(count, total) {
-  if (confirm("¿Cerrar caja y borrar ventas?")) {
+  confirmModal("¿Cerrar caja y borrar ventas?", () => {
     localStorage.removeItem("history");
     localStorage.removeItem("mermas");
     localStorage.removeItem("restockLog");
 
-    setTimeout(() => {
-      alert(
-        "Corte del día\n\n" +
-        "Ventas: " + count + "\n" +
-        "Total: $" + total
-      );
-    });
-
     renderHistory();
     updateCutBtn();
-  }
+
+    openModal(`
+      <h3 style="margin-top:0;">Corte del día</h3>
+      <p>Ventas: <strong>${count}</strong></p>
+      <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
+      <button class="btn-primary" onclick="closeModal()">Cerrar</button>
+    `);
+  });
 }
 
 function exportToExcel() {
@@ -2340,6 +2344,16 @@ function showToast(msg) {
   }, 2500);
 }
 
+function confirmModal(message, onConfirm) {
+  openModal(`
+    <h3 style="margin-top:0;">${esc(message)}</h3>
+    <button class="btn-primary" id="_confirmYes">Sí</button>
+    <button class="btn-secondary" id="_confirmNo">Cancelar</button>
+  `);
+  document.getElementById("_confirmYes").onclick = () => { closeModal(); onConfirm(); };
+  document.getElementById("_confirmNo").onclick = () => { closeModal(); };
+}
+
 
 // ─────────────────────────────────────────────
 //  PROMOTIONS ENGINE
@@ -2446,7 +2460,7 @@ function renderCart() {
   payBtn.disabled = cart.length === 0;
 
   const container = document.getElementById("cart");
-  container.innerHTML = "";
+  const frag = document.createDocumentFragment();
 
   const { finalTotal, appliedPromos } = computeCartTotals();
 
@@ -2472,7 +2486,7 @@ function renderCart() {
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
       </div>
     `;
-    container.appendChild(div);
+    frag.appendChild(div);
   });
 
   // Discount lines
@@ -2483,30 +2497,43 @@ function renderCart() {
     let label = `🏷 ${esc(a.promo.name)}`;
     if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
     line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
-    container.appendChild(line);
+    frag.appendChild(line);
   });
+
+  container.innerHTML = "";
+  container.appendChild(frag);
 
   document.getElementById("total").innerText = finalTotal.toFixed(2);
   localStorage.setItem("cart", JSON.stringify(cart));
 
-  // Update stock counters on product cards dynamically
-  menu.flatMap(c => c.items).forEach(item => {
+  // Build a set of product names in the cart for targeted stock updates
+  const cartNames = new Set(cart.map(i => i.name));
+  const allItems = menu.flatMap(c => c.items);
+  const itemsToUpdate = allItems.filter(i => cartNames.has(i.name) || i._prevInCart);
+
+  // Count items in cart once
+  const cartCounts = {};
+  cart.forEach(i => { cartCounts[i.name] = (cartCounts[i.name] || 0) + 1; });
+
+  allItems.forEach(item => {
+    const inCart = cartCounts[item.name] || 0;
+    const wasInCart = item._prevInCart || 0;
+    item._prevInCart = inCart;
+    if (inCart === 0 && wasInCart === 0) return;
+
     const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
     const el = document.getElementById('stock-' + safeId);
     if (!el) return;
-    const inCart = cart.filter(i => i.name === item.name).length;
     const remaining = (inventory[item.name] ?? 0) - inCart;
     const isLow = remaining > 0 && remaining <= 3;
     const isOut = remaining <= 0;
     el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
 
-    // Also update the card's clickability and class
     const card = el.closest('.product');
     if (card) {
-      const menuItem = menu.flatMap(c => c.items).find(i => i.name === item.name);
       card.className = 'product' + (isLow ? ' low-stock-product' : '') + (isOut ? ' out-of-stock' : '');
-      card.onclick = isOut ? null : () => addToCart(menuItem);
+      card.onclick = isOut ? null : () => addToCart(item);
     }
   });
 }
@@ -2581,11 +2608,12 @@ function togglePromo(idx) {
 }
 
 function deletePromo(idx) {
-  if (!confirm(`¿Eliminar la promoción "${promotions[idx].name}"?`)) return;
-  promotions.splice(idx, 1);
-  savePromos();
-  renderPromos();
-  renderCart();
+  confirmModal(`¿Eliminar la promoción "${promotions[idx].name}"?`, () => {
+    promotions.splice(idx, 1);
+    savePromos();
+    renderPromos();
+    renderCart();
+  });
 }
 
 // ── promo creation modal ──────────────────────
@@ -2693,9 +2721,9 @@ function savePromo() {
   const triggerQty = parseInt(document.getElementById("pf-trigger").value, 10);
   const value = parseFloat(document.getElementById("pf-value").value);
 
-  if (!name) { alert("Ponle un nombre a la promoción."); return; }
-  if (isNaN(triggerQty) || triggerQty < 1) { alert("La cantidad mínima debe ser al menos 1."); return; }
-  if (isNaN(value) || value < 0) { alert("El valor no es válido."); return; }
+  if (!name) { showToast("Ponle un nombre a la promoción"); return; }
+  if (isNaN(triggerQty) || triggerQty < 1) { showToast("La cantidad mínima debe ser al menos 1"); return; }
+  if (isNaN(value) || value < 0) { showToast("El valor no es válido"); return; }
 
   let scopeValue = "";
   if (scope === "product") scopeValue = document.getElementById("pf-scope-product").value;
@@ -2744,9 +2772,10 @@ function renderRestockLog() {
 }
 
 function clearRestockLog() {
-  if (!confirm("¿Borrar el registro de reabastecimientos?")) return;
-  localStorage.removeItem("restockLog");
-  renderRestockLog();
+  confirmModal("¿Borrar el registro de reabastecimientos?", () => {
+    localStorage.removeItem("restockLog");
+    renderRestockLog();
+  });
 }
 
 // ── Init ──────────────────────────────────────
@@ -2831,9 +2860,9 @@ function confirmMerma() {
   const qty    = parseInt(document.getElementById("merma-qty")?.value, 10);
   const stock  = inventory[name] ?? 0;
 
-  if (!name)              { alert("Selecciona un producto");  return; }
-  if (isNaN(qty) || qty < 1) { alert("Cantidad inválida");   return; }
-  if (qty > stock)        { alert(`Solo hay ${stock} en stock`); return; }
+  if (!name)              { showToast("Selecciona un producto");  return; }
+  if (isNaN(qty) || qty < 1) { showToast("Cantidad inválida");   return; }
+  if (qty > stock)        { showToast(`Solo hay ${stock} en stock`); return; }
 
   inventory[name] = stock - qty;
   saveInventory();
@@ -2887,9 +2916,10 @@ function renderMermaLog() {
 }
 
 function clearMermaLog() {
-  if (!confirm("¿Borrar todo el registro de mermas?")) return;
-  localStorage.removeItem("mermas");
-  renderMermaLog();
+  confirmModal("¿Borrar todo el registro de mermas?", () => {
+    localStorage.removeItem("mermas");
+    renderMermaLog();
+  });
 }
 
 // ─────────────────────────────────────────────
@@ -2966,40 +2996,40 @@ function loadPending(id) {
   const order = list.find(o => o.id === id);
   if (!order) return;
 
-  if (cart.length > 0 && !confirm("El carrito actual se reemplazará. ¿Continuar?")) return;
+  const doLoad = () => {
+    order.items.forEach(item => {
+      inventory[item.name] = (inventory[item.name] ?? 0) + 1;
+    });
+    saveInventory();
+    savePendingList(list.filter(o => o.id !== id));
+    cart = order.items.map(item => ({ ...item }));
+    renderCart();
+    renderProducts();
+    showPage('pos');
+    showToast(`Pedido de ${order.name} cargado`);
+  };
 
-  // Restore reserved stock — finalizeSale will deduct again on completion
-  order.items.forEach(item => {
-    inventory[item.name] = (inventory[item.name] ?? 0) + 1;
-  });
-  saveInventory();
-
-  // Remove from pending list
-  savePendingList(list.filter(o => o.id !== id));
-
-  cart = order.items.map(item => ({ ...item }));
-  renderCart();
-  renderProducts();
-  showPage('pos');
-  showToast(`Pedido de ${order.name} cargado`);
+  if (cart.length > 0) {
+    confirmModal("El carrito actual se reemplazará. ¿Continuar?", doLoad);
+  } else {
+    doLoad();
+  }
 }
 
 function deletePending(id) {
   const list = getPending();
   const order = list.find(o => o.id === id);
-  if (!confirm(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`)) return;
-
-  // Restore reserved stock
-  if (order) {
-    order.items.forEach(item => {
-      inventory[item.name] = (inventory[item.name] ?? 0) + 1;
-    });
-    saveInventory();
-    renderProducts();
-  }
-
-  savePendingList(list.filter(o => o.id !== id));
-  renderPending();
+  confirmModal(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`, () => {
+    if (order) {
+      order.items.forEach(item => {
+        inventory[item.name] = (inventory[item.name] ?? 0) + 1;
+      });
+      saveInventory();
+      renderProducts();
+    }
+    savePendingList(list.filter(o => o.id !== id));
+    renderPending();
+  });
 }
 
 function renderPending() {
