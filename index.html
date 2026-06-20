@@ -1074,6 +1074,12 @@ button:active { opacity: 0.75; }
 
 <script>
 
+function esc(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 const defaultInventory = {
   "M&Ms": 10,
   "Lotus": 10,
@@ -1184,7 +1190,7 @@ function renderProducts() {
       div.className = "product" + (isLow ? " low-stock-product" : "") + (isOut ? " out-of-stock" : "");
       div.innerHTML = `
         <img src="${item.img}">
-        <h3>${item.name}</h3>
+        <h3>${esc(item.name)}</h3>
         <p>$${parseFloat(item.price).toFixed(2)}</p>
         <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
@@ -1231,13 +1237,13 @@ function openExtrasModal(item, extras) {
       class="extra-btn ${e.price === 0 ? 'natural' : 'paid'}"
       onclick="confirmExtra(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(e).replace(/"/g, '&quot;')})"
     >
-      ${e.name}
+      ${esc(e.name)}
       <span class="extra-price">${e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2)}</span>
     </button>
   `).join("");
 
   openModal(`
-    <h3 style="margin-top:0;">🥐 ${item.name}</h3>
+    <h3 style="margin-top:0;">🥐 ${esc(item.name)}</h3>
     <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
     <div class="extras-grid">${buttonsHTML}</div>
     <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
@@ -1250,11 +1256,13 @@ function confirmExtra(item, extra) {
 }
 
 // Assigns a unique cartId so each rol is independent in the cart
+let _cartIdCounter = 0;
+
 function pushCartItem(item, extra) {
   const cartItem = {
     ...item,
-    cartId: Date.now() + Math.random(), // unique per instance
-    extra: extra || null                 // { name, price } or null
+    cartId: ++_cartIdCounter,
+    extra: extra || null
   };
   if (extra) {
     cartItem.price = item.price + extra.price; // total price includes extra
@@ -1548,7 +1556,7 @@ function generateTicket(sale) {
     rows += `
       <tr>
         <td style="text-align:center;width:20px;">${info.qty}</td>
-        <td>${info.name}</td>
+        <td>${esc(info.name)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${basePrice.toFixed(2)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
@@ -1557,7 +1565,7 @@ function generateTicket(sale) {
       ${info.extra ? `
       <tr style="font-size:10px;opacity:0.8;">
         <td></td>
-        <td style="padding-left:8px;">+ ${info.extra.name}</td>
+        <td style="padding-left:8px;">+ ${esc(info.extra.name)}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${info.extra.price.toFixed(2)}</td>
         <td colspan="2" style="text-align:right;padding-left:2px;font-style:italic;">(incl.)</td>
@@ -1813,12 +1821,12 @@ function renderInventory() {
     if (hideModeActive) {
       div.onclick = () => toggleItemHidden(name);
       div.innerHTML = `
-        <div class="inv-name">${name}</div>
+        <div class="inv-name">${esc(name)}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${isHidden ? '🚫 Oculto — toca para mostrar' : '👁 Visible — toca para ocultar'}</div>
       `;
     } else {
       div.innerHTML = `
-        <div class="inv-name">${name}</div>
+        <div class="inv-name">${esc(name)}</div>
         <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
         <div class="inv-price-row">
           💲<input
@@ -1858,8 +1866,8 @@ function renderInventory() {
 }
 
 function updatePrice(name, value) {
-  const price = parseFloat(value);
-  if (isNaN(price) || price < 0) return;
+  const price = Math.max(0, parseFloat(value));
+  if (isNaN(price)) return;
 
   menu.forEach(cat => {
     cat.items.forEach(item => {
@@ -1958,7 +1966,7 @@ function openEditSale(index) {
 
   openModal(`
     <h3 style="margin-top:0;">✏️ Editar venta</h3>
-    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${sale.folio || '—'} · ${sale.date}</p>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
     <div class="promo-form">
       <label>Total ($)</label>
       <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
@@ -1970,7 +1978,7 @@ function openEditSale(index) {
       </select>
 
       <label>Nota (opcional)</label>
-      <input id="edit-note" type="text" value="${sale.note || ''}" placeholder="Ej: cobro parcial, error de precio...">
+      <input id="edit-note" type="text" value="${esc(sale.note || '')}" placeholder="Ej: cobro parcial, error de precio...">
     </div>
     <button class="btn-brand" onclick="confirmEditSale(${index})" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
@@ -1995,6 +2003,8 @@ function confirmEditSale(index) {
   renderHistory();
 }
 
+let _historyCache = [];
+
 function renderHistory() {
   const container = document.getElementById("historyList");
   if (!container) return;
@@ -2002,6 +2012,7 @@ function renderHistory() {
   container.innerHTML = "";
 
   const data = JSON.parse(localStorage.getItem("history")) || [];
+  _historyCache = data;
 
   if (data.length === 0) {
     container.innerHTML = "<p>No hay ventas aún.</p>";
@@ -2041,7 +2052,7 @@ function renderHistory() {
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:13px;padding:3px 0;">
           <span style="text-align:center;">${info.qty}</span>
-          <span>${info.name}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${info.extra.name}</span>` : ''}</span>
+          <span>${esc(info.name)}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${esc(info.extra.name)}</span>` : ''}</span>
           <span style="text-align:right;">$${info.price.toFixed(2)}</span>
           <span style="text-align:right;">$${subtotal.toFixed(2)}</span>
         </div>
@@ -2053,7 +2064,7 @@ function renderHistory() {
     let totalDiscount = 0;
     salePromos.forEach(p => {
       totalDiscount += p.discount;
-      let label = `🏷 ${p.name}`;
+      let label = `🏷 ${esc(p.name)}`;
       if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
@@ -2069,8 +2080,8 @@ function renderHistory() {
 
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div class="inv-name">${sale.date || ""}</div>
-        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">Folio: ${sale.folio}</div>` : ''}
+        <div class="inv-name">${esc(sale.date || "")}</div>
+        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">Folio: ${esc(sale.folio)}</div>` : ''}
       </div>
 
       <div class="history-items">
@@ -2081,7 +2092,7 @@ function renderHistory() {
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;">
           ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale(${realIndex})">✏️</button>` : ''}
-          <button onclick="generateTicket(${JSON.stringify(sale).replace(/"/g, '&quot;')})">🧾</button>
+          <button onclick="generateTicket(_historyCache[${realIndex}])">🧾</button>
           <button class="delete-btn" onclick="deleteSale(${realIndex})">🗑️</button>
         </div>
       </div>
@@ -2285,7 +2296,7 @@ function renderCosts() {
 
   container.innerHTML = allItems.map(item => `
     <div class="costs-row">
-      <span>${item.name}</span>
+      <span>${esc(item.name)}</span>
       <span style="color:var(--text-muted);font-size:12px;">$</span>
       <input
         type="number"
@@ -2302,9 +2313,9 @@ function renderCosts() {
 }
 
 function updateCost(name, value) {
-  const cost = parseFloat(value);
+  const cost = Math.max(0, parseFloat(value));
   const costs = getCosts();
-  if (isNaN(cost) || cost < 0) {
+  if (isNaN(cost)) {
     delete costs[name];
   } else {
     costs[name] = cost;
@@ -2453,9 +2464,9 @@ function renderCart() {
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
-      <div class="cart-item-name">${item.name}</div>
+      <div class="cart-item-name">${esc(item.name)}</div>
       <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
-      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${item.extra.name}</span></div>` : ''}
+      ${item.extra ? `<div class="cart-extra-line"><span>↳ ${esc(item.extra.name)}</span></div>` : ''}
       <div class="cart-item-controls">
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
@@ -2469,7 +2480,7 @@ function renderCart() {
     if (a.discount <= 0) return;
     const line = document.createElement("div");
     line.className = "cart-discount-line";
-    let label = `🏷 ${a.promo.name}`;
+    let label = `🏷 ${esc(a.promo.name)}`;
     if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
     line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
     container.appendChild(line);
@@ -2546,10 +2557,10 @@ function renderPromos() {
     card.className = "promo-card" + (p.active ? "" : " promo-inactive");
     card.innerHTML = `
       <div class="promo-card-header">
-        <div class="promo-name">${p.name}</div>
+        <div class="promo-name">${esc(p.name)}</div>
         <span class="promo-badge ${promoTypeClass(p.type)}">${promoTypeLabel(p.type)}</span>
       </div>
-      <div class="promo-desc">${promoDescription(p)}</div>
+      <div class="promo-desc">${esc(promoDescription(p))}</div>
       <div class="promo-card-footer">
         <button class="promo-toggle ${p.active ? 'active' : 'inactive'}"
           onclick="togglePromo(${idx})">
@@ -2722,8 +2733,8 @@ function renderRestockLog() {
   const rows = log.map(entry => `
     <div class="restock-entry">
       <div>
-        <div style="font-weight:600;">${entry.name}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${entry.date}</div>
+        <div style="font-weight:600;">${esc(entry.name)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
     </div>
@@ -2858,8 +2869,8 @@ function renderMermaLog() {
     return `
       <div class="merma-entry">
         <div>
-          <div style="font-weight:600;">${m.name}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${m.date}</div>
+          <div style="font-weight:600;">${esc(m.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${esc(m.date)}</div>
         </div>
         <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
@@ -3025,11 +3036,11 @@ function renderPending() {
     card.className = "pending-card";
     card.innerHTML = `
       <div class="pending-card-header">
-        <div class="pending-name">${order.name}</div>
-        <div class="pending-date">${order.date}</div>
+        <div class="pending-name">${esc(order.name)}</div>
+        <div class="pending-date">${esc(order.date)}</div>
       </div>
-      ${order.note ? `<div class="pending-note">📝 ${order.note}</div>` : ''}
-      <div class="pending-items">${summary}</div>
+      ${order.note ? `<div class="pending-note">📝 ${esc(order.note)}</div>` : ''}
+      <div class="pending-items">${esc(summary)}</div>
       <div class="pending-footer">
         <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
