@@ -2003,7 +2003,7 @@ function handleTransfer(total) {
   showFinalStep(total, "transfer", 0);
 }
 
-async function showFinalStep(total, method, change, amount) {
+function showFinalStep(total, method, change, amount) {
   const paidAmount = amount !== undefined ? amount
     : method === "cash"
       ? parseFloat(document.getElementById("cashInput")?.value || total)
@@ -2011,15 +2011,8 @@ async function showFinalStep(total, method, change, amount) {
 
   const { appliedPromos } = computeCartTotals();
 
-  const now = new Date();
-  const dateStr = now.getFullYear().toString().slice(2)
-    + String(now.getMonth() + 1).padStart(2, '0')
-    + String(now.getDate()).padStart(2, '0');
-
-  const folio = await DataStore.getNextFolio(dateStr);
-
   currentSale = {
-    folio,
+    folio: null,
     date: new Date().toLocaleString(),
     isoDate: new Date().toISOString(),
     items: [...cart],
@@ -2033,8 +2026,16 @@ async function showFinalStep(total, method, change, amount) {
       freeCount: a.freeCount || 0,
       freeItemName: a.freeItemName || ""
     }))
-
   };
+
+  // Fetch folio in background while user sees the confirmation
+  const now = new Date();
+  const dateStr = now.getFullYear().toString().slice(2)
+    + String(now.getMonth() + 1).padStart(2, '0')
+    + String(now.getDate()).padStart(2, '0');
+  DataStore.getNextFolio(dateStr).then(folio => {
+    if (currentSale) currentSale.folio = folio;
+  });
 
   openModal(`
     <h3>Total: $${total}</h3>
@@ -2054,40 +2055,44 @@ async function finalizeSale() {
     return;
   }
 
-  try {
-    // Deduct inventory via transactions
-    const itemCounts = {};
-    currentSale.items.forEach(item => {
-      itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
-    });
-    for (const [name, qty] of Object.entries(itemCounts)) {
-      await DataStore.decrementStock(name, qty);
-      inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
-    }
+  const itemCounts = {};
+  currentSale.items.forEach(item => {
+    itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
+  });
 
-    // Save sale to Firestore
-    const saleId = await DataStore.addSale(currentSale);
-    currentSale._id = saleId;
-  } catch (e) {
-    showToast("Error: " + (e.message === "insufficient_stock" ? "Stock insuficiente" : "No se pudo guardar"));
-    return;
+  // Update local inventory immediately for instant UI feedback
+  for (const [name, qty] of Object.entries(itemCounts)) {
+    inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
   }
-
   saveInventory();
   closeModal();
-  showToast("Venta registrada ✅");
   renderProducts();
 
+  const sale = currentSale;
   cart = [];
   localStorage.removeItem("cart");
   renderCart();
-
-  const sale = currentSale;
   currentSale = null;
+
+  showToast("Venta registrada");
 
   confirmModal("¿Enviar ticket al cliente?", () => {
     generateTicket(sale);
   });
+
+  // Write to Firestore in parallel (non-blocking)
+  try {
+    const stockUpdates = Object.entries(itemCounts).map(([name, qty]) =>
+      DataStore.decrementStock(name, qty)
+    );
+    const [, saleRef] = await Promise.all([
+      Promise.all(stockUpdates),
+      DataStore.addSale(sale)
+    ]);
+    sale._id = saleRef;
+  } catch (e) {
+    showToast("Error al sincronizar: " + (e.message === "insufficient_stock" ? "Stock insuficiente" : "Reintenta"));
+  }
 }
 
 function generateTicket(sale) {
