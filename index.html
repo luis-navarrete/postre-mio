@@ -931,6 +931,7 @@ button:active { opacity: 0.75; }
 .costs-row input:focus { border-color: var(--brand); outline: none; }
 
 </style>
+</head>
 
 <body>
 
@@ -1147,6 +1148,14 @@ const menu = [
 ];
 
 let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+// Restore saved prices
+const savedPrices = JSON.parse(localStorage.getItem("customPrices")) || {};
+menu.forEach(cat => {
+  cat.items.forEach(item => {
+    if (savedPrices[item.name] !== undefined) item.price = savedPrices[item.name];
+  });
+});
 
 // Render productos
 function renderProducts() {
@@ -1443,6 +1452,7 @@ function showFinalStep(total, method, change, amount) {
   currentSale = {
     folio,
     date: new Date().toLocaleString(),
+    isoDate: new Date().toISOString(),
     items: [...cart],
     total: total,
     method: method,
@@ -1857,6 +1867,10 @@ function updatePrice(name, value) {
     });
   });
 
+  const cp = JSON.parse(localStorage.getItem("customPrices")) || {};
+  cp[name] = price;
+  localStorage.setItem("customPrices", JSON.stringify(cp));
+
   cart.forEach(item => {
     if (item.name === name) item.price = price;
   });
@@ -2097,6 +2111,7 @@ function deleteSale(index) {
 
   // 🟢 DEVOLVER INVENTARIO
   (sale.items || []).forEach(item => {
+    if (!(item.name in defaultInventory)) return;
     if (!inventory[item.name]) {
       inventory[item.name] = 0;
     }
@@ -2115,11 +2130,14 @@ function deleteSale(index) {
 }
 
 function generateCut() {
-  const today = new Date().toLocaleDateString();
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayLocale = new Date().toLocaleDateString();
 
   const history = JSON.parse(localStorage.getItem("history")) || [];
 
-  const todaySales = history.filter(s => s.date.startsWith(today));
+  const todaySales = history.filter(s =>
+    s.isoDate ? s.isoDate.startsWith(todayISO) : s.date.startsWith(todayLocale)
+  );
 
   const total = todaySales.reduce((sum, s) => sum + s.total, 0);
   const count = todaySales.length;
@@ -2243,7 +2261,7 @@ function exportToExcel() {
   const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `postre_mio_corte_${new Date().toLocaleDateString()}.csv`;
+  link.download = `postre_mio_corte_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
