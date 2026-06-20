@@ -936,62 +936,96 @@ button:active { opacity: 0.75; }
   inset: 0;
   background: linear-gradient(135deg, #7ED0D2 0%, #5BB8BA 100%);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   z-index: 20000;
 }
 
-.auth-card {
-  background: #fff;
+.auth-gate img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
   border-radius: 20px;
-  padding: 40px 32px 32px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.15);
-  text-align: center;
-  width: 90%;
-  max-width: 320px;
+  margin-bottom: 24px;
 }
 
-.auth-card img { max-height: 60px; margin-bottom: 12px; }
-.auth-card h2 { margin: 0 0 4px; font-size: 18px; color: #333; }
-.auth-card p { margin: 0 0 20px; font-size: 13px; color: #888; }
+.auth-subtitle {
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  margin: 0 0 28px;
+}
 
-.pin-input {
+.pin-dots {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-bottom: 20px;
+  gap: 20px;
+  margin-bottom: 12px;
 }
 
-.pin-input input {
-  width: 52px;
-  height: 58px;
-  text-align: center;
-  font-size: 24px;
-  font-weight: 700;
-  border: none;
-  border-radius: 14px;
-  background: #f0f5f5;
-  outline: none;
-  transition: box-shadow 0.2s, background 0.2s;
-  -webkit-text-security: disc;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
-  caret-color: var(--brand);
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.7);
+  background: transparent;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
 }
 
-.pin-input input:focus {
-  background: #e6f3f3;
-  box-shadow: 0 0 0 2.5px var(--brand), inset 0 2px 4px rgba(0,0,0,0.04);
-}
-
-.pin-input input.filled {
-  background: #e6f3f3;
+.pin-dot.filled {
+  background: #fff;
+  border-color: #fff;
+  transform: scale(1.15);
 }
 
 .auth-error {
-  color: var(--red);
+  color: #ffe0e0;
   font-size: 13px;
-  min-height: 20px;
+  min-height: 22px;
   margin-bottom: 8px;
+}
+
+.numpad {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 12px;
+  justify-content: center;
+}
+
+.numpad-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.numpad-btn:active {
+  background: rgba(255,255,255,0.4);
+  transform: scale(0.93);
+}
+
+.numpad-btn.empty {
+  visibility: hidden;
+}
+
+.numpad-btn.backspace {
+  font-size: 22px;
+  background: transparent;
+}
+
+.numpad-btn.backspace:active {
+  background: rgba(255,255,255,0.15);
 }
 
 /* ── ONLINE/OFFLINE INDICATOR ─────────── */
@@ -1017,18 +1051,28 @@ button:active { opacity: 0.75; }
 
 <!-- AUTH GATE -->
 <div id="authGate" class="auth-gate">
-  <div class="auth-card">
-    <img src="logo.jpeg">
-    <h2>Postre Mío</h2>
-    <p id="authSubtitle">Ingresa el PIN para continuar</p>
-    <div class="pin-input" id="pinInput">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="0">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="1">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="2">
-      <input type="tel" maxlength="1" inputmode="numeric" data-idx="3">
-    </div>
-    <div class="auth-error" id="authError"></div>
-    <button class="btn-primary" id="authBtn" onclick="submitPin()" style="width:100%;">Entrar</button>
+  <img src="logo.jpeg">
+  <p class="auth-subtitle" id="authSubtitle">Ingresa el PIN para continuar</p>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+  </div>
+  <div class="auth-error" id="authError"></div>
+  <div class="numpad">
+    <button class="numpad-btn" onclick="pinKey('1')">1</button>
+    <button class="numpad-btn" onclick="pinKey('2')">2</button>
+    <button class="numpad-btn" onclick="pinKey('3')">3</button>
+    <button class="numpad-btn" onclick="pinKey('4')">4</button>
+    <button class="numpad-btn" onclick="pinKey('5')">5</button>
+    <button class="numpad-btn" onclick="pinKey('6')">6</button>
+    <button class="numpad-btn" onclick="pinKey('7')">7</button>
+    <button class="numpad-btn" onclick="pinKey('8')">8</button>
+    <button class="numpad-btn" onclick="pinKey('9')">9</button>
+    <button class="numpad-btn empty"></button>
+    <button class="numpad-btn" onclick="pinKey('0')">0</button>
+    <button class="numpad-btn backspace" onclick="pinBackspace()">⌫</button>
   </div>
 </div>
 
@@ -1218,33 +1262,30 @@ async function hashPin(pin) {
 
 let _isSettingUp = false;
 
-// Wire up PIN input fields
-document.querySelectorAll("#pinInput input").forEach(input => {
-  input.addEventListener("input", (e) => {
-    const val = e.target.value.replace(/\D/g, "");
-    e.target.value = val;
-    e.target.classList.toggle("filled", val.length > 0);
-    if (val && e.target.dataset.idx < 3) {
-      e.target.nextElementSibling?.focus();
-    }
-    if (getPin().length === 4) submitPin();
-  });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Backspace" && !e.target.value && e.target.dataset.idx > 0) {
-      const prev = e.target.previousElementSibling;
-      prev?.focus();
-      if (prev) prev.classList.remove("filled");
-    }
-  });
-});
+// Numpad-driven PIN
+let _pinValue = "";
+const pinDots = document.querySelectorAll("#pinDots .pin-dot");
+
+function pinKey(digit) {
+  if (_pinValue.length >= 4) return;
+  _pinValue += digit;
+  pinDots.forEach((dot, i) => dot.classList.toggle("filled", i < _pinValue.length));
+  if (_pinValue.length === 4) submitPin();
+}
+
+function pinBackspace() {
+  if (_pinValue.length === 0) return;
+  _pinValue = _pinValue.slice(0, -1);
+  pinDots.forEach((dot, i) => dot.classList.toggle("filled", i < _pinValue.length));
+}
 
 function getPin() {
-  return Array.from(document.querySelectorAll("#pinInput input")).map(i => i.value).join("");
+  return _pinValue;
 }
 
 function clearPin() {
-  document.querySelectorAll("#pinInput input").forEach(i => { i.value = ""; i.classList.remove("filled"); });
-  document.querySelector("#pinInput input")?.focus();
+  _pinValue = "";
+  pinDots.forEach(dot => dot.classList.remove("filled"));
 }
 
 async function submitPin() {
