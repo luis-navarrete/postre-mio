@@ -760,6 +760,7 @@ button:active { opacity: 0.75; }
 }
 
 .pending-actions button {
+  width: auto;
   margin: 0;
   padding: 8px 14px;
   font-size: 13px;
@@ -934,7 +935,7 @@ button:active { opacity: 0.75; }
 .auth-gate {
   position: fixed;
   inset: 0;
-  background: linear-gradient(135deg, #7ED0D2 0%, #5BB8BA 100%);
+  background: var(--brand);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -943,8 +944,8 @@ button:active { opacity: 0.75; }
 }
 
 .auth-gate img {
-  width: 90px;
-  height: 90px;
+  width: 120px;
+  height: 120px;
   object-fit: contain;
   border-radius: 20px;
   margin-bottom: 24px;
@@ -997,6 +998,8 @@ button:active { opacity: 0.75; }
   height: 72px;
   border-radius: 50%;
   border: none;
+  margin: 0;
+  padding: 0;
   background: rgba(255,255,255,0.2);
   color: #fff;
   font-size: 28px;
