@@ -1352,7 +1352,6 @@ async function submitPin() {
       if (!_isSettingUp) {
         _isSettingUp = true;
         document.getElementById("authSubtitle").textContent = "Crea un PIN de 4 dígitos para tu negocio";
-        document.getElementById("authBtn").textContent = "Crear PIN";
         clearPin();
         return;
       }
@@ -1389,7 +1388,6 @@ function logout() {
   document.getElementById("appShell").style.display = "none";
   document.getElementById("authGate").style.display = "flex";
   document.getElementById("authSubtitle").textContent = "Ingresa el PIN para continuar";
-  document.getElementById("authBtn").textContent = "Entrar";
   document.getElementById("authError").textContent = "";
   _isSettingUp = false;
   clearPin();
