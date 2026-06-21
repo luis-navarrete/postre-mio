@@ -142,11 +142,34 @@ button:active { opacity: 0.75; }
   box-shadow: 3px 0 16px rgba(0,0,0,0.15);
   transition: left 0.28s ease;
   z-index: 3000;
+  display: flex;
+  flex-direction: column;
 }
 
 .side-menu.open { left: 0; }
 
-.menu-content { padding: 24px 16px; }
+.menu-header {
+  background: var(--brand);
+  padding: 28px 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-header img {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.menu-header span {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.menu-content { padding: 16px; flex: 1; overflow-y: auto; }
 .menu-content h3 {
   margin: 0 0 16px 4px;
   font-size: 18px;
@@ -1217,8 +1240,11 @@ button:active { opacity: 0.75; }
 
 <!-- MENÚ -->
 <div id="sideMenu" class="side-menu">
+  <div class="menu-header">
+    <img src="logo.jpeg">
+    <span>Postre Mío</span>
+  </div>
   <div class="menu-content">
-    <h3>Menú</h3>
     <button onclick="showPage('pos')">Caja</button>
     <button onclick="showPage('inventory')">Inventario</button>
     <button onclick="showPage('history')">Historial</button>
