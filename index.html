@@ -2297,7 +2297,9 @@ function generateTicket(sale) {
 
 function toggleMenu() {
   const menu = document.getElementById("sideMenu");
+  const btn = document.querySelector(".menu-btn");
   menu.classList.toggle("open");
+  btn.style.display = menu.classList.contains("open") ? "none" : "";
 }
 
 document.addEventListener("click", function(e) {
@@ -2308,6 +2310,7 @@ document.addEventListener("click", function(e) {
 
   if (!menu.contains(e.target) && !btn.contains(e.target)) {
     menu.classList.remove("open");
+    btn.style.display = "";
   }
 });
 
@@ -2355,7 +2358,10 @@ function showPage(page) {
   if (page !== "history") {
     editModeActive = false;
   }
-  toggleMenu();
+  const sideMenu = document.getElementById("sideMenu");
+  const menuBtn = document.querySelector(".menu-btn");
+  sideMenu.classList.remove("open");
+  menuBtn.style.display = "";
 }
 
 // Hold-to-repeat state
