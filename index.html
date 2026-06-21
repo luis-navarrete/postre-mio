@@ -1363,8 +1363,10 @@ async function submitPin() {
   const errEl = document.getElementById("authError");
   errEl.textContent = "";
 
+  document.getElementById("authGate").style.display = "none";
+  document.getElementById("loadingScreen").style.display = "flex";
+
   try {
-    // Sign in anonymously first to access Firestore
     if (!auth.currentUser) {
       await auth.signInAnonymously();
     }
@@ -1372,41 +1374,41 @@ async function submitPin() {
     const authDoc = await configRef("auth").get();
 
     if (!authDoc.exists || !authDoc.data().pinHash) {
-      // First-time setup
       if (!_isSettingUp) {
         _isSettingUp = true;
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("authGate").style.display = "flex";
         document.getElementById("authSubtitle").textContent = "Crea un PIN de 4 dígitos para tu negocio";
         clearPin();
         return;
       }
-      // Save new PIN
       const hash = await hashPin(pin);
       await configRef("auth").set({ pinHash: hash });
       _isSettingUp = false;
-      showApp();
+      await initApp();
+      document.getElementById("loadingScreen").style.display = "none";
+      document.getElementById("appShell").style.display = "block";
     } else {
-      // Verify PIN
       const hash = await hashPin(pin);
       if (hash === authDoc.data().pinHash) {
-        showApp();
+        await initApp();
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("appShell").style.display = "block";
       } else {
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("authGate").style.display = "flex";
         errEl.textContent = "PIN incorrecto";
         clearPin();
       }
     }
   } catch (e) {
+    document.getElementById("loadingScreen").style.display = "none";
+    document.getElementById("authGate").style.display = "flex";
     errEl.textContent = "Error de conexión. Intenta de nuevo.";
     clearPin();
   }
 }
 
-async function showApp() {
-  document.getElementById("authGate").style.display = "none";
-  document.getElementById("loadingScreen").style.display = "flex";
-  await initApp();
-  document.getElementById("loadingScreen").style.display = "none";
-  document.getElementById("appShell").style.display = "block";
-}
 
 function logout() {
   stopListeners();
