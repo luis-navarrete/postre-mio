@@ -134,42 +134,19 @@ button:active { opacity: 0.75; }
 
 .side-menu {
   position: fixed;
-  top: 0;
+  top: 100px;
+  bottom: 0;
   left: -260px;
   width: 260px;
-  height: 100%;
   background: var(--card-bg);
   box-shadow: 3px 0 16px rgba(0,0,0,0.15);
   transition: left 0.28s ease;
   z-index: 3000;
-  display: flex;
-  flex-direction: column;
 }
 
 .side-menu.open { left: 0; }
 
-.menu-header {
-  background: var(--brand);
-  padding: 28px 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.menu-header img {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  object-fit: contain;
-}
-
-.menu-header span {
-  font-size: 17px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.menu-content { padding: 16px; flex: 1; overflow-y: auto; }
+.menu-content { padding: 16px; height: 100%; overflow-y: auto; box-sizing: border-box; }
 .menu-content h3 {
   margin: 0 0 16px 4px;
   font-size: 18px;
@@ -1085,6 +1062,45 @@ button:active { opacity: 0.75; }
 .conn-badge.online  { background: rgba(255,255,255,0.25); color: white; }
 .conn-badge.offline { background: #ffebee; color: #c62828; }
 
+/* ── LOADING SCREEN ──────────────────── */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--brand);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 19000;
+}
+
+.loading-screen img {
+  width: 100px;
+  height: 100px;
+  border-radius: 20px;
+  object-fit: contain;
+  margin-bottom: 28px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 16px;
+  color: rgba(255,255,255,0.85);
+  font-size: 14px;
+}
+
 </style>
 </head>
 
@@ -1115,6 +1131,12 @@ button:active { opacity: 0.75; }
     <button class="numpad-btn" onclick="pinKey('0')">0</button>
     <button class="numpad-btn backspace" onclick="pinBackspace()">⌫</button>
   </div>
+</div>
+
+<div id="loadingScreen" class="loading-screen" style="display:none;">
+  <img src="logo.jpeg">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cargando...</div>
 </div>
 
 <div id="appShell" style="display:none;">
@@ -1240,11 +1262,8 @@ button:active { opacity: 0.75; }
 
 <!-- MENÚ -->
 <div id="sideMenu" class="side-menu">
-  <div class="menu-header">
-    <img src="logo.jpeg">
-    <span>Postre Mío</span>
-  </div>
   <div class="menu-content">
+    <h3>Menú</h3>
     <button onclick="showPage('pos')">Caja</button>
     <button onclick="showPage('inventory')">Inventario</button>
     <button onclick="showPage('history')">Historial</button>
@@ -1376,10 +1395,12 @@ async function submitPin() {
   }
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById("authGate").style.display = "none";
+  document.getElementById("loadingScreen").style.display = "flex";
+  await initApp();
+  document.getElementById("loadingScreen").style.display = "none";
   document.getElementById("appShell").style.display = "block";
-  initApp();
 }
 
 function logout() {
@@ -2296,10 +2317,7 @@ function generateTicket(sale) {
 }
 
 function toggleMenu() {
-  const menu = document.getElementById("sideMenu");
-  const btn = document.querySelector(".menu-btn");
-  menu.classList.toggle("open");
-  btn.style.display = menu.classList.contains("open") ? "none" : "";
+  document.getElementById("sideMenu").classList.toggle("open");
 }
 
 document.addEventListener("click", function(e) {
@@ -2310,7 +2328,6 @@ document.addEventListener("click", function(e) {
 
   if (!menu.contains(e.target) && !btn.contains(e.target)) {
     menu.classList.remove("open");
-    btn.style.display = "";
   }
 });
 
@@ -2358,10 +2375,7 @@ function showPage(page) {
   if (page !== "history") {
     editModeActive = false;
   }
-  const sideMenu = document.getElementById("sideMenu");
-  const menuBtn = document.querySelector(".menu-btn");
-  sideMenu.classList.remove("open");
-  menuBtn.style.display = "";
+  document.getElementById("sideMenu").classList.remove("open");
 }
 
 // Hold-to-repeat state
