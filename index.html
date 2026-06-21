@@ -121,15 +121,17 @@ button:active { opacity: 0.75; }
 .menu-btn {
   position: absolute;
   left: 10px;
-  top: 15px;
-  font-size: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 32px;
   background: none;
   border: none;
   color: white;
   z-index: 10000;
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   transition: opacity 0.1s;
+  line-height: 1;
 }
 
 .menu-btn:active { opacity: 0.5; }
@@ -539,9 +541,10 @@ button:active { opacity: 0.75; }
   font-weight: 600;
 }
 
-.promo-badge.type-free  { background: var(--green); }
-.promo-badge.type-price { background: var(--purple); }
-.promo-badge.type-pct   { background: var(--orange); }
+.promo-badge.type-free   { background: var(--green); }
+.promo-badge.type-price  { background: var(--purple); }
+.promo-badge.type-pct    { background: var(--orange); }
+.promo-badge.type-raffle { background: #e91e63; }
 
 .promo-desc { font-size: 13px; color: var(--text-muted); }
 
@@ -1077,11 +1080,11 @@ button:active { opacity: 0.75; }
 }
 
 .loading-screen img {
-  width: 100px;
-  height: 100px;
-  border-radius: 20px;
+  width: 160px;
+  height: 160px;
+  border-radius: 32px;
   object-fit: contain;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
 }
 
 .loading-spinner {
@@ -1136,9 +1139,8 @@ button:active { opacity: 0.75; }
 </div>
 
 <div id="loadingScreen" class="loading-screen" style="display:none;">
-  <img src="logo.jpeg">
+  <img src="icon-192.png">
   <div class="loading-spinner"></div>
-  <div class="loading-text">Cargando...</div>
 </div>
 
 <div id="appShell" style="display:none;">
@@ -1360,8 +1362,10 @@ async function submitPin() {
   const errEl = document.getElementById("authError");
   errEl.textContent = "";
 
+  document.getElementById("authGate").style.display = "none";
+  document.getElementById("loadingScreen").style.display = "flex";
+
   try {
-    // Sign in anonymously first to access Firestore
     if (!auth.currentUser) {
       await auth.signInAnonymously();
     }
@@ -1369,41 +1373,41 @@ async function submitPin() {
     const authDoc = await configRef("auth").get();
 
     if (!authDoc.exists || !authDoc.data().pinHash) {
-      // First-time setup
       if (!_isSettingUp) {
         _isSettingUp = true;
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("authGate").style.display = "flex";
         document.getElementById("authSubtitle").textContent = "Crea un PIN de 4 dígitos para tu negocio";
         clearPin();
         return;
       }
-      // Save new PIN
       const hash = await hashPin(pin);
       await configRef("auth").set({ pinHash: hash });
       _isSettingUp = false;
-      showApp();
+      await initApp();
+      document.getElementById("loadingScreen").style.display = "none";
+      document.getElementById("appShell").style.display = "block";
     } else {
-      // Verify PIN
       const hash = await hashPin(pin);
       if (hash === authDoc.data().pinHash) {
-        showApp();
+        await initApp();
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("appShell").style.display = "block";
       } else {
+        document.getElementById("loadingScreen").style.display = "none";
+        document.getElementById("authGate").style.display = "flex";
         errEl.textContent = "PIN incorrecto";
         clearPin();
       }
     }
   } catch (e) {
+    document.getElementById("loadingScreen").style.display = "none";
+    document.getElementById("authGate").style.display = "flex";
     errEl.textContent = "Error de conexión. Intenta de nuevo.";
     clearPin();
   }
 }
 
-async function showApp() {
-  document.getElementById("authGate").style.display = "none";
-  document.getElementById("loadingScreen").style.display = "flex";
-  await initApp();
-  document.getElementById("loadingScreen").style.display = "none";
-  document.getElementById("appShell").style.display = "block";
-}
 
 function logout() {
   stopListeners();
@@ -2067,11 +2071,12 @@ function showFinalStep(total, method, change, amount) {
     method: method,
     amount: paidAmount,
     change: change,
-    promos: appliedPromos.filter(a => a.discount > 0).map(a => ({
+    promos: appliedPromos.filter(a => a.discount > 0 || a.raffleEntries).map(a => ({
       name: a.promo.name,
       discount: a.discount,
       freeCount: a.freeCount || 0,
-      freeItemName: a.freeItemName || ""
+      freeItemName: a.freeItemName || "",
+      raffleEntries: a.raffleEntries || 0
     }))
   };
 
@@ -2190,9 +2195,10 @@ function generateTicket(sale) {
     `;
   });
 
-  // Compute total discount for the summary row
   const salePromos = sale.promos || [];
   const totalDiscount = salePromos.reduce((sum, p) => sum + p.discount, 0);
+  const rafflePromos = salePromos.filter(p => p.raffleEntries > 0);
+  const totalRaffleEntries = rafflePromos.reduce((sum, p) => sum + p.raffleEntries, 0);
 
   const ticketHTML = `
     <div id="ticket" style="
@@ -2262,6 +2268,15 @@ function generateTicket(sale) {
           <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.change).toFixed(2)}</td>
         </tr>
       </table>
+
+      ${totalRaffleEntries > 0 ? `
+      <hr style="border:none;border-top:1px dashed black;margin:8px 0;"/>
+      <div style="text-align:center;">
+        <strong style="font-size:13px;">🎟 RIFA 🎟</strong><br>
+        <span style="font-size:11px;">¡Ganaste <strong>${totalRaffleEntries}</strong> ${totalRaffleEntries === 1 ? 'entrada' : 'entradas'}!</span><br>
+        ${rafflePromos.map(p => `<span style="font-size:10px;opacity:0.7;">${esc(p.name)} (×${p.raffleEntries})</span>`).join('<br>')}
+      </div>
+      ` : ''}
 
       <br><br>
       <div style="text-align:center;font-size:10px;">
@@ -2688,16 +2703,27 @@ function renderHistoryWithData(data) {
     let totalDiscount = 0;
     salePromos.forEach(p => {
       totalDiscount += p.discount;
-      let label = `🏷 ${esc(p.name)}`;
-      if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
-      itemsHTML += `
-        <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
-          <span></span>
-          <span>${label}</span>
-          <span></span>
-          <span style="text-align:right;">−$${p.discount.toFixed(2)}</span>
-        </div>
-      `;
+      if (p.raffleEntries) {
+        itemsHTML += `
+          <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:#e91e63;padding:2px 0;">
+            <span></span>
+            <span>🎟 ${esc(p.name)} (×${p.raffleEntries})</span>
+            <span></span>
+            <span style="text-align:right;">¡Rifa!</span>
+          </div>
+        `;
+      } else {
+        let label = `🏷 ${esc(p.name)}`;
+        if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
+        itemsHTML += `
+          <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
+            <span></span>
+            <span>${label}</span>
+            <span></span>
+            <span style="text-align:right;">−$${p.discount.toFixed(2)}</span>
+          </div>
+        `;
+      }
     });
 
     const finalTotal = sale.total;
@@ -3026,6 +3052,10 @@ function applyPromotions(cartItems) {
       const base = applicableItems.reduce((s, i) => s + i.price, 0);
       const discount = base * (promo.value / 100);
       applied.push({ promo, discount });
+
+    } else if (promo.type === "raffle") {
+      const entries = sets * (promo.value || 1);
+      applied.push({ promo, discount: 0, raffleEntries: entries });
     }
   }
 
@@ -3076,14 +3106,18 @@ function renderCart() {
     frag.appendChild(div);
   });
 
-  // Discount lines
+  // Discount & raffle lines
   appliedPromos.forEach(a => {
-    if (a.discount <= 0) return;
+    if (a.discount <= 0 && !a.raffleEntries) return;
     const line = document.createElement("div");
     line.className = "cart-discount-line";
-    let label = `🏷 ${esc(a.promo.name)}`;
-    if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
-    line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
+    if (a.raffleEntries) {
+      line.innerHTML = `<span>🎟 ${esc(a.promo.name)} (×${a.raffleEntries})</span><span style="color:var(--green);">¡Rifa!</span>`;
+    } else {
+      let label = `🏷 ${esc(a.promo.name)}`;
+      if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
+      line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
+    }
     frag.appendChild(line);
   });
 
@@ -3128,11 +3162,11 @@ function renderCart() {
 // ── render promo list ─────────────────────────
 
 function promoTypeLabel(type) {
-  return { free_item: "🎁 Gratis", fixed_price: "💰 Precio fijo", pct_discount: "% Descuento" }[type] || type;
+  return { free_item: "🎁 Gratis", fixed_price: "💰 Precio fijo", pct_discount: "% Descuento", raffle: "🎟 Rifa" }[type] || type;
 }
 
 function promoTypeClass(type) {
-  return { free_item: "type-free", fixed_price: "type-price", pct_discount: "type-pct" }[type] || "";
+  return { free_item: "type-free", fixed_price: "type-price", pct_discount: "type-pct", raffle: "type-raffle" }[type] || "";
 }
 
 function promoDescription(p) {
@@ -3146,6 +3180,8 @@ function promoDescription(p) {
     return `${p.triggerQty} de ${scopeStr} por $${p.value}.`;
   } else if (p.type === "pct_discount") {
     return `${p.value}% de descuento al llevar ${p.triggerQty} de ${scopeStr}.`;
+  } else if (p.type === "raffle") {
+    return `${p.value || 1} ${(p.value || 1) === 1 ? 'entrada' : 'entradas'} de rifa al llevar ${p.triggerQty} de ${scopeStr}.`;
   }
   return "";
 }
@@ -3225,6 +3261,7 @@ function openPromoModal() {
         <option value="free_item">🎁 Producto gratis</option>
         <option value="fixed_price">💰 Precio fijo por grupo</option>
         <option value="pct_discount">% Descuento</option>
+        <option value="raffle">🎟 Entrada de rifa</option>
       </select>
 
       <label>Aplica a</label>
@@ -3278,6 +3315,10 @@ function onPromoTypeChange() {
     valueLabel.textContent = "Descuento (%)";
     hint.textContent = "Porcentaje de descuento sobre los productos del grupo.";
     valueInput.value = 10;
+  } else if (type === "raffle") {
+    valueLabel.textContent = "Entradas de rifa";
+    hint.textContent = "Número de entradas de rifa que se otorgan al cumplir la condición.";
+    valueInput.value = 1;
   }
 }
 
