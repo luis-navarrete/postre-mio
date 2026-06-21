@@ -1284,13 +1284,29 @@ const pinDots = document.querySelectorAll("#pinDots .pin-dot");
 
 function pinKey(digit) {
   if (_pinValue.length >= 4) return;
+  playClick();
   _pinValue += digit;
   pinDots.forEach((dot, i) => dot.classList.toggle("filled", i < _pinValue.length));
   if (_pinValue.length === 4) submitPin();
 }
 
+let _audioCtx;
+function playClick() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = _audioCtx.createOscillator();
+  const gain = _audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(_audioCtx.destination);
+  osc.frequency.value = 1200;
+  gain.gain.setValueAtTime(0.08, _audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.06);
+  osc.start(_audioCtx.currentTime);
+  osc.stop(_audioCtx.currentTime + 0.06);
+}
+
 function pinBackspace() {
   if (_pinValue.length === 0) return;
+  playClick();
   _pinValue = _pinValue.slice(0, -1);
   pinDots.forEach((dot, i) => dot.classList.toggle("filled", i < _pinValue.length));
 }
