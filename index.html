@@ -134,42 +134,19 @@ button:active { opacity: 0.75; }
 
 .side-menu {
   position: fixed;
-  top: 0;
+  top: 100px;
+  bottom: 0;
   left: -260px;
   width: 260px;
-  height: 100%;
   background: var(--card-bg);
   box-shadow: 3px 0 16px rgba(0,0,0,0.15);
   transition: left 0.28s ease;
   z-index: 3000;
-  display: flex;
-  flex-direction: column;
 }
 
 .side-menu.open { left: 0; }
 
-.menu-header {
-  background: var(--brand);
-  padding: 28px 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.menu-header img {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  object-fit: contain;
-}
-
-.menu-header span {
-  font-size: 17px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.menu-content { padding: 16px; flex: 1; overflow-y: auto; }
+.menu-content { padding: 16px; height: 100%; overflow-y: auto; box-sizing: border-box; }
 .menu-content h3 {
   margin: 0 0 16px 4px;
   font-size: 18px;
@@ -1240,11 +1217,8 @@ button:active { opacity: 0.75; }
 
 <!-- MENÚ -->
 <div id="sideMenu" class="side-menu">
-  <div class="menu-header">
-    <img src="logo.jpeg">
-    <span>Postre Mío</span>
-  </div>
   <div class="menu-content">
+    <h3>Menú</h3>
     <button onclick="showPage('pos')">Caja</button>
     <button onclick="showPage('inventory')">Inventario</button>
     <button onclick="showPage('history')">Historial</button>
@@ -2296,10 +2270,7 @@ function generateTicket(sale) {
 }
 
 function toggleMenu() {
-  const menu = document.getElementById("sideMenu");
-  const btn = document.querySelector(".menu-btn");
-  menu.classList.toggle("open");
-  btn.style.display = menu.classList.contains("open") ? "none" : "";
+  document.getElementById("sideMenu").classList.toggle("open");
 }
 
 document.addEventListener("click", function(e) {
@@ -2310,7 +2281,6 @@ document.addEventListener("click", function(e) {
 
   if (!menu.contains(e.target) && !btn.contains(e.target)) {
     menu.classList.remove("open");
-    btn.style.display = "";
   }
 });
 
@@ -2358,10 +2328,7 @@ function showPage(page) {
   if (page !== "history") {
     editModeActive = false;
   }
-  const sideMenu = document.getElementById("sideMenu");
-  const menuBtn = document.querySelector(".menu-btn");
-  sideMenu.classList.remove("open");
-  menuBtn.style.display = "";
+  document.getElementById("sideMenu").classList.remove("open");
 }
 
 // Hold-to-repeat state
