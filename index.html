@@ -469,7 +469,7 @@ button:active { opacity: 0.75; }
 .delete-btn:active { opacity: 1; transform: scale(0.9); }
 
 /* ── PROMOTIONS PAGE ───────────────────── */
-.promo-fab {
+.fab {
   position: fixed;
   bottom: 24px;
   right: 20px;
@@ -492,7 +492,7 @@ button:active { opacity: 0.75; }
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.promo-fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
+.fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
 
 .promo-list {
   display: flex;
@@ -666,29 +666,6 @@ button:active { opacity: 0.75; }
   text-align: right;
 }
 
-.merma-fab {
-  position: fixed;
-  bottom: 24px;
-  right: 20px;
-  background: var(--brand);
-  color: white;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: none;
-  font-size: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 0 2px 0;
-  margin: 0;
-  box-shadow: 0 4px 14px rgba(126,208,210,0.5);
-  cursor: pointer;
-  z-index: 500;
-  line-height: 1;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-.merma-fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
 
 /* ── PENDING ORDERS ── */
 .pending-fab {
@@ -1101,11 +1078,6 @@ button:active { opacity: 0.75; }
   to { transform: rotate(360deg); }
 }
 
-.loading-text {
-  margin-top: 16px;
-  color: rgba(255,255,255,0.85);
-  font-size: 14px;
-}
 
 </style>
 </head>
@@ -1260,10 +1232,10 @@ button:active { opacity: 0.75; }
   </div>
 </div>
 
-<button id="mermaFab" class="merma-fab" onclick="openMermaModal()" title="Registrar merma" style="display:none;">+</button>
+<button id="mermaFab" class="fab" onclick="openMermaModal()" title="Registrar merma" style="display:none;">+</button>
 
 <!-- FAB: only visible on promo page, toggled via JS -->
-<button id="promoFab" class="promo-fab" onclick="openPromoModal()" title="Agregar promoción" style="display:none;">+</button>
+<button id="promoFab" class="fab" onclick="openPromoModal()" title="Agregar promoción" style="display:none;">+</button>
 
 <!-- MENÚ -->
 <div id="sideMenu" class="side-menu">
@@ -1356,9 +1328,11 @@ function clearPin() {
   pinDots.forEach(dot => dot.classList.remove("filled"));
 }
 
+let _submitting = false;
 async function submitPin() {
   const pin = getPin();
-  if (pin.length !== 4) return;
+  if (pin.length !== 4 || _submitting) return;
+  _submitting = true;
 
   const errEl = document.getElementById("authError");
   errEl.textContent = "";
@@ -1406,6 +1380,8 @@ async function submitPin() {
     document.getElementById("authGate").style.display = "flex";
     errEl.textContent = "Error de conexión. Intenta de nuevo.";
     clearPin();
+  } finally {
+    _submitting = false;
   }
 }
 
@@ -1413,6 +1389,7 @@ async function submitPin() {
 function logout() {
   stopListeners();
   auth.signOut();
+  document.getElementById("loadingScreen").style.display = "none";
   document.getElementById("appShell").style.display = "none";
   document.getElementById("authGate").style.display = "flex";
   document.getElementById("authSubtitle").textContent = "Ingresa el PIN para continuar";
@@ -2334,11 +2311,15 @@ function generateTicket(sale) {
   }, 100);
 }
 
+let _rafSync = 0;
 function syncMenuTop() {
   const h = document.querySelector(".header")?.offsetHeight || 100;
   document.documentElement.style.setProperty("--header-h", h + "px");
 }
-window.addEventListener("resize", syncMenuTop);
+window.addEventListener("resize", () => {
+  cancelAnimationFrame(_rafSync);
+  _rafSync = requestAnimationFrame(syncMenuTop);
+});
 
 function toggleMenu() {
   syncMenuTop();
@@ -3023,48 +3004,43 @@ function applyPromotions(cartItems) {
   for (const promo of promotions) {
     if (!promo.active) continue;
 
-    // Count how many cart items match this promo's scope
     const matched = cartItems.filter(i => itemMatchesScope(i, promo));
     const matchedCount = matched.length;
 
+    if (promo.type === "raffle" && promo.triggerMode === "amount") {
+      const matchedTotal = matched.reduce((s, i) => s + i.price, 0);
+      if (matchedTotal >= promo.triggerQty) {
+        const amountSets = Math.floor(matchedTotal / promo.triggerQty);
+        applied.push({ promo, discount: 0, raffleEntries: amountSets * (promo.value || 1) });
+      }
+      continue;
+    }
+
     if (matchedCount < promo.triggerQty) continue;
 
-    // How many full "sets" of triggerQty fit?
     const sets = Math.floor(matchedCount / promo.triggerQty);
 
     if (promo.type === "free_item") {
-      // Add `sets * value` free items (value = qty of free items per trigger)
       const freeCount = sets * promo.value;
-      // Pick the cheapest matching item to give for free
       const cheapest = matched.slice().sort((a, b) => a.price - b.price)[0];
       const discount = cheapest.price * freeCount;
       applied.push({ promo, discount, freeCount, freeItemName: cheapest.name });
 
     } else if (promo.type === "fixed_price") {
-      // Each set of triggerQty items costs promo.value instead of sum of prices
       const normalCost = matched.slice(0, promo.triggerQty * sets)
         .reduce((s, i) => s + i.price, 0);
       const discount = normalCost - (promo.value * sets);
       applied.push({ promo, discount: Math.max(0, discount) });
 
     } else if (promo.type === "pct_discount") {
-      // Apply % off to the matched items (only triggerQty * sets items)
       const applicableItems = matched.slice(0, promo.triggerQty * sets);
       const base = applicableItems.reduce((s, i) => s + i.price, 0);
       const discount = base * (promo.value / 100);
       applied.push({ promo, discount });
 
     } else if (promo.type === "raffle") {
-      if (promo.triggerMode === "amount") {
-        const matchedTotal = matched.reduce((s, i) => s + i.price, 0);
-        if (matchedTotal >= promo.triggerQty) {
-          const amountSets = Math.floor(matchedTotal / promo.triggerQty);
-          applied.push({ promo, discount: 0, raffleEntries: amountSets * (promo.value || 1) });
-        }
-      } else {
-        const entries = sets * (promo.value || 1);
-        applied.push({ promo, discount: 0, raffleEntries: entries });
-      }
+      const entries = sets * (promo.value || 1);
+      applied.push({ promo, discount: 0, raffleEntries: entries });
     }
   }
 
@@ -3663,7 +3639,7 @@ function saveAsPending() {
 async function confirmSaveAsPending() {
   const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
   const note = document.getElementById('pending-note').value.trim();
-  const { finalTotal } = computeCartTotals();
+  const { finalTotal, appliedPromos } = computeCartTotals();
 
   const order = {
     date: new Date().toLocaleString(),
@@ -3671,9 +3647,9 @@ async function confirmSaveAsPending() {
     note,
     items: [...cart],
     total: finalTotal,
-    promos: computeCartTotals().appliedPromos
-      .filter(a => a.discount > 0)
-      .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0 }))
+    promos: appliedPromos
+      .filter(a => a.discount > 0 || a.raffleEntries)
+      .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
   };
 
   for (const item of order.items) {
