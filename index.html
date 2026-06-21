@@ -475,15 +475,15 @@ button:active { opacity: 0.75; }
   right: 20px;
   background: var(--brand);
   color: white;
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: none;
-  font-size: 28px;
+  font-size: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 0 0 2px 0;
   margin: 0;
   box-shadow: 0 4px 14px rgba(126,208,210,0.5);
   cursor: pointer;
@@ -672,11 +672,11 @@ button:active { opacity: 0.75; }
   right: 20px;
   background: var(--btn-danger-bg);
   color: var(--btn-danger-color);
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: none;
-  font-size: 26px;
+  font-size: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -685,9 +685,10 @@ button:active { opacity: 0.75; }
   box-shadow: 0 4px 14px rgba(229,57,53,0.2);
   cursor: pointer;
   z-index: 500;
-  transition: transform 0.15s;
+  line-height: 1;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
-.merma-fab:active { transform: scale(0.93); }
+.merma-fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(229,57,53,0.3); }
 
 /* ── PENDING ORDERS ── */
 .pending-fab {
@@ -3054,8 +3055,16 @@ function applyPromotions(cartItems) {
       applied.push({ promo, discount });
 
     } else if (promo.type === "raffle") {
-      const entries = sets * (promo.value || 1);
-      applied.push({ promo, discount: 0, raffleEntries: entries });
+      if (promo.triggerMode === "amount") {
+        const matchedTotal = matched.reduce((s, i) => s + i.price, 0);
+        if (matchedTotal >= promo.triggerQty) {
+          const amountSets = Math.floor(matchedTotal / promo.triggerQty);
+          applied.push({ promo, discount: 0, raffleEntries: amountSets * (promo.value || 1) });
+        }
+      } else {
+        const entries = sets * (promo.value || 1);
+        applied.push({ promo, discount: 0, raffleEntries: entries });
+      }
     }
   }
 
@@ -3181,7 +3190,12 @@ function promoDescription(p) {
   } else if (p.type === "pct_discount") {
     return `${p.value}% de descuento al llevar ${p.triggerQty} de ${scopeStr}.`;
   } else if (p.type === "raffle") {
-    return `${p.value || 1} ${(p.value || 1) === 1 ? 'entrada' : 'entradas'} de rifa al llevar ${p.triggerQty} de ${scopeStr}.`;
+    const n = p.value || 1;
+    const entryWord = n === 1 ? 'entrada' : 'entradas';
+    if (p.triggerMode === "amount") {
+      return `${n} ${entryWord} de rifa por cada $${p.triggerQty} gastados en ${scopeStr}.`;
+    }
+    return `${n} ${entryWord} de rifa al llevar ${p.triggerQty} de ${scopeStr}.`;
   }
   return "";
 }
@@ -3277,6 +3291,14 @@ function openPromoModal() {
         <select id="pf-scope-category" style="display:none;">${categoryOptions}</select>
       </div>
 
+      <div id="pf-trigger-mode-wrap" style="display:none;">
+        <label>Condición de la rifa</label>
+        <select id="pf-trigger-mode" onchange="onTriggerModeChange()">
+          <option value="qty">Por cantidad de productos</option>
+          <option value="amount">Por monto gastado ($)</option>
+        </select>
+      </div>
+
       <div class="row2">
         <div>
           <label id="pf-trigger-label">Cantidad mínima</label>
@@ -3302,6 +3324,9 @@ function onPromoTypeChange() {
   const valueLabel = document.getElementById("pf-value-label");
   const hint = document.getElementById("pf-value-hint");
   const valueInput = document.getElementById("pf-value");
+  const triggerModeWrap = document.getElementById("pf-trigger-mode-wrap");
+
+  triggerModeWrap.style.display = type === "raffle" ? "block" : "none";
 
   if (type === "free_item") {
     valueLabel.textContent = "Productos gratis";
@@ -3319,6 +3344,27 @@ function onPromoTypeChange() {
     valueLabel.textContent = "Entradas de rifa";
     hint.textContent = "Número de entradas de rifa que se otorgan al cumplir la condición.";
     valueInput.value = 1;
+    document.getElementById("pf-trigger-mode").value = "qty";
+    onTriggerModeChange();
+  }
+
+  if (type !== "raffle") {
+    document.getElementById("pf-trigger-label").textContent = "Cantidad mínima";
+  }
+}
+
+function onTriggerModeChange() {
+  const mode = document.getElementById("pf-trigger-mode").value;
+  const triggerLabel = document.getElementById("pf-trigger-label");
+  const triggerInput = document.getElementById("pf-trigger");
+  if (mode === "amount") {
+    triggerLabel.textContent = "Monto mínimo ($)";
+    triggerInput.value = 200;
+    triggerInput.setAttribute("inputmode", "decimal");
+  } else {
+    triggerLabel.textContent = "Cantidad mínima";
+    triggerInput.value = 6;
+    triggerInput.setAttribute("inputmode", "numeric");
   }
 }
 
@@ -3348,18 +3394,20 @@ function savePromo() {
   const name = document.getElementById("pf-name").value.trim();
   const type = document.getElementById("pf-type").value;
   const scope = document.getElementById("pf-scope").value;
-  const triggerQty = parseInt(document.getElementById("pf-trigger").value, 10);
+  const triggerMode = type === "raffle" ? document.getElementById("pf-trigger-mode").value : "qty";
+  const triggerRaw = parseFloat(document.getElementById("pf-trigger").value);
+  const triggerQty = triggerMode === "amount" ? triggerRaw : parseInt(triggerRaw, 10);
   const value = parseFloat(document.getElementById("pf-value").value);
 
   if (!name) { showToast("Ponle un nombre a la promoción"); return; }
-  if (isNaN(triggerQty) || triggerQty < 1) { showToast("La cantidad mínima debe ser al menos 1"); return; }
+  if (isNaN(triggerQty) || triggerQty < 1) { showToast(triggerMode === "amount" ? "El monto mínimo debe ser al menos 1" : "La cantidad mínima debe ser al menos 1"); return; }
   if (isNaN(value) || value < 0) { showToast("El valor no es válido"); return; }
 
   let scopeValue = "";
   if (scope === "product") scopeValue = document.getElementById("pf-scope-product").value;
   if (scope === "category") scopeValue = document.getElementById("pf-scope-category").value;
 
-  const promo = { name, active: true, scope, scopeValue, triggerQty, type, value };
+  const promo = { name, active: true, scope, scopeValue, triggerQty, triggerMode, type, value };
   DataStore.addPromotion(promo);
   promotions.push(promo);
 
