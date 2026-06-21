@@ -668,30 +668,6 @@ button:active { opacity: 0.75; }
 
 
 /* ── PENDING ORDERS ── */
-.pending-fab {
-  position: fixed;
-  bottom: 24px;
-  right: 20px;
-  background: var(--btn-primary-bg);
-  color: white;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: none;
-  font-size: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-  cursor: pointer;
-  z-index: 500;
-  line-height: 1;
-  transition: transform 0.15s;
-}
-.pending-fab:active { transform: scale(0.93); }
-
 .pending-card {
   background: var(--card-bg);
   border-radius: var(--radius);
@@ -1259,7 +1235,7 @@ button:active { opacity: 0.75; }
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="html2canvas.min.js"></script>
 
 <script>
 
@@ -1378,6 +1354,8 @@ async function submitPin() {
   } catch (e) {
     document.getElementById("loadingScreen").style.display = "none";
     document.getElementById("authGate").style.display = "flex";
+    document.getElementById("authSubtitle").textContent = "Ingresa el PIN para continuar";
+    _isSettingUp = false;
     errEl.textContent = "Error de conexión. Intenta de nuevo.";
     clearPin();
   } finally {
