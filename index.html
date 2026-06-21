@@ -121,15 +121,17 @@ button:active { opacity: 0.75; }
 .menu-btn {
   position: absolute;
   left: 10px;
-  top: 15px;
-  font-size: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 32px;
   background: none;
   border: none;
   color: white;
   z-index: 10000;
   margin: 0;
-  padding: 6px;
+  padding: 8px;
   transition: opacity 0.1s;
+  line-height: 1;
 }
 
 .menu-btn:active { opacity: 0.5; }
