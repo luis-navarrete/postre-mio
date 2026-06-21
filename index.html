@@ -134,7 +134,7 @@ button:active { opacity: 0.75; }
 
 .side-menu {
   position: fixed;
-  top: 100px;
+  top: var(--header-h, 100px);
   bottom: 0;
   left: -260px;
   width: 260px;
@@ -2316,7 +2316,14 @@ function generateTicket(sale) {
   }, 100);
 }
 
+function syncMenuTop() {
+  const h = document.querySelector(".header")?.offsetHeight || 100;
+  document.documentElement.style.setProperty("--header-h", h + "px");
+}
+window.addEventListener("resize", syncMenuTop);
+
 function toggleMenu() {
+  syncMenuTop();
   document.getElementById("sideMenu").classList.toggle("open");
 }
 
