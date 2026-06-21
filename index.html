@@ -1062,6 +1062,45 @@ button:active { opacity: 0.75; }
 .conn-badge.online  { background: rgba(255,255,255,0.25); color: white; }
 .conn-badge.offline { background: #ffebee; color: #c62828; }
 
+/* ── LOADING SCREEN ──────────────────── */
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: var(--brand);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 19000;
+}
+
+.loading-screen img {
+  width: 100px;
+  height: 100px;
+  border-radius: 20px;
+  object-fit: contain;
+  margin-bottom: 28px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-text {
+  margin-top: 16px;
+  color: rgba(255,255,255,0.85);
+  font-size: 14px;
+}
+
 </style>
 </head>
 
@@ -1092,6 +1131,12 @@ button:active { opacity: 0.75; }
     <button class="numpad-btn" onclick="pinKey('0')">0</button>
     <button class="numpad-btn backspace" onclick="pinBackspace()">⌫</button>
   </div>
+</div>
+
+<div id="loadingScreen" class="loading-screen" style="display:none;">
+  <img src="logo.jpeg">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Cargando...</div>
 </div>
 
 <div id="appShell" style="display:none;">
@@ -1350,10 +1395,12 @@ async function submitPin() {
   }
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById("authGate").style.display = "none";
+  document.getElementById("loadingScreen").style.display = "flex";
+  await initApp();
+  document.getElementById("loadingScreen").style.display = "none";
   document.getElementById("appShell").style.display = "block";
-  initApp();
 }
 
 function logout() {
