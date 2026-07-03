@@ -1367,11 +1367,14 @@ function saveHiddenItems(list) {
   DataStore.saveHiddenItems(list);
 }
 
+const _SVG_EYE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const _SVG_EYE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
 function toggleHideMode() {
   hideModeActive = !hideModeActive;
   const btn = document.getElementById("hideModeBtn");
   if (btn) {
-    btn.textContent = hideModeActive ? "✅ Modo ocultar activo" : "👁 Ocultar productos";
+    btn.innerHTML = hideModeActive ? _SVG_EYE_OFF : _SVG_EYE;
     btn.classList.toggle("active", hideModeActive);
   }
   renderInventory();
@@ -1398,10 +1401,7 @@ let editModeActive = false;
 function toggleEditMode() {
   editModeActive = !editModeActive;
   const btn = document.getElementById("editModeBtn");
-  if (btn) {
-    btn.textContent = editModeActive ? "✅ Editando" : "✏️ Editar";
-    btn.classList.toggle("active", editModeActive);
-  }
+  if (btn) btn.classList.toggle("active", editModeActive);
   renderHistory();
 }
 
@@ -1732,7 +1732,7 @@ async function openCostsModal() {
   `).join('');
   openModal(`
     <h3 style="margin-top:0;">💰 Costo por producto</h3>
-    <div class="costs-section" style="margin-top:8px;">${rows}</div>
+    <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">${rows}</div>
     <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
   `);
 }
