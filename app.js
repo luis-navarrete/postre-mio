@@ -80,6 +80,7 @@ function clearPin() {
 }
 
 let _submitting = false;
+let _savingPending = false;
 async function submitPin() {
   const pin = getPin();
   if (pin.length !== 4 || _submitting) return;
@@ -2576,38 +2577,44 @@ function saveAsPending() {
 
 
 async function confirmSaveAsPending() {
-  const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
-  const note = document.getElementById('pending-note').value.trim();
-  const { finalTotal, appliedPromos } = computeCartTotals();
+  if (_savingPending) return;
+  _savingPending = true;
+  try {
+    const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
+    const note = document.getElementById('pending-note').value.trim();
+    const { finalTotal, appliedPromos } = computeCartTotals();
 
-  const order = {
-    date: new Date().toLocaleString(),
-    isoDate: new Date().toISOString(),
-    name,
-    note,
-    items: [...cart],
-    total: finalTotal,
-    promos: appliedPromos
-      .filter(a => a.discount > 0 || a.raffleEntries)
-      .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
-  };
+    const order = {
+      date: new Date().toLocaleString(),
+      isoDate: new Date().toISOString(),
+      name,
+      note,
+      items: [...cart],
+      total: finalTotal,
+      promos: appliedPromos
+        .filter(a => a.discount > 0 || a.raffleEntries)
+        .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
+    };
 
-  for (const item of order.items) {
-    if (inventory[item.name] > 0) {
-      inventory[item.name]--;
-      DataStore.setStock(item.name, inventory[item.name]);
+    for (const item of order.items) {
+      if (inventory[item.name] > 0) {
+        inventory[item.name]--;
+        DataStore.setStock(item.name, inventory[item.name]);
+      }
     }
+
+    await DataStore.addPending(order);
+
+    cart = [];
+    localStorage.removeItem("cart");
+    renderCart();
+    renderProducts();
+
+    closeModal();
+    showToast(`Pedido de ${name} guardado`);
+  } finally {
+    _savingPending = false;
   }
-
-  await DataStore.addPending(order);
-
-  cart = [];
-  localStorage.removeItem("cart");
-  renderCart();
-  renderProducts();
-
-  closeModal();
-  showToast(`Pedido de ${name} guardado`);
 }
 
 async function loadPending(id) {
