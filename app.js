@@ -2543,15 +2543,11 @@ function saveAsPending() {
     return;
   }
 
-  _pendingPaymentStatus = 'pending';
   openModal(`
     <h3 style="margin-top:0;">📋 Guardar pedido</h3>
     <div class="promo-form">
       <label>Nombre del cliente</label>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off" style="flex:1;min-width:0;">
-        <button id="ps-toggle" onclick="togglePendingPaymentStatus()" style="width:auto;flex-shrink:0;padding:9px 12px;background:#fff3e0;color:#e65100;border:1.5px solid #ffcc80;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;">⏳ Pendiente</button>
-      </div>
+      <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off">
       <label>Nota (opcional)</label>
       <input id="pending-note" type="text" placeholder="Ej: Pasa a las 5pm">
     </div>
@@ -2562,24 +2558,6 @@ function saveAsPending() {
   setTimeout(() => document.getElementById('pending-name')?.focus(), 80);
 }
 
-let _pendingPaymentStatus = 'pending';
-
-function togglePendingPaymentStatus() {
-  _pendingPaymentStatus = _pendingPaymentStatus === 'pending' ? 'paid' : 'pending';
-  const btn = document.getElementById('ps-toggle');
-  if (!btn) return;
-  if (_pendingPaymentStatus === 'paid') {
-    btn.textContent = '✅ Pagado';
-    btn.style.background = '#e8f5e9';
-    btn.style.color = '#2e7d32';
-    btn.style.borderColor = '#a5d6a7';
-  } else {
-    btn.textContent = '⏳ Pendiente';
-    btn.style.background = '#fff3e0';
-    btn.style.color = '#e65100';
-    btn.style.borderColor = '#ffcc80';
-  }
-}
 
 async function confirmSaveAsPending() {
   const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
@@ -2593,12 +2571,10 @@ async function confirmSaveAsPending() {
     note,
     items: [...cart],
     total: finalTotal,
-    paymentStatus: _pendingPaymentStatus,
     promos: appliedPromos
       .filter(a => a.discount > 0 || a.raffleEntries)
       .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
   };
-  _pendingPaymentStatus = 'pending';
 
   for (const item of order.items) {
     if (inventory[item.name] > 0) {
@@ -2659,34 +2635,6 @@ async function deletePending(id) {
   });
 }
 
-async function deliverPaid(id) {
-  const list = await DataStore.getPending();
-  const order = list.find(o => o._id === id);
-  if (!order) return;
-
-  confirmModal(`¿Marcar el pedido de ${order.name} como entregado?`, async () => {
-    const sale = {
-      date: order.date,
-      isoDate: order.isoDate || new Date().toISOString(),
-      items: order.items,
-      total: order.total,
-      method: 'prepaid',
-      amount: order.total,
-      change: 0,
-      promos: order.promos || [],
-      folio: null
-    };
-    const now = new Date();
-    const dateStr = now.getFullYear().toString().slice(2)
-      + String(now.getMonth() + 1).padStart(2, '0')
-      + String(now.getDate()).padStart(2, '0');
-    sale.folio = await DataStore.getNextFolio(dateStr);
-    await DataStore.addSale(sale);
-    await DataStore.deletePending(id);
-    renderPending();
-    showToast(`Pedido de ${order.name} entregado ✅`);
-  });
-}
 
 async function renderPending() {
   const container = document.getElementById("pendingList");
@@ -2719,25 +2667,17 @@ async function renderPending() {
 
     const card = document.createElement("div");
     card.className = "pending-card";
-    card.style.borderLeftColor = order.paymentStatus === 'paid' ? 'var(--green)' : 'var(--orange)';
     card.innerHTML = `
       <div class="pending-card-header">
         <div class="pending-name">${esc(order.name)}</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          ${order.paymentStatus === 'paid'
-            ? `<span class="payment-badge paid">✅ Pagado</span>`
-            : `<span class="payment-badge unpaid">⏳ Pendiente</span>`}
-          <div class="pending-date">${esc(order.date)}</div>
-        </div>
+        <div class="pending-date">${esc(order.date)}</div>
       </div>
       ${order.note ? `<div class="pending-note">📝 ${esc(order.note)}</div>` : ''}
       <div class="pending-items">${esc(summary)}</div>
       <div class="pending-footer">
         <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
-          ${order.paymentStatus === 'paid'
-            ? `<button class="btn-brand" onclick="deliverPaid('${order._id}')">Entregar</button>`
-            : `<button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>`}
+          <button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>
           <button class="delete-btn" onclick="deletePending('${order._id}')">🗑️</button>
         </div>
       </div>
