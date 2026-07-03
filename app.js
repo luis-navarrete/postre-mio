@@ -1152,7 +1152,6 @@ function showPage(page) {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
     renderMermaLog();
-    renderCosts();
   }
 
   if (page !== "inventory") {
@@ -1709,14 +1708,10 @@ async function exportToExcel(historyOverride) {
 
 let _costsCache = {};
 
-async function renderCosts() {
-  const container = document.getElementById("costsList");
-  if (!container) return;
-
+async function openCostsModal() {
   _costsCache = await DataStore.getCosts();
   const allItems = menu.flatMap(c => c.items);
-
-  container.innerHTML = allItems.map(item => `
+  const rows = allItems.map(item => `
     <div class="costs-row">
       <span>${esc(item.name)}</span>
       <span style="color:var(--text-muted);font-size:12px;">$</span>
@@ -1732,6 +1727,11 @@ async function renderCosts() {
       >
     </div>
   `).join('');
+  openModal(`
+    <h3 style="margin-top:0;">💰 Costo por producto</h3>
+    <div class="costs-section" style="margin-top:8px;">${rows}</div>
+    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
+  `);
 }
 
 function updateCost(name, value) {
