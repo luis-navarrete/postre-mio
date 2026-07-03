@@ -2479,8 +2479,8 @@ function saveAsPending() {
       <input id="pending-note" type="text" placeholder="Ej: Pasa a las 5pm">
       <label>Pago</label>
       <div style="display:flex;gap:8px;">
-        <button id="ps-pending" class="btn-primary" style="flex:1;" onclick="setPendingPaymentStatus('pending')">⏳ Pendiente</button>
-        <button id="ps-paid" class="btn-secondary" style="flex:1;" onclick="setPendingPaymentStatus('paid')">✅ Pagado</button>
+        <button id="ps-pending" class="btn-primary" style="flex:1;width:auto;" onclick="setPendingPaymentStatus('pending')">⏳ Pendiente</button>
+        <button id="ps-paid" class="btn-secondary" style="flex:1;width:auto;" onclick="setPendingPaymentStatus('paid')">✅ Pagado</button>
       </div>
     </div>
     <button class="btn-primary" onclick="confirmSaveAsPending()" style="margin-top:14px;">Guardar</button>
