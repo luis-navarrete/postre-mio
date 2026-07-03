@@ -2479,8 +2479,8 @@ function saveAsPending() {
       <input id="pending-note" type="text" placeholder="Ej: Pasa a las 5pm">
       <label>Pago</label>
       <div style="display:flex;gap:8px;">
-        <button id="ps-pending" class="btn-primary" style="flex:1;" onclick="setPendingPaymentStatus('pending')">⏳ Por cobrar</button>
-        <button id="ps-paid" class="btn-secondary" style="flex:1;" onclick="setPendingPaymentStatus('paid')">✅ Ya pagó</button>
+        <button id="ps-pending" class="btn-primary" style="flex:1;" onclick="setPendingPaymentStatus('pending')">⏳ Pendiente</button>
+        <button id="ps-paid" class="btn-secondary" style="flex:1;" onclick="setPendingPaymentStatus('paid')">✅ Pagado</button>
       </div>
     </div>
     <button class="btn-primary" onclick="confirmSaveAsPending()" style="margin-top:14px;">Guardar</button>
@@ -2649,7 +2649,7 @@ async function renderPending() {
           <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
           ${order.paymentStatus === 'paid'
             ? `<span class="payment-badge paid">✅ Pagado</span>`
-            : `<span class="payment-badge unpaid">⏳ Por cobrar</span>`}
+            : `<span class="payment-badge unpaid">⏳ Pendiente</span>`}
         </div>
         <div class="pending-actions">
           ${order.paymentStatus === 'paid'
