@@ -80,6 +80,7 @@ function clearPin() {
 }
 
 let _submitting = false;
+let _savingPending = false;
 async function submitPin() {
   const pin = getPin();
   if (pin.length !== 4 || _submitting) return;
@@ -436,7 +437,8 @@ function stopListeners() {
 
 // Helper to render history from Firestore
 async function renderHistoryFromFirestore() {
-  const data = await DataStore.getSales();
+  showSpinner();
+  const data = await DataStore.getSales().finally(hideSpinner);
   _historyData = data;
   renderHistoryWithData(data);
 }
@@ -1800,7 +1802,8 @@ async function exportToExcel(historyOverride) {
 let _costsCache = {};
 
 async function openCostsModal() {
-  _costsCache = await DataStore.getCosts();
+  showSpinner();
+  _costsCache = await DataStore.getCosts().finally(hideSpinner);
   const allItems = menu.flatMap(c => c.items);
   const rows = allItems.map(item => `
     <div class="costs-row">
@@ -1835,6 +1838,18 @@ function updateCost(name, value) {
   DataStore.saveCosts(_costsCache);
 }
 
+
+let _spinnerCount = 0;
+function showSpinner() {
+  _spinnerCount++;
+  document.getElementById('pageSpinner')?.classList.remove('hidden');
+}
+function hideSpinner() {
+  if (--_spinnerCount <= 0) {
+    _spinnerCount = 0;
+    document.getElementById('pageSpinner')?.classList.add('hidden');
+  }
+}
 
 function showToast(msg) {
   const toast = document.createElement("div");
@@ -2307,7 +2322,8 @@ function savePromo() {
 // ─────────────────────────────────────────────
 
 async function renderRestockLogFromFirestore() {
-  const log = await DataStore.getRestockLog();
+  showSpinner();
+  const log = await DataStore.getRestockLog().finally(hideSpinner);
   renderRestockLogWithData(log);
 }
 
@@ -2490,7 +2506,8 @@ async function renderMermaLog() {
   const container = document.getElementById("mermaList");
   if (!container) return;
 
-  const mermas = await DataStore.getMermas();
+  showSpinner();
+  const mermas = await DataStore.getMermas().finally(hideSpinner);
 
   if (!mermas.length) {
     container.innerHTML = `
@@ -2560,38 +2577,46 @@ function saveAsPending() {
 
 
 async function confirmSaveAsPending() {
-  const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
-  const note = document.getElementById('pending-note').value.trim();
-  const { finalTotal, appliedPromos } = computeCartTotals();
+  if (_savingPending) return;
+  _savingPending = true;
+  showSpinner();
+  try {
+    const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
+    const note = document.getElementById('pending-note').value.trim();
+    const { finalTotal, appliedPromos } = computeCartTotals();
 
-  const order = {
-    date: new Date().toLocaleString(),
-    isoDate: new Date().toISOString(),
-    name,
-    note,
-    items: [...cart],
-    total: finalTotal,
-    promos: appliedPromos
-      .filter(a => a.discount > 0 || a.raffleEntries)
-      .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
-  };
+    const order = {
+      date: new Date().toLocaleString(),
+      isoDate: new Date().toISOString(),
+      name,
+      note,
+      items: [...cart],
+      total: finalTotal,
+      promos: appliedPromos
+        .filter(a => a.discount > 0 || a.raffleEntries)
+        .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
+    };
 
-  for (const item of order.items) {
-    if (inventory[item.name] > 0) {
-      inventory[item.name]--;
-      DataStore.setStock(item.name, inventory[item.name]);
+    for (const item of order.items) {
+      if (inventory[item.name] > 0) {
+        inventory[item.name]--;
+        DataStore.setStock(item.name, inventory[item.name]);
+      }
     }
+
+    await DataStore.addPending(order);
+
+    cart = [];
+    localStorage.removeItem("cart");
+    renderCart();
+    renderProducts();
+
+    closeModal();
+    showToast(`Pedido de ${name} guardado`);
+  } finally {
+    hideSpinner();
+    _savingPending = false;
   }
-
-  await DataStore.addPending(order);
-
-  cart = [];
-  localStorage.removeItem("cart");
-  renderCart();
-  renderProducts();
-
-  closeModal();
-  showToast(`Pedido de ${name} guardado`);
 }
 
 async function loadPending(id) {
@@ -2640,7 +2665,8 @@ async function renderPending() {
   const container = document.getElementById("pendingList");
   if (!container) return;
 
-  const list = await DataStore.getPending();
+  showSpinner();
+  const list = await DataStore.getPending().finally(hideSpinner);
 
   if (!list.length) {
     container.innerHTML = `
