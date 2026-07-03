@@ -483,7 +483,9 @@ const menu = [
       { name: "Oreo", price: 49.00, img: "oreo.jpg" },
       { name: "Lucky Charms", price: 49.00, img: "lucky.jpg" },
       { name: "Conejito Turín", price: 49.00, img: "turin.jpg" },
-      { name: "Pistache", price: 49.00, img: "pistache.jpg" }
+      { name: "Pistache", price: 49.00, img: "pistache.jpg" },
+      { name: "Canela", price: 49.00, img: "canela.jpg" },
+      { name: "Fresa", price: 49.00, img: "fresa.jpg" }
     ]
   },
   {
@@ -503,7 +505,8 @@ const menu = [
       { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
       { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
       { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
-      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" }
+      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
+      { name: "Pastel red velvet", price: 80.00, img: "pastel_rv.jpg" }
     ]
   }
 ];
