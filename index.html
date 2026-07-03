@@ -104,9 +104,12 @@
 <!-- INVENTARIO -->
 <div id="inventoryPage" class="page" style="display:none;">
   <div class="page-content">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;">
       <h2 style="margin:0;">Inventario</h2>
-      <button id="hideModeBtn" class="hide-mode-btn" onclick="toggleHideMode()">👁 Ocultar productos</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <button id="saveInventoryBtn" class="btn-brand" onclick="saveInventoryChanges()" style="display:none;font-size:13px;padding:6px 14px;margin:0;">💾 Guardar</button>
+        <button id="hideModeBtn" class="hide-mode-btn" onclick="toggleHideMode()">👁 Ocultar productos</button>
+      </div>
     </div>
     <div id="inventoryList"></div>
     <div class="restock-section" id="restockSection" style="display:none;">
@@ -150,12 +153,11 @@
 <!-- MERMAS -->
 <div id="mermaPage" class="page" style="display:none;">
   <div class="page-content">
-    <h2>Mermas</h2>
-    <div id="mermaList"></div>
-    <div class="costs-section">
-      <h3>💰 Costo por producto</h3>
-      <div id="costsList"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <h2 style="margin:0;">Mermas</h2>
+      <button class="btn-secondary" onclick="openCostsModal()" style="font-size:13px;padding:6px 14px;">💰 Costos</button>
     </div>
+    <div id="mermaList"></div>
   </div>
 </div>
 

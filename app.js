@@ -483,7 +483,9 @@ const menu = [
       { name: "Oreo", price: 49.00, img: "oreo.jpg" },
       { name: "Lucky Charms", price: 49.00, img: "lucky.jpg" },
       { name: "Conejito Turín", price: 49.00, img: "turin.jpg" },
-      { name: "Pistache", price: 49.00, img: "pistache.jpg" }
+      { name: "Pistache", price: 49.00, img: "pistache.jpg" },
+      { name: "Canela", price: 49.00, img: "canela.jpg" },
+      { name: "Fresa", price: 49.00, img: "fresa.jpg" }
     ]
   },
   {
@@ -503,7 +505,8 @@ const menu = [
       { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
       { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
       { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
-      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" }
+      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
+      { name: "Pastel red velvet", price: 80.00, img: "pastel_rv.jpg" }
     ]
   }
 ];
@@ -1091,6 +1094,32 @@ document.addEventListener("click", function(e) {
 });
 
 function showPage(page) {
+  const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
+  if (page !== 'inventory' && inventoryVisible && updatedItems.size > 0) {
+    openModal(`
+      <h3 style="margin-top:0;">Cambios sin guardar</h3>
+      <p style="color:var(--text-muted);font-size:14px;">Tienes cambios de inventario sin guardar.</p>
+      <button class="btn-brand" id="_navSave">💾 Guardar y salir</button>
+      <button class="btn-danger" id="_navDiscard">Descartar cambios</button>
+      <button class="btn-secondary" id="_navCancel">Cancelar</button>
+    `);
+    document.getElementById('_navSave').onclick = async () => {
+      await saveInventoryChanges();
+      closeModal();
+      showPage(page);
+    };
+    document.getElementById('_navDiscard').onclick = () => {
+      Object.keys(originalInventory).forEach(k => { inventory[k] = originalInventory[k]; });
+      updatedItems.clear();
+      _pendingRestockByName = {};
+      saveInventory();
+      closeModal();
+      showPage(page);
+    };
+    document.getElementById('_navCancel').onclick = () => closeModal();
+    return;
+  }
+
   ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
   ["promoFab","mermaFab"]
@@ -1103,6 +1132,8 @@ function showPage(page) {
     document.getElementById("inventoryPage").style.display = "block";
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
+    _pendingRestockByName = {};
+    updateSaveBtn();
     renderProducts();
     renderInventory();
     renderRestockLogFromFirestore();
@@ -1124,7 +1155,6 @@ function showPage(page) {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
     renderMermaLog();
-    renderCosts();
   }
 
   if (page !== "inventory") {
@@ -1142,6 +1172,9 @@ let holdTimer = null;
 let holdInterval = null;
 let _holdRestockName = null;
 let _holdRestockAccum = 0;
+
+// Pending inventory changes (saved to Firestore on "Guardar")
+let _pendingRestockByName = {};
 
 function startHold(name, delta) {
   _holdRestockName = name;
@@ -1162,8 +1195,7 @@ function stopHold() {
   holdTimer = null;
   holdInterval = null;
   if (_holdRestockAccum > 0 && _holdRestockName) {
-    DataStore.addRestock({ date: new Date().toLocaleString(), name: _holdRestockName, qty: _holdRestockAccum });
-    renderRestockLogFromFirestore();
+    _pendingRestockByName[_holdRestockName] = (_pendingRestockByName[_holdRestockName] || 0) + _holdRestockAccum;
   }
   _holdRestockName = null;
   _holdRestockAccum = 0;
@@ -1282,10 +1314,45 @@ function updateStock(name, delta) {
     updatedItems.delete(name);
   }
 
-  DataStore.setStock(name, inventory[name]);
   saveInventory();
   renderInventory();
   renderProducts();
+  updateSaveBtn();
+}
+
+function updateSaveBtn() {
+  const btn = document.getElementById('saveInventoryBtn');
+  if (!btn) return;
+  btn.style.display = updatedItems.size > 0 ? 'flex' : 'none';
+}
+
+async function saveInventoryChanges() {
+  const btn = document.getElementById('saveInventoryBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+  try {
+    await Promise.all([...updatedItems].map(name => DataStore.setStock(name, inventory[name])));
+
+    const restockDate = new Date().toLocaleString();
+    await Promise.all(
+      Object.entries(_pendingRestockByName)
+        .filter(([, qty]) => qty > 0)
+        .map(([name, qty]) => DataStore.addRestock({ date: restockDate, name, qty }))
+    );
+
+    originalInventory = JSON.parse(JSON.stringify(inventory));
+    updatedItems.clear();
+    _pendingRestockByName = {};
+
+    saveInventory();
+    updateSaveBtn();
+    renderInventory();
+    await renderRestockLogFromFirestore();
+    showToast('Inventario guardado ✅');
+  } catch (e) {
+    showToast('Error al guardar. Intenta de nuevo.');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+  }
 }
 
 // ── HIDING MODE ──────────────────────────────
@@ -1644,14 +1711,10 @@ async function exportToExcel(historyOverride) {
 
 let _costsCache = {};
 
-async function renderCosts() {
-  const container = document.getElementById("costsList");
-  if (!container) return;
-
+async function openCostsModal() {
   _costsCache = await DataStore.getCosts();
   const allItems = menu.flatMap(c => c.items);
-
-  container.innerHTML = allItems.map(item => `
+  const rows = allItems.map(item => `
     <div class="costs-row">
       <span>${esc(item.name)}</span>
       <span style="color:var(--text-muted);font-size:12px;">$</span>
@@ -1667,6 +1730,11 @@ async function renderCosts() {
       >
     </div>
   `).join('');
+  openModal(`
+    <h3 style="margin-top:0;">💰 Costo por producto</h3>
+    <div class="costs-section" style="margin-top:8px;">${rows}</div>
+    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
+  `);
 }
 
 function updateCost(name, value) {
