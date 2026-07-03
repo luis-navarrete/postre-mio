@@ -440,24 +440,27 @@ function esc(str) {
 }
 
 const defaultInventory = {
-  "M&Ms": 10,
-  "Lotus": 10,
-  "Kinder Bueno": 10,
-  "Red Velvet": 10,
-  "Oreo": 10,
-  "Lucky Charms": 10,
-  "Conejito Turín": 10,
-  "Pistache": 10,
-  "Crookie": 10,
-  "Rol de canela": 10,
-  "Brownie": 10,
-  "Carlota de limón": 10,
-  "Cookie bites": 10,
-  "Besos de nuez": 10,
-  "Mini pastel zanahoria": 10,
-  "Mini pastel red velvet": 10,
-  "Mini pastel Nutella": 10,
-  "Mini pastel dulce de leche": 10
+  "M&Ms": 0,
+  "Lotus": 0,
+  "Kinder Bueno": 0,
+  "Red Velvet": 0,
+  "Oreo": 0,
+  "Lucky Charms": 0,
+  "Conejito Turín": 0,
+  "Pistache": 0,
+  "Canela": 0,
+  "Fresa": 0,
+  "Crookie": 0,
+  "Rol de canela": 0,
+  "Brownie": 0,
+  "Cookie bites": 0,
+  "Besos de nuez": 0,
+  "Mini pastel zanahoria": 0,
+  "Mini pastel red velvet": 0,
+  "Mini pastel Nutella": 0,
+  "Mini pastel dulce de leche": 0,
+  "Carlota de limón": 0,
+  "Pastel red velvet": 0
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
@@ -1240,7 +1243,7 @@ function renderInventory() {
       div.onclick = () => toggleItemHidden(name);
       div.innerHTML = `
         <div class="inv-name">${esc(name)}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">${isHidden ? '🚫 Oculto — toca para mostrar' : '👁 Visible — toca para ocultar'}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px;">${isHidden ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Oculto — toca para mostrar` : `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Visible — toca para ocultar`}</div>
       `;
     } else {
       div.innerHTML = `
@@ -1460,7 +1463,12 @@ function renderHistoryWithData(data) {
   _historyData = data;
 
   if (data.length === 0) {
-    container.innerHTML = "<p>No hay ventas aún.</p>";
+    container.innerHTML = `
+      <div class="pending-empty">
+        <div style="font-size:36px;margin-bottom:10px;">🧾</div>
+        <p>No hay ventas aún.</p>
+      </div>
+    `;
     updateCutBtnWithData(data);
     return;
   }
