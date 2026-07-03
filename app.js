@@ -1329,6 +1329,25 @@ function updateSaveBtn() {
   btn.style.display = updatedItems.size > 0 ? 'flex' : 'none';
 }
 
+function resetInventory() {
+  confirmModal('¿Resetear todo el inventario a 0?', async () => {
+    Object.keys(inventory).forEach(k => { inventory[k] = 0; });
+    const batch = db.batch();
+    Object.keys(inventory).forEach(name => {
+      batch.set(storeRef("inventory").doc(name), { qty: 0 });
+    });
+    await batch.commit();
+    originalInventory = JSON.parse(JSON.stringify(inventory));
+    updatedItems.clear();
+    _pendingRestockByName = {};
+    saveInventory();
+    updateSaveBtn();
+    renderInventory();
+    renderProducts();
+    showToast('Inventario reseteado a 0');
+  });
+}
+
 async function saveInventoryChanges() {
   const btn = document.getElementById('saveInventoryBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
