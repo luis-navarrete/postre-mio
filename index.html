@@ -108,7 +108,7 @@
       <h2 style="margin:0;">Inventario</h2>
       <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
         <button id="saveInventoryBtn" class="btn-brand" onclick="saveInventoryChanges()" style="display:none;font-size:13px;padding:6px 14px;margin:0;">💾 Guardar</button>
-        <button id="hideModeBtn" class="hide-mode-btn" onclick="toggleHideMode()">👁 Ocultar productos</button>
+        <button id="hideModeBtn" class="hide-mode-btn" onclick="toggleHideMode()" title="Ocultar productos"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
       </div>
     </div>
     <div id="inventoryList"></div>
@@ -125,7 +125,7 @@
   <div class="page-content">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
       <h2 style="margin:0;">Historial</h2>
-      <button id="editModeBtn" class="edit-mode-btn" onclick="toggleEditMode()">✏️ Editar</button>
+      <button id="editModeBtn" class="edit-mode-btn" onclick="toggleEditMode()" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
     </div>
     <div id="historyList"></div>
     <div id="cutBtn" style="display:none; text-align: center;">
@@ -155,7 +155,7 @@
   <div class="page-content">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
       <h2 style="margin:0;">Mermas</h2>
-      <button class="btn-secondary" onclick="openCostsModal()" style="font-size:13px;padding:6px 14px;">💰 Costos</button>
+      <button class="btn-secondary" onclick="openCostsModal()" style="font-size:13px;padding:6px 14px;display:flex;align-items:center;gap:6px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Costos</button>
     </div>
     <div id="mermaList"></div>
   </div>

@@ -773,14 +773,16 @@ button:active { opacity: 0.75; }
 
 /* ── HIDING MODE ── */
 .hide-mode-btn {
-  font-size: 13px;
-  padding: 6px 12px;
-  margin: 0 0 12px;
+  padding: 7px;
+  margin: 0;
   border-radius: var(--radius-sm);
   background: var(--btn-secondary-bg);
   color: var(--btn-secondary-color);
   border: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hide-mode-btn:active { opacity: 0.7; }
@@ -806,14 +808,16 @@ button:active { opacity: 0.75; }
 
 /* ── HISTORY EDIT MODE ── */
 .edit-mode-btn {
-  font-size: 12px;
-  padding: 5px 10px;
+  padding: 7px;
   margin: 0;
   border-radius: var(--radius-sm);
   background: var(--btn-secondary-bg);
   color: var(--btn-secondary-color);
   border: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .edit-mode-btn:active { opacity: 0.7; }
