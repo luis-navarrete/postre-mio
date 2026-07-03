@@ -436,7 +436,8 @@ function stopListeners() {
 
 // Helper to render history from Firestore
 async function renderHistoryFromFirestore() {
-  const data = await DataStore.getSales();
+  showSpinner();
+  const data = await DataStore.getSales().finally(hideSpinner);
   _historyData = data;
   renderHistoryWithData(data);
 }
@@ -1800,7 +1801,8 @@ async function exportToExcel(historyOverride) {
 let _costsCache = {};
 
 async function openCostsModal() {
-  _costsCache = await DataStore.getCosts();
+  showSpinner();
+  _costsCache = await DataStore.getCosts().finally(hideSpinner);
   const allItems = menu.flatMap(c => c.items);
   const rows = allItems.map(item => `
     <div class="costs-row">
@@ -1835,6 +1837,18 @@ function updateCost(name, value) {
   DataStore.saveCosts(_costsCache);
 }
 
+
+let _spinnerCount = 0;
+function showSpinner() {
+  _spinnerCount++;
+  document.getElementById('pageSpinner')?.classList.remove('hidden');
+}
+function hideSpinner() {
+  if (--_spinnerCount <= 0) {
+    _spinnerCount = 0;
+    document.getElementById('pageSpinner')?.classList.add('hidden');
+  }
+}
 
 function showToast(msg) {
   const toast = document.createElement("div");
@@ -2307,7 +2321,8 @@ function savePromo() {
 // ─────────────────────────────────────────────
 
 async function renderRestockLogFromFirestore() {
-  const log = await DataStore.getRestockLog();
+  showSpinner();
+  const log = await DataStore.getRestockLog().finally(hideSpinner);
   renderRestockLogWithData(log);
 }
 
@@ -2490,7 +2505,8 @@ async function renderMermaLog() {
   const container = document.getElementById("mermaList");
   if (!container) return;
 
-  const mermas = await DataStore.getMermas();
+  showSpinner();
+  const mermas = await DataStore.getMermas().finally(hideSpinner);
 
   if (!mermas.length) {
     container.innerHTML = `
@@ -2640,7 +2656,8 @@ async function renderPending() {
   const container = document.getElementById("pendingList");
   if (!container) return;
 
-  const list = await DataStore.getPending();
+  showSpinner();
+  const list = await DataStore.getPending().finally(hideSpinner);
 
   if (!list.length) {
     container.innerHTML = `

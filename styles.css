@@ -1017,6 +1017,32 @@ button:active { opacity: 0.75; }
 .conn-badge.online  { background: rgba(255,255,255,0.25); color: white; }
 .conn-badge.offline { background: #ffebee; color: #c62828; }
 
+/* ── PAGE SPINNER OVERLAY ─────────────── */
+.page-spinner {
+  position: fixed;
+  inset: 0;
+  background: rgba(var(--bg-rgb, 255,255,255), 0.75);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8000;
+}
+
+.page-spinner::after {
+  content: '';
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  .page-spinner { background: rgba(30,30,30,0.75); }
+}
+
 /* ── LOADING SCREEN ──────────────────── */
 .loading-screen {
   position: fixed;
