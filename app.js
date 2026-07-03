@@ -310,6 +310,16 @@ const DataStore = {
     await configRef("prices").set({ [name]: price }, { merge: true });
   },
 
+  async getExtrasPrices() {
+    const doc = await configRef("extrasPrices").get();
+    return doc.exists ? doc.data() : {};
+  },
+
+  async saveExtrasPrice(productName, extraName, price) {
+    const key = productName + '__' + extraName;
+    await configRef("extrasPrices").set({ [key]: price }, { merge: true });
+  },
+
   async getHiddenItems() {
     const doc = await configRef("hidden").get();
     return doc.exists ? (doc.data().items || []) : [];
@@ -559,7 +569,7 @@ function renderProducts() {
 // ── EXTRAS CONFIG ─────────────────────────────
 // Items that require an extra selection when added to cart.
 // extrasPrice: 0 means free (Natural), > 0 means charged extra.
-const ITEM_EXTRAS = {
+let ITEM_EXTRAS = {
   "Rol de canela": [
     { name: "Natural",              price: 0   },
     { name: "Glaseado queso crema", price: 5  },
@@ -1099,6 +1109,7 @@ document.addEventListener("click", function(e) {
 function showPage(page) {
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
   if (page !== 'inventory' && inventoryVisible && updatedItems.size > 0) {
+    document.getElementById('sideMenu').classList.remove('open');
     openModal(`
       <h3 style="margin-top:0;">Cambios sin guardar</h3>
       <p style="color:var(--text-muted);font-size:14px;">Tienes cambios de inventario sin guardar.</p>
@@ -1249,18 +1260,6 @@ function renderInventory() {
       div.innerHTML = `
         <div class="inv-name">${esc(name)}</div>
         <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
-        <div class="inv-price-row">
-          💲<input
-            type="number"
-            inputmode="decimal"
-            value="${menuItem ? menuItem.price : ''}"
-            min="0"
-            step="1"
-            title="Editar precio"
-            onfocus="this.select()"
-            onchange="updatePrice('${name.replace(/'/g, "\\'")}', this.value)"
-          >
-        </div>
         <div class="inv-controls">
           <button
             style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
@@ -1307,6 +1306,55 @@ function updatePrice(name, value) {
   showToast(`Precio de ${name} actualizado a $${price}`);
 }
 
+function openPricesModal() {
+  const productRows = menu.map(cat => {
+    const rows = cat.items.map(item => `
+      <div class="costs-row">
+        <span>${esc(item.name)}</span>
+        <span style="color:var(--text-muted);font-size:12px;">$</span>
+        <input type="number" inputmode="decimal" min="0" step="1"
+          value="${item.price}"
+          onfocus="this.select()"
+          onchange="updatePrice('${item.name.replace(/'/g, "\\'")}', this.value)">
+      </div>
+    `).join('');
+    return `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">${esc(cat.category)}</div>${rows}`;
+  }).join('');
+
+  const extrasRows = Object.entries(ITEM_EXTRAS).map(([productName, extras]) => {
+    const rows = extras.map(e => `
+      <div class="costs-row">
+        <span>${esc(e.name)}</span>
+        <span style="color:var(--text-muted);font-size:12px;">$</span>
+        <input type="number" inputmode="decimal" min="0" step="1"
+          value="${e.price}"
+          onfocus="this.select()"
+          onchange="updateExtrasPrice('${productName.replace(/'/g, "\\'")}', '${e.name.replace(/'/g, "\\'")}', this.value)">
+      </div>
+    `).join('');
+    return `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);">+ Extras: ${esc(productName)}</div>${rows}`;
+  }).join('');
+
+  openModal(`
+    <h3 style="margin-top:0;">💲 Precios</h3>
+    <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
+      ${productRows}
+      ${extrasRows ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">${extrasRows}</div>` : ''}
+    </div>
+    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
+  `);
+}
+
+function updateExtrasPrice(productName, extraName, value) {
+  const price = Math.max(0, parseFloat(value));
+  if (isNaN(price)) return;
+  if (ITEM_EXTRAS[productName]) {
+    const extra = ITEM_EXTRAS[productName].find(e => e.name === extraName);
+    if (extra) extra.price = price;
+  }
+  DataStore.saveExtrasPrice(productName, extraName, price);
+}
+
 function updateStock(name, delta) {
   inventory[name] += delta;
   if (inventory[name] < 0) inventory[name] = 0;
@@ -1324,9 +1372,21 @@ function updateStock(name, delta) {
 }
 
 function updateSaveBtn() {
+  const show = updatedItems.size > 0;
   const btn = document.getElementById('saveInventoryBtn');
-  if (!btn) return;
-  btn.style.display = updatedItems.size > 0 ? 'flex' : 'none';
+  const cancelBtn = document.getElementById('cancelInventoryBtn');
+  if (btn) btn.style.display = show ? 'flex' : 'none';
+  if (cancelBtn) cancelBtn.style.display = show ? 'flex' : 'none';
+}
+
+function cancelInventoryChanges() {
+  Object.keys(originalInventory).forEach(k => { inventory[k] = originalInventory[k]; });
+  updatedItems.clear();
+  _pendingRestockByName = {};
+  saveInventory();
+  updateSaveBtn();
+  renderInventory();
+  renderProducts();
 }
 
 function resetInventory() {
@@ -2286,11 +2346,12 @@ function clearRestockLog() {
 // ── Init (called after auth) ─────────────────
 async function initApp() {
   // Load initial data from Firestore
-  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden] = await Promise.all([
+  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices] = await Promise.all([
     DataStore.getInventory(),
     DataStore.getCustomPrices(),
     DataStore.getPromotions(),
     DataStore.getHiddenItems(),
+    DataStore.getExtrasPrices(),
   ]);
 
   // Seed inventory if Firestore is empty (first run)
@@ -2311,6 +2372,18 @@ async function initApp() {
     cat.items.forEach(item => {
       if (firestorePrices[item.name] !== undefined) item.price = firestorePrices[item.name];
     });
+  });
+
+  // Apply saved extras prices
+  Object.entries(firestoreExtrasPrices).forEach(([key, price]) => {
+    const sep = key.indexOf('__');
+    if (sep === -1) return;
+    const productName = key.slice(0, sep);
+    const extraName   = key.slice(sep + 2);
+    if (ITEM_EXTRAS[productName]) {
+      const extra = ITEM_EXTRAS[productName].find(e => e.name === extraName);
+      if (extra) extra.price = price;
+    }
   });
 
   // Load promotions
