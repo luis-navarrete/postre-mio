@@ -2632,7 +2632,8 @@ async function loadPending(id) {
     cart = order.items.map(item => ({ ...item }));
     renderCart();
     renderProducts();
-    openPaymentOptions();
+    showPage('pos');
+    showToast(`Pedido de ${order.name} cargado`);
   };
 
   if (cart.length > 0) {
