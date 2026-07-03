@@ -1842,12 +1842,14 @@ function updateCost(name, value) {
 let _spinnerCount = 0;
 function showSpinner() {
   _spinnerCount++;
-  document.getElementById('pageSpinner')?.classList.remove('hidden');
+  const el = document.getElementById('pageSpinner');
+  if (el) el.style.display = 'flex';
 }
 function hideSpinner() {
   if (--_spinnerCount <= 0) {
     _spinnerCount = 0;
-    document.getElementById('pageSpinner')?.classList.add('hidden');
+    const el = document.getElementById('pageSpinner');
+    if (el) el.style.display = 'none';
   }
 }
 
