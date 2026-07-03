@@ -1347,6 +1347,7 @@ async function saveInventoryChanges() {
     updatedItems.clear();
     _pendingRestockByName = {};
 
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
     saveInventory();
     updateSaveBtn();
     renderInventory();
