@@ -2470,18 +2470,17 @@ function saveAsPending() {
     return;
   }
 
+  _pendingPaymentStatus = 'pending';
   openModal(`
     <h3 style="margin-top:0;">📋 Guardar pedido</h3>
     <div class="promo-form">
       <label>Nombre del cliente</label>
-      <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off" style="flex:1;min-width:0;">
+        <button id="ps-toggle" onclick="togglePendingPaymentStatus()" style="width:auto;flex-shrink:0;padding:9px 12px;background:#fff3e0;color:#e65100;border:1.5px solid #ffcc80;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;">⏳ Pendiente</button>
+      </div>
       <label>Nota (opcional)</label>
       <input id="pending-note" type="text" placeholder="Ej: Pasa a las 5pm">
-      <label>Pago</label>
-      <div style="display:flex;gap:8px;">
-        <button id="ps-pending" class="btn-primary" style="flex:1;width:auto;" onclick="setPendingPaymentStatus('pending')">⏳ Pendiente</button>
-        <button id="ps-paid" class="btn-secondary" style="flex:1;width:auto;" onclick="setPendingPaymentStatus('paid')">✅ Pagado</button>
-      </div>
     </div>
     <button class="btn-primary" onclick="confirmSaveAsPending()" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
@@ -2492,10 +2491,21 @@ function saveAsPending() {
 
 let _pendingPaymentStatus = 'pending';
 
-function setPendingPaymentStatus(status) {
-  _pendingPaymentStatus = status;
-  document.getElementById('ps-pending').className = status === 'pending' ? 'btn-primary' : 'btn-secondary';
-  document.getElementById('ps-paid').className = status === 'paid' ? 'btn-primary' : 'btn-secondary';
+function togglePendingPaymentStatus() {
+  _pendingPaymentStatus = _pendingPaymentStatus === 'pending' ? 'paid' : 'pending';
+  const btn = document.getElementById('ps-toggle');
+  if (!btn) return;
+  if (_pendingPaymentStatus === 'paid') {
+    btn.textContent = '✅ Pagado';
+    btn.style.background = '#e8f5e9';
+    btn.style.color = '#2e7d32';
+    btn.style.borderColor = '#a5d6a7';
+  } else {
+    btn.textContent = '⏳ Pendiente';
+    btn.style.background = '#fff3e0';
+    btn.style.color = '#e65100';
+    btn.style.borderColor = '#ffcc80';
+  }
 }
 
 async function confirmSaveAsPending() {
