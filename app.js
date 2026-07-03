@@ -440,24 +440,27 @@ function esc(str) {
 }
 
 const defaultInventory = {
-  "M&Ms": 10,
-  "Lotus": 10,
-  "Kinder Bueno": 10,
-  "Red Velvet": 10,
-  "Oreo": 10,
-  "Lucky Charms": 10,
-  "Conejito Turín": 10,
-  "Pistache": 10,
-  "Crookie": 10,
-  "Rol de canela": 10,
-  "Brownie": 10,
-  "Carlota de limón": 10,
-  "Cookie bites": 10,
-  "Besos de nuez": 10,
-  "Mini pastel zanahoria": 10,
-  "Mini pastel red velvet": 10,
-  "Mini pastel Nutella": 10,
-  "Mini pastel dulce de leche": 10
+  "M&Ms": 0,
+  "Lotus": 0,
+  "Kinder Bueno": 0,
+  "Red Velvet": 0,
+  "Oreo": 0,
+  "Lucky Charms": 0,
+  "Conejito Turín": 0,
+  "Pistache": 0,
+  "Canela": 0,
+  "Fresa": 0,
+  "Crookie": 0,
+  "Rol de canela": 0,
+  "Brownie": 0,
+  "Cookie bites": 0,
+  "Besos de nuez": 0,
+  "Mini pastel zanahoria": 0,
+  "Mini pastel red velvet": 0,
+  "Mini pastel Nutella": 0,
+  "Mini pastel dulce de leche": 0,
+  "Carlota de limón": 0,
+  "Pastel red velvet": 0
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
