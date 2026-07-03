@@ -2579,6 +2579,7 @@ function saveAsPending() {
 async function confirmSaveAsPending() {
   if (_savingPending) return;
   _savingPending = true;
+  showSpinner();
   try {
     const name = document.getElementById('pending-name').value.trim() || "Sin nombre";
     const note = document.getElementById('pending-note').value.trim();
@@ -2613,6 +2614,7 @@ async function confirmSaveAsPending() {
     closeModal();
     showToast(`Pedido de ${name} guardado`);
   } finally {
+    hideSpinner();
     _savingPending = false;
   }
 }
