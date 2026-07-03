@@ -2477,12 +2477,25 @@ function saveAsPending() {
       <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off">
       <label>Nota (opcional)</label>
       <input id="pending-note" type="text" placeholder="Ej: Pasa a las 5pm">
+      <label>Pago</label>
+      <div style="display:flex;gap:8px;">
+        <button id="ps-pending" class="btn-primary" style="flex:1;" onclick="setPendingPaymentStatus('pending')">⏳ Por cobrar</button>
+        <button id="ps-paid" class="btn-secondary" style="flex:1;" onclick="setPendingPaymentStatus('paid')">✅ Ya pagó</button>
+      </div>
     </div>
     <button class="btn-primary" onclick="confirmSaveAsPending()" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 
   setTimeout(() => document.getElementById('pending-name')?.focus(), 80);
+}
+
+let _pendingPaymentStatus = 'pending';
+
+function setPendingPaymentStatus(status) {
+  _pendingPaymentStatus = status;
+  document.getElementById('ps-pending').className = status === 'pending' ? 'btn-primary' : 'btn-secondary';
+  document.getElementById('ps-paid').className = status === 'paid' ? 'btn-primary' : 'btn-secondary';
 }
 
 async function confirmSaveAsPending() {
@@ -2492,14 +2505,17 @@ async function confirmSaveAsPending() {
 
   const order = {
     date: new Date().toLocaleString(),
+    isoDate: new Date().toISOString(),
     name,
     note,
     items: [...cart],
     total: finalTotal,
+    paymentStatus: _pendingPaymentStatus,
     promos: appliedPromos
       .filter(a => a.discount > 0 || a.raffleEntries)
       .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
   };
+  _pendingPaymentStatus = 'pending';
 
   for (const item of order.items) {
     if (inventory[item.name] > 0) {
@@ -2560,6 +2576,35 @@ async function deletePending(id) {
   });
 }
 
+async function deliverPaid(id) {
+  const list = await DataStore.getPending();
+  const order = list.find(o => o._id === id);
+  if (!order) return;
+
+  confirmModal(`¿Marcar el pedido de ${order.name} como entregado?`, async () => {
+    const sale = {
+      date: order.date,
+      isoDate: order.isoDate || new Date().toISOString(),
+      items: order.items,
+      total: order.total,
+      method: 'prepaid',
+      amount: order.total,
+      change: 0,
+      promos: order.promos || [],
+      folio: null
+    };
+    const now = new Date();
+    const dateStr = now.getFullYear().toString().slice(2)
+      + String(now.getMonth() + 1).padStart(2, '0')
+      + String(now.getDate()).padStart(2, '0');
+    sale.folio = await DataStore.getNextFolio(dateStr);
+    await DataStore.addSale(sale);
+    await DataStore.deletePending(id);
+    renderPending();
+    showToast(`Pedido de ${order.name} entregado ✅`);
+  });
+}
+
 async function renderPending() {
   const container = document.getElementById("pendingList");
   if (!container) return;
@@ -2591,6 +2636,7 @@ async function renderPending() {
 
     const card = document.createElement("div");
     card.className = "pending-card";
+    card.style.borderLeftColor = order.paymentStatus === 'paid' ? 'var(--green)' : 'var(--orange)';
     card.innerHTML = `
       <div class="pending-card-header">
         <div class="pending-name">${esc(order.name)}</div>
@@ -2599,9 +2645,16 @@ async function renderPending() {
       ${order.note ? `<div class="pending-note">📝 ${esc(order.note)}</div>` : ''}
       <div class="pending-items">${esc(summary)}</div>
       <div class="pending-footer">
-        <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
+          ${order.paymentStatus === 'paid'
+            ? `<span class="payment-badge paid">✅ Pagado</span>`
+            : `<span class="payment-badge unpaid">⏳ Por cobrar</span>`}
+        </div>
         <div class="pending-actions">
-          <button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>
+          ${order.paymentStatus === 'paid'
+            ? `<button class="btn-brand" onclick="deliverPaid('${order._id}')">Entregar</button>`
+            : `<button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>`}
           <button class="delete-btn" onclick="deletePending('${order._id}')">🗑️</button>
         </div>
       </div>
