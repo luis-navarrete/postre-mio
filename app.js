@@ -2723,17 +2723,17 @@ async function renderPending() {
     card.innerHTML = `
       <div class="pending-card-header">
         <div class="pending-name">${esc(order.name)}</div>
-        <div class="pending-date">${esc(order.date)}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${order.paymentStatus === 'paid'
+            ? `<span class="payment-badge paid">✅ Pagado</span>`
+            : `<span class="payment-badge unpaid">⏳ Pendiente</span>`}
+          <div class="pending-date">${esc(order.date)}</div>
+        </div>
       </div>
       ${order.note ? `<div class="pending-note">📝 ${esc(order.note)}</div>` : ''}
       <div class="pending-items">${esc(summary)}</div>
       <div class="pending-footer">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
-          ${order.paymentStatus === 'paid'
-            ? `<span class="payment-badge paid">✅ Pagado</span>`
-            : `<span class="payment-badge unpaid">⏳ Pendiente</span>`}
-        </div>
+        <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
           ${order.paymentStatus === 'paid'
             ? `<button class="btn-brand" onclick="deliverPaid('${order._id}')">Entregar</button>`
