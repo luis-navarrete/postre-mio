@@ -1463,7 +1463,12 @@ function renderHistoryWithData(data) {
   _historyData = data;
 
   if (data.length === 0) {
-    container.innerHTML = "<p>No hay ventas aún.</p>";
+    container.innerHTML = `
+      <div class="pending-empty">
+        <div style="font-size:36px;margin-bottom:10px;">🧾</div>
+        <p>No hay ventas aún.</p>
+      </div>
+    `;
     updateCutBtnWithData(data);
     return;
   }
