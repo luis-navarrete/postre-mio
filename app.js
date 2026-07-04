@@ -268,6 +268,10 @@ const DataStore = {
     await storeRef("mermas").add(merma);
   },
 
+  async deleteMerma(id) {
+    await storeRef("mermas").doc(id).delete();
+  },
+
   async clearMermas() {
     const snap = await storeRef("mermas").get();
     const batch = db.batch();
@@ -2511,6 +2515,7 @@ async function renderMermaLog() {
         </div>
         <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
+        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;font-size:16px;line-height:1;" title="Eliminar">×</button>
       </div>
     `;
   }).join('');
@@ -2528,6 +2533,11 @@ function clearMermaLog() {
     await DataStore.clearMermas();
     renderMermaLog();
   });
+}
+
+async function deleteMermaEntry(id) {
+  await DataStore.deleteMerma(id);
+  renderMermaLog();
 }
 
 // ─────────────────────────────────────────────
