@@ -702,6 +702,7 @@ function openPaymentOptions() {
     <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
     <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
     <button class="btn-brand" onclick="handleTransfer(${finalTotal})">Transferencia</button>
+    <button class="btn-brand" onclick="handleCard(${finalTotal})">Tarjeta</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
@@ -801,6 +802,10 @@ function confirmCash(total) {
 
 function handleTransfer(total) {
   showFinalStep(total, "transfer", 0);
+}
+
+function handleCard(total) {
+  showFinalStep(total, "card", 0);
 }
 
 function showFinalStep(total, method, change, amount) {
@@ -1007,7 +1012,7 @@ function generateTicket(sale) {
       <table style="width:100%;border-collapse:collapse;">
         <tr><td colspan="3" style="font-size:10px;opacity:0.6;">FORMA DE PAGO</td></tr>
         <tr>
-          <td>${sale.method === "cash" ? "Efectivo" : "Transferencia"}</td>
+          <td>${sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia"}</td>
           <td style="width:16px;text-align:right;padding-right:0;">$</td>
           <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.amount).toFixed(2)}</td>
         </tr>
@@ -1505,6 +1510,7 @@ function openEditSale(saleId) {
       <select id="edit-method">
         <option value="cash"     ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
         <option value="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+        <option value="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
       </select>
 
       <label>Nota (opcional)</label>
@@ -1730,7 +1736,7 @@ async function buildCsvString(history) {
   history.forEach(sale => {
     const folio  = sale.folio || "";
     const date   = sale.date ? sale.date.split(",")[0].trim() : "";
-    const method = sale.method === "cash" ? "Efectivo" : "Transferencia";
+    const method = sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia";
     let row = `${folio},${date},${method},${sale.total},`;
     products.forEach(p => {
       let qty = 0;
