@@ -296,15 +296,7 @@ const DataStore = {
     await batch.commit();
   },
 
-  // ── Config (costs, prices, hidden) ──
-  async getCosts() {
-    const doc = await configRef("costs").get();
-    return doc.exists ? doc.data() : {};
-  },
-
-  async saveCosts(costs) {
-    await configRef("costs").set(costs);
-  },
+  // ── Config (prices, hidden) ──
 
   async getCustomPrices() {
     const doc = await configRef("prices").get();
@@ -1779,47 +1771,6 @@ function triggerCsvDownload(csv) {
   link.download = `postre_mio_corte_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-// ── COSTS ENGINE ──────────────────────────────
-
-let _costsCache = {};
-
-async function openCostsModal() {
-  showSpinner();
-  _costsCache = await DataStore.getCosts().finally(hideSpinner);
-  const allItems = menu.flatMap(c => c.items);
-  const rows = allItems.map(item => `
-    <div class="costs-row">
-      <span>${esc(item.name)}</span>
-      <span style="color:var(--text-muted);font-size:12px;">$</span>
-      <input
-        type="number"
-        inputmode="decimal"
-        min="0"
-        step="0.01"
-        value="${_costsCache[item.name] !== undefined ? _costsCache[item.name] : ''}"
-        placeholder="0.00"
-        onfocus="this.select()"
-        onchange="updateCost('${item.name.replace(/'/g, "\\'")}', this.value)"
-      >
-    </div>
-  `).join('');
-  openModal(`
-    <h3 style="margin-top:0;">💰 Costo por producto</h3>
-    <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">${rows}</div>
-    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
-  `);
-}
-
-function updateCost(name, value) {
-  const cost = Math.max(0, parseFloat(value));
-  if (isNaN(cost)) {
-    delete _costsCache[name];
-  } else {
-    _costsCache[name] = cost;
-  }
-  DataStore.saveCosts(_costsCache);
 }
 
 
