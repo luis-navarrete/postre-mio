@@ -1698,16 +1698,21 @@ async function generateCut() {
 
 function clearSales(count, total) {
   confirmModal("¿Cerrar caja y borrar ventas?", async () => {
-    await DataStore.clearDayData();
-
-    await renderHistoryFromFirestore();
-
-    openModal(`
-      <h3 style="margin-top:0;">Corte del día</h3>
-      <p>Ventas: <strong>${count}</strong></p>
-      <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
-      <button class="btn-primary" onclick="closeModal()">Cerrar</button>
-    `);
+    try {
+      await DataStore.clearDayData();
+      // Update local state directly — avoids a re-fetch that can fail if the
+      // Firestore index isn't ready and would silently swallow the error.
+      _historyData = [];
+      renderHistoryWithData([]);
+      openModal(`
+        <h3 style="margin-top:0;">Corte del día</h3>
+        <p>Ventas: <strong>${count}</strong></p>
+        <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
+        <button class="btn-primary" onclick="closeModal()">Cerrar</button>
+      `);
+    } catch (e) {
+      showToast("Error al cerrar caja: " + (e.message || "reintenta"));
+    }
   });
 }
 
