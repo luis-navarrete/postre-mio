@@ -1688,7 +1688,11 @@ async function generateCut() {
   const total = todaySales.reduce((sum, s) => sum + s.total, 0);
   const count = todaySales.length;
 
-  await exportToExcel(history);
+  try {
+    await exportToExcel(history);
+  } catch (e) {
+    showToast("Error al exportar el archivo");
+  }
   clearSales(count, total);
 }
 
