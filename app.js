@@ -1710,83 +1710,50 @@ function clearSales(count, total) {
 async function exportToExcel(historyOverride) {
   const history = historyOverride || await DataStore.getSales();
   const mermas  = await DataStore.getMermas();
-  const costs   = await DataStore.getCosts();
 
-  // Collect all product names from sales
-  let products = new Set();
-  history.forEach(sale => sale.items.forEach(item => products.add(item.name)));
-  products = Array.from(products);
+  // All products from menu for consistent columns across sales and mermas
+  const products = menu.flatMap(c => c.items).map(i => i.name);
 
-  // ── SALES ROWS ──
-  let csv = "Folio,Fecha,Hora,";
+  // ── HEADER ──
+  let csv = `Folio,Fecha,Método de pago,Total,`;
   products.forEach(p => { csv += `"${p}",`; });
-  csv += "Total\n";
+  csv += "\n";
 
+  // ── SALE ROWS ──
   history.forEach(sale => {
-    const saleFolio = sale.folio || "";
-    const saleDate  = sale.date.split(",")[0];
-    const saleTime  = sale.date.split(",")[1] || "";
-    let row = `${saleFolio},${saleDate},${saleTime},`;
-
+    const folio  = sale.folio || "";
+    const date   = sale.date ? sale.date.split(",")[0].trim() : "";
+    const method = sale.method === "cash" ? "Efectivo" : "Transferencia";
+    let row = `${folio},${date},${method},${sale.total},`;
     products.forEach(p => {
       let qty = 0;
       sale.items.forEach(item => { if (item.name === p) qty++; });
       row += qty + ",";
     });
-
-    row += sale.total + "\n";
-    csv += row;
+    csv += row + "\n";
   });
 
-  // ── MERMA ROWS ──
-  // Group mermas by type, then by date
-  const MERMA_SUFFIX = { merma: "W", muestra: "S", regalo: "G", consumo: "C" };
-  const MERMA_LABELS = { merma: "Merma", muestra: "Muestra", regalo: "Regalo", consumo: "Consumo" };
+  // ── SUMMARY ROWS ──
+  csv += "\n";
 
-  const byType = {};
-  mermas.forEach(m => {
-    if (!byType[m.reason]) byType[m.reason] = {};
-    // Group by date (strip time)
-    const dateKey = m.date.split(",")[0];
-    if (!byType[m.reason][dateKey]) byType[m.reason][dateKey] = {};
-    byType[m.reason][dateKey][m.name] = (byType[m.reason][dateKey][m.name] || 0) + m.qty;
-  });
-
-  if (Object.keys(byType).length > 0) {
-    csv += "\n"; // blank separator
-
-    Object.entries(byType).forEach(([reason, byDate]) => {
-      Object.entries(byDate).forEach(([date, items]) => {
-        // Build folio: AAMMDD + suffix
-        const parts = date.split("/"); // depends on locale — handle both dd/mm/yyyy and mm/dd/yyyy
-        let dateStr = "";
-        try {
-          const d = new Date(date);
-          const yy = String(d.getFullYear()).slice(2);
-          const mm = String(d.getMonth() + 1).padStart(2, "0");
-          const dd = String(d.getDate()).padStart(2, "0");
-          dateStr = yy + mm + dd;
-        } catch (e) { dateStr = date.replace(/\//g, ""); }
-
-        const folio = dateStr + "-" + (MERMA_SUFFIX[reason] || "X");
-        const label = MERMA_LABELS[reason] || reason;
-
-        // Build row: folio, date, label, then product columns, then total cost
-        let row = `${folio},${date},${label},`;
-        let totalCost = 0;
-
-        products.forEach(p => {
-          const qty = items[p] || 0;
-          const cost = parseFloat(costs[p] || 0);
-          totalCost += qty * cost;
-          row += qty + ",";
-        });
-
-        row += totalCost.toFixed(2) + "\n";
-        csv += row;
-      });
+  // Sold totals — sales only, mermas not counted
+  let soldRow = `,,,Vendidos,`;
+  products.forEach(p => {
+    let total = 0;
+    history.forEach(sale => {
+      sale.items.forEach(item => { if (item.name === p) total++; });
     });
-  }
+    soldRow += total + ",";
+  });
+  csv += soldRow + "\n";
+
+  // Merma totals per product
+  const mermaTotals = {};
+  mermas.forEach(m => { mermaTotals[m.name] = (mermaTotals[m.name] || 0) + m.qty; });
+
+  let mermaRow = `,,,Mermas,`;
+  products.forEach(p => { mermaRow += (mermaTotals[p] || 0) + ","; });
+  csv += mermaRow + "\n";
 
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
