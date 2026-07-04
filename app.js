@@ -1688,22 +1688,25 @@ async function generateCut() {
   const total = todaySales.reduce((sum, s) => sum + s.total, 0);
   const count = todaySales.length;
 
+  // Build CSV data now (Firestore reads) before any download or clearing
+  let csvString = null;
   try {
-    await exportToExcel(history);
+    csvString = await buildCsvString(history);
   } catch (e) {
-    showToast("Error al exportar el archivo");
+    showToast("Error al preparar el archivo");
   }
-  clearSales(count, total);
-}
 
-function clearSales(count, total) {
   confirmModal("¿Cerrar caja y borrar ventas?", async () => {
     try {
       await DataStore.clearDayData();
-      // Update local state directly — avoids a re-fetch that can fail if the
-      // Firestore index isn't ready and would silently swallow the error.
       _historyData = [];
       renderHistoryWithData([]);
+
+      // Download after all Firestore operations are done
+      if (csvString) {
+        try { triggerCsvDownload(csvString); } catch (e) { showToast("Error al descargar el archivo"); }
+      }
+
       openModal(`
         <h3 style="margin-top:0;">Corte del día</h3>
         <p>Ventas: <strong>${count}</strong></p>
@@ -1716,19 +1719,14 @@ function clearSales(count, total) {
   });
 }
 
-async function exportToExcel(historyOverride) {
-  const history = historyOverride || await DataStore.getSales();
-  const mermas  = await DataStore.getMermas();
-
-  // All products from menu for consistent columns across sales and mermas
+async function buildCsvString(history) {
+  const mermas   = await DataStore.getMermas();
   const products = menu.flatMap(c => c.items).map(i => i.name);
 
-  // ── HEADER ──
   let csv = `Folio,Fecha,Método de pago,Total,`;
   products.forEach(p => { csv += `"${p}",`; });
   csv += "\n";
 
-  // ── SALE ROWS ──
   history.forEach(sale => {
     const folio  = sale.folio || "";
     const date   = sale.date ? sale.date.split(",")[0].trim() : "";
@@ -1742,10 +1740,8 @@ async function exportToExcel(historyOverride) {
     csv += row + "\n";
   });
 
-  // ── SUMMARY ROWS ──
   csv += "\n";
 
-  // Sold totals — sales only, mermas not counted
   let soldRow = `,,,Vendidos,`;
   products.forEach(p => {
     let total = 0;
@@ -1756,14 +1752,16 @@ async function exportToExcel(historyOverride) {
   });
   csv += soldRow + "\n";
 
-  // Merma totals per product
   const mermaTotals = {};
   mermas.forEach(m => { mermaTotals[m.name] = (mermaTotals[m.name] || 0) + m.qty; });
-
   let mermaRow = `,,,Mermas,`;
   products.forEach(p => { mermaRow += (mermaTotals[p] || 0) + ","; });
   csv += mermaRow + "\n";
 
+  return csv;
+}
+
+function triggerCsvDownload(csv) {
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
   const url  = URL.createObjectURL(blob);
   const link = document.createElement("a");
