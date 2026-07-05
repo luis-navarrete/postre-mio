@@ -268,6 +268,10 @@ const DataStore = {
     await storeRef("mermas").add(merma);
   },
 
+  async deleteMerma(id) {
+    await storeRef("mermas").doc(id).delete();
+  },
+
   async clearMermas() {
     const snap = await storeRef("mermas").get();
     const batch = db.batch();
@@ -292,15 +296,7 @@ const DataStore = {
     await batch.commit();
   },
 
-  // ── Config (costs, prices, hidden) ──
-  async getCosts() {
-    const doc = await configRef("costs").get();
-    return doc.exists ? doc.data() : {};
-  },
-
-  async saveCosts(costs) {
-    await configRef("costs").set(costs);
-  },
+  // ── Config (prices, hidden) ──
 
   async getCustomPrices() {
     const doc = await configRef("prices").get();
@@ -328,6 +324,16 @@ const DataStore = {
 
   async saveHiddenItems(items) {
     await configRef("hidden").set({ items });
+  },
+
+  // ── Frozen Inventory ──
+  async getFrozenInventory() {
+    const doc = await configRef("frozenInventory").get();
+    return doc.exists ? doc.data() : {};
+  },
+
+  async setFrozenStock(name, qty) {
+    await configRef("frozenInventory").set({ [name]: qty }, { merge: true });
   },
 
   // ── Bulk clear for daily cut ──
@@ -484,6 +490,16 @@ let updatedItems = new Set();
 function saveInventory() {
   localStorage.setItem("inventory", JSON.stringify(inventory));
 }
+
+// Products that can be frozen (1:1 with menu items)
+const FREEZABLE_PRODUCTS = [
+  "M&Ms", "Lotus", "Kinder Bueno", "Red Velvet", "Oreo",
+  "Lucky Charms", "Conejito Turín", "Pistache", "Canela", "Fresa",
+  "Crookie"
+];
+
+let frozenInventory = {};
+let _frozenHoldInterval = null;
 
 let currentSale = null;
 
@@ -1215,6 +1231,8 @@ function stopHold() {
   clearInterval(holdInterval);
   holdTimer = null;
   holdInterval = null;
+  clearInterval(_frozenHoldInterval);
+  _frozenHoldInterval = null;
   if (_holdRestockAccum > 0 && _holdRestockName) {
     _pendingRestockByName[_holdRestockName] = (_pendingRestockByName[_holdRestockName] || 0) + _holdRestockAccum;
   }
@@ -1290,6 +1308,95 @@ function renderInventory() {
 
     container.appendChild(div);
   });
+
+  renderFrozenSection();
+}
+
+function renderFrozenSection() {
+  let container = document.getElementById("frozenSection");
+  if (!container) return;
+
+  container.innerHTML = `<h3 style="margin:0 0 10px;">❄️ Congelados</h3>`;
+
+  FREEZABLE_PRODUCTS.forEach(name => {
+    const qty = frozenInventory[name] ?? 0;
+    const safeId = "frz-" + name.replace(/[^a-zA-Z0-9]/g, '-');
+    const row = document.createElement("div");
+    row.className = "inventory-card";
+    row.innerHTML = `
+      <div class="inv-name">${esc(name)}</div>
+      <div class="inv-qty">Congelados: ${qty}</div>
+      <div class="inv-controls">
+        <button
+          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+          onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', -1)"
+          onpointerup="stopHold()"
+          onpointerleave="stopHold()"
+          oncontextmenu="return false"
+          ontouchstart="this.ontouchend=stopHold;return true;"
+        >−</button>
+        <button
+          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+          onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', 1)"
+          onpointerup="stopHold()"
+          onpointerleave="stopHold()"
+          oncontextmenu="return false"
+          ontouchstart="this.ontouchend=stopHold;return true;"
+        >+</button>
+        <button
+          onclick="bakeFromFrozen('${name.replace(/'/g, "\\'")}')"
+          style="font-size:12px;padding:4px 10px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
+          ${qty === 0 ? "disabled" : ""}
+        >🔥 Hornear</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function startFrozenHold(name, delta) {
+  applyFrozenDelta(name, delta);
+  _frozenHoldInterval = setInterval(() => applyFrozenDelta(name, delta), 150);
+}
+
+function applyFrozenDelta(name, delta) {
+  const current = frozenInventory[name] ?? 0;
+  const next = Math.max(0, current + delta);
+  if (next === current) return;
+  frozenInventory[name] = next;
+  DataStore.setFrozenStock(name, next);
+  renderFrozenSection();
+}
+
+function bakeFromFrozen(name) {
+  const frozen = frozenInventory[name] ?? 0;
+  if (frozen === 0) return;
+  openModal(`
+    <h3 style="margin-top:0;">🔥 Hornear ${esc(name)}</h3>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Congelados disponibles: ${frozen}</p>
+    <div class="costs-row" style="border:none;padding:0;margin-bottom:16px;">
+      <span>Cantidad a hornear</span>
+      <input id="bake-qty" type="number" inputmode="numeric" min="1" max="${frozen}" value="${frozen}"
+        style="width:64px;text-align:center;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px;"
+        onfocus="this.select()">
+    </div>
+    <button class="btn-brand" onclick="confirmBake('${name.replace(/'/g, "\\'")}', ${frozen})">Hornear</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function confirmBake(name, frozen) {
+  const input = document.getElementById('bake-qty');
+  const qty = Math.min(Math.max(1, parseInt(input?.value) || 1), frozen);
+  closeModal();
+  frozenInventory[name] = frozen - qty;
+  await DataStore.setFrozenStock(name, frozenInventory[name]);
+  inventory[name] = (inventory[name] ?? 0) + qty;
+  await DataStore.setStock(name, inventory[name]);
+  renderFrozenSection();
+  renderInventory();
+  renderProducts();
+  showToast(`${qty} ${name} pasados al inventario`);
 }
 
 function updatePrice(name, value) {
@@ -1775,47 +1882,6 @@ function triggerCsvDownload(csv) {
   link.download = `postre_mio_corte_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-// ── COSTS ENGINE ──────────────────────────────
-
-let _costsCache = {};
-
-async function openCostsModal() {
-  showSpinner();
-  _costsCache = await DataStore.getCosts().finally(hideSpinner);
-  const allItems = menu.flatMap(c => c.items);
-  const rows = allItems.map(item => `
-    <div class="costs-row">
-      <span>${esc(item.name)}</span>
-      <span style="color:var(--text-muted);font-size:12px;">$</span>
-      <input
-        type="number"
-        inputmode="decimal"
-        min="0"
-        step="0.01"
-        value="${_costsCache[item.name] !== undefined ? _costsCache[item.name] : ''}"
-        placeholder="0.00"
-        onfocus="this.select()"
-        onchange="updateCost('${item.name.replace(/'/g, "\\'")}', this.value)"
-      >
-    </div>
-  `).join('');
-  openModal(`
-    <h3 style="margin-top:0;">💰 Costo por producto</h3>
-    <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">${rows}</div>
-    <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
-  `);
-}
-
-function updateCost(name, value) {
-  const cost = Math.max(0, parseFloat(value));
-  if (isNaN(cost)) {
-    delete _costsCache[name];
-  } else {
-    _costsCache[name] = cost;
-  }
-  DataStore.saveCosts(_costsCache);
 }
 
 
@@ -2344,12 +2410,13 @@ function clearRestockLog() {
 // ── Init (called after auth) ─────────────────
 async function initApp() {
   // Load initial data from Firestore
-  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices] = await Promise.all([
+  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices, firestoreFrozen] = await Promise.all([
     DataStore.getInventory(),
     DataStore.getCustomPrices(),
     DataStore.getPromotions(),
     DataStore.getHiddenItems(),
     DataStore.getExtrasPrices(),
+    DataStore.getFrozenInventory(),
   ]);
 
   // Seed inventory if Firestore is empty (first run)
@@ -2389,6 +2456,9 @@ async function initApp() {
 
   // Store hidden items locally for quick access
   localStorage.setItem("hiddenItems", JSON.stringify(firestoreHidden));
+
+  // Load frozen inventory
+  Object.assign(frozenInventory, firestoreFrozen);
 
   saveInventory();
   renderProducts();
@@ -2511,6 +2581,7 @@ async function renderMermaLog() {
         </div>
         <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
+        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;font-size:16px;line-height:1;" title="Eliminar">×</button>
       </div>
     `;
   }).join('');
@@ -2528,6 +2599,11 @@ function clearMermaLog() {
     await DataStore.clearMermas();
     renderMermaLog();
   });
+}
+
+async function deleteMermaEntry(id) {
+  await DataStore.deleteMerma(id);
+  renderMermaLog();
 }
 
 // ─────────────────────────────────────────────
