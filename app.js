@@ -1369,19 +1369,34 @@ function applyFrozenDelta(name, delta) {
 }
 
 function bakeFromFrozen(name) {
-  const qty = frozenInventory[name] ?? 0;
-  if (qty === 0) return;
-  confirmModal(`¿Hornear ${qty} ${esc(name)}? Se pasarán al inventario listo.`, async () => {
-    frozenInventory[name] = 0;
-    await DataStore.setFrozenStock(name, 0);
-    const current = inventory[name] ?? 0;
-    inventory[name] = current + qty;
-    await DataStore.setStock(name, inventory[name]);
-    renderFrozenSection();
-    renderInventory();
-    renderProducts();
-    showToast(`${qty} ${name} pasados al inventario`);
-  });
+  const frozen = frozenInventory[name] ?? 0;
+  if (frozen === 0) return;
+  openModal(`
+    <h3 style="margin-top:0;">🔥 Hornear ${esc(name)}</h3>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Congelados disponibles: ${frozen}</p>
+    <div class="costs-row" style="border:none;padding:0;margin-bottom:16px;">
+      <span>Cantidad a hornear</span>
+      <input id="bake-qty" type="number" inputmode="numeric" min="1" max="${frozen}" value="${frozen}"
+        style="width:64px;text-align:center;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px;"
+        onfocus="this.select()">
+    </div>
+    <button class="btn-brand" onclick="confirmBake('${name.replace(/'/g, "\\'")}', ${frozen})">Hornear</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function confirmBake(name, frozen) {
+  const input = document.getElementById('bake-qty');
+  const qty = Math.min(Math.max(1, parseInt(input?.value) || 1), frozen);
+  closeModal();
+  frozenInventory[name] = frozen - qty;
+  await DataStore.setFrozenStock(name, frozenInventory[name]);
+  inventory[name] = (inventory[name] ?? 0) + qty;
+  await DataStore.setStock(name, inventory[name]);
+  renderFrozenSection();
+  renderInventory();
+  renderProducts();
+  showToast(`${qty} ${name} pasados al inventario`);
 }
 
 function updatePrice(name, value) {
