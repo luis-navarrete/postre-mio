@@ -49,8 +49,13 @@ function pinKey(digit) {
   if (_pinValue.length === 4) submitPin();
 }
 
+function vibrate(pattern) {
+  if (navigator.vibrate) navigator.vibrate(pattern);
+}
+
 let _audioCtx;
 function playClick() {
+  vibrate(8);
   if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = _audioCtx.createOscillator();
   const gain = _audioCtx.createGain();
@@ -124,6 +129,7 @@ async function submitPin() {
         document.getElementById("loadingScreen").style.display = "none";
         document.getElementById("authGate").style.display = "flex";
         errEl.textContent = "PIN incorrecto";
+        vibrate([60, 60, 60]);
         clearPin();
       }
     }
@@ -640,6 +646,7 @@ function confirmExtra(item, extra) {
 let _cartIdCounter = 0;
 
 function pushCartItem(item, extra) {
+  vibrate(10);
   const cartItem = {
     ...item,
     cartId: ++_cartIdCounter,
@@ -724,6 +731,7 @@ function openPaymentOptions() {
 }
 
 function handleCash(total) {
+  vibrate(10);
   const denominations = [50, 100, 200, 500];
 
   openModal(`
@@ -817,10 +825,12 @@ function confirmCash(total) {
 }
 
 function handleTransfer(total) {
+  vibrate(10);
   showFinalStep(total, "transfer", 0);
 }
 
 function handleCard(total) {
+  vibrate(10);
   showFinalStep(total, "card", 0);
 }
 
@@ -876,6 +886,7 @@ async function finalizeSale() {
     showToast("Error en la venta");
     return;
   }
+  vibrate(20);
 
   const itemCounts = {};
   currentSale.items.forEach(item => {

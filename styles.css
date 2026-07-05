@@ -627,7 +627,7 @@ button:active { opacity: 0.75; }
 /* ── MERMAS ── */
 .merma-entry {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
   gap: 8px;
   align-items: center;
   font-size: 13px;
