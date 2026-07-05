@@ -1847,15 +1847,17 @@ async function buildCsvString(history) {
   const mermas   = await DataStore.getMermas();
   const products = menu.flatMap(c => c.items).map(i => i.name);
 
-  let csv = `Folio,Fecha,Método de pago,Total,`;
+  let csv = `Folio,Fecha,Hora,Método de pago,Total,`;
   products.forEach(p => { csv += `"${p}",`; });
   csv += "\n";
 
   history.forEach(sale => {
     const folio  = sale.folio || "";
-    const date   = sale.date ? sale.date.split(",")[0].trim() : "";
+    const parts  = sale.date ? sale.date.split(",") : [];
+    const date   = parts[0]?.trim() || "";
+    const time   = parts[1]?.trim() || "";
     const method = sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia";
-    let row = `${folio},${date},${method},${sale.total},`;
+    let row = `${folio},${date},${time},${method},${sale.total},`;
     products.forEach(p => {
       let qty = 0;
       sale.items.forEach(item => { if (item.name === p) qty++; });
@@ -1866,7 +1868,7 @@ async function buildCsvString(history) {
 
   csv += "\n";
 
-  let soldRow = `,,,Vendidos,`;
+  let soldRow = `,,,,Vendidos,`;
   products.forEach(p => {
     let total = 0;
     history.forEach(sale => {
@@ -1878,7 +1880,7 @@ async function buildCsvString(history) {
 
   const mermaTotals = {};
   mermas.forEach(m => { mermaTotals[m.name] = (mermaTotals[m.name] || 0) + m.qty; });
-  let mermaRow = `,,,Mermas,`;
+  let mermaRow = `,,,,Mermas,`;
   products.forEach(p => { mermaRow += (mermaTotals[p] || 0) + ","; });
   csv += mermaRow + "\n";
 
