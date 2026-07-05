@@ -326,6 +326,16 @@ const DataStore = {
     await configRef("hidden").set({ items });
   },
 
+  // ── Frozen Inventory ──
+  async getFrozenInventory() {
+    const doc = await configRef("frozenInventory").get();
+    return doc.exists ? doc.data() : {};
+  },
+
+  async setFrozenStock(name, qty) {
+    await configRef("frozenInventory").set({ [name]: qty }, { merge: true });
+  },
+
   // ── Bulk clear for daily cut ──
   async clearDayData() {
     const collections = ["sales", "mermas", "restockLog"];
@@ -480,6 +490,16 @@ let updatedItems = new Set();
 function saveInventory() {
   localStorage.setItem("inventory", JSON.stringify(inventory));
 }
+
+// Products that can be frozen (1:1 with menu items)
+const FREEZABLE_PRODUCTS = [
+  "M&Ms", "Lotus", "Kinder Bueno", "Red Velvet", "Oreo",
+  "Lucky Charms", "Conejito Turín", "Pistache", "Canela", "Fresa",
+  "Crookie"
+];
+
+let frozenInventory = {};
+let _frozenHoldInterval = null;
 
 let currentSale = null;
 
@@ -1211,6 +1231,8 @@ function stopHold() {
   clearInterval(holdInterval);
   holdTimer = null;
   holdInterval = null;
+  clearInterval(_frozenHoldInterval);
+  _frozenHoldInterval = null;
   if (_holdRestockAccum > 0 && _holdRestockName) {
     _pendingRestockByName[_holdRestockName] = (_pendingRestockByName[_holdRestockName] || 0) + _holdRestockAccum;
   }
@@ -1285,6 +1307,80 @@ function renderInventory() {
     }
 
     container.appendChild(div);
+  });
+
+  renderFrozenSection();
+}
+
+function renderFrozenSection() {
+  let container = document.getElementById("frozenSection");
+  if (!container) return;
+
+  container.innerHTML = `<h3 style="margin:0 0 10px;">❄️ Congelados</h3>`;
+
+  FREEZABLE_PRODUCTS.forEach(name => {
+    const qty = frozenInventory[name] ?? 0;
+    const safeId = "frz-" + name.replace(/[^a-zA-Z0-9]/g, '-');
+    const row = document.createElement("div");
+    row.className = "inventory-card";
+    row.innerHTML = `
+      <div class="inv-name">${esc(name)}</div>
+      <div class="inv-qty">Congelados: ${qty}</div>
+      <div class="inv-controls">
+        <button
+          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+          onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', -1)"
+          onpointerup="stopHold()"
+          onpointerleave="stopHold()"
+          oncontextmenu="return false"
+          ontouchstart="this.ontouchend=stopHold;return true;"
+        >−</button>
+        <button
+          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+          onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', 1)"
+          onpointerup="stopHold()"
+          onpointerleave="stopHold()"
+          oncontextmenu="return false"
+          ontouchstart="this.ontouchend=stopHold;return true;"
+        >+</button>
+        <button
+          onclick="bakeFromFrozen('${name.replace(/'/g, "\\'")}')"
+          style="font-size:12px;padding:4px 10px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
+          ${qty === 0 ? "disabled" : ""}
+        >🔥 Hornear</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function startFrozenHold(name, delta) {
+  applyFrozenDelta(name, delta);
+  _frozenHoldInterval = setInterval(() => applyFrozenDelta(name, delta), 150);
+}
+
+function applyFrozenDelta(name, delta) {
+  const current = frozenInventory[name] ?? 0;
+  const next = Math.max(0, current + delta);
+  if (next === current) return;
+  frozenInventory[name] = next;
+  DataStore.setFrozenStock(name, next);
+  renderFrozenSection();
+}
+
+function bakeFromFrozen(name) {
+  const qty = frozenInventory[name] ?? 0;
+  if (qty === 0) return;
+  confirmModal(`¿Hornear ${qty} ${esc(name)}? Se pasarán al inventario listo.`, async () => {
+    frozenInventory[name] = 0;
+    await DataStore.setFrozenStock(name, 0);
+    const current = inventory[name] ?? 0;
+    inventory[name] = current + qty;
+    await DataStore.setStock(name, inventory[name]);
+    renderFrozenSection();
+    renderInventory();
+    renderProducts();
+    showToast(`${qty} ${name} pasados al inventario`);
   });
 }
 
@@ -2299,12 +2395,13 @@ function clearRestockLog() {
 // ── Init (called after auth) ─────────────────
 async function initApp() {
   // Load initial data from Firestore
-  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices] = await Promise.all([
+  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices, firestoreFrozen] = await Promise.all([
     DataStore.getInventory(),
     DataStore.getCustomPrices(),
     DataStore.getPromotions(),
     DataStore.getHiddenItems(),
     DataStore.getExtrasPrices(),
+    DataStore.getFrozenInventory(),
   ]);
 
   // Seed inventory if Firestore is empty (first run)
@@ -2344,6 +2441,9 @@ async function initApp() {
 
   // Store hidden items locally for quick access
   localStorage.setItem("hiddenItems", JSON.stringify(firestoreHidden));
+
+  // Load frozen inventory
+  Object.assign(frozenInventory, firestoreFrozen);
 
   saveInventory();
   renderProducts();
