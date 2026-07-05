@@ -229,7 +229,7 @@ const DataStore = {
     const ref = storeRef("counters").doc(dateStr);
     await ref.set({ value: firebase.firestore.FieldValue.increment(1) }, { merge: true });
     const doc = await ref.get();
-    return dateStr + String(doc.data().value).padStart(2, "0");
+    return dateStr + String(doc.data().value).padStart(3, "0");
   },
 
   // ── Promotions ──
