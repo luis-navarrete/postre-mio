@@ -2775,10 +2775,47 @@ async function renderPending() {
         <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
           <button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>
+          <button class="btn-secondary" onclick="sharePending('${order._id}')" style="font-size:13px;padding:8px 12px;">Compartir</button>
           <button class="delete-btn" onclick="deletePending('${order._id}')">🗑️</button>
         </div>
       </div>
     `;
     container.appendChild(card);
   });
+}
+
+async function sharePending(id) {
+  const list = await DataStore.getPending();
+  const order = list.find(o => o._id === id);
+  if (!order) return;
+
+  const grouped = {};
+  order.items.forEach(item => {
+    const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+    grouped[key] = { qty: (grouped[key]?.qty || 0) + 1, price: item.price };
+  });
+  const lines = Object.entries(grouped).map(([k, { qty, price }]) =>
+    `${qty}x ${k}  $${(qty * price).toFixed(2)}`
+  );
+
+  if (order.promos?.length) {
+    order.promos.forEach(p => {
+      if (p.discount > 0) lines.push(`Promo: ${p.name}  -$${p.discount.toFixed(2)}`);
+    });
+  }
+
+  const text = [
+    `*Postre Mío* — Pedido de ${order.name}`,
+    order.note ? `📝 ${order.note}` : null,
+    '─'.repeat(24),
+    ...lines,
+    '─'.repeat(24),
+    `*Total: $${parseFloat(order.total).toFixed(2)}*`,
+  ].filter(Boolean).join('\n');
+
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
+  }
 }
