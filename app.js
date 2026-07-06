@@ -229,7 +229,7 @@ const DataStore = {
     const ref = storeRef("counters").doc(dateStr);
     await ref.set({ value: firebase.firestore.FieldValue.increment(1) }, { merge: true });
     const doc = await ref.get();
-    return dateStr + String(doc.data().value).padStart(2, "0");
+    return dateStr + String(doc.data().value).padStart(3, "0");
   },
 
   // ── Promotions ──
@@ -1847,15 +1847,17 @@ async function buildCsvString(history) {
   const mermas   = await DataStore.getMermas();
   const products = menu.flatMap(c => c.items).map(i => i.name);
 
-  let csv = `Folio,Fecha,Método de pago,Total,`;
+  let csv = `Folio,Fecha,Hora,Método de pago,Total,`;
   products.forEach(p => { csv += `"${p}",`; });
   csv += "\n";
 
   history.forEach(sale => {
     const folio  = sale.folio || "";
-    const date   = sale.date ? sale.date.split(",")[0].trim() : "";
+    const parts  = sale.date ? sale.date.split(",") : [];
+    const date   = parts[0]?.trim() || "";
+    const time   = parts[1]?.trim() || "";
     const method = sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia";
-    let row = `${folio},${date},${method},${sale.total},`;
+    let row = `${folio},${date},${time},${method},${sale.total},`;
     products.forEach(p => {
       let qty = 0;
       sale.items.forEach(item => { if (item.name === p) qty++; });
@@ -1866,7 +1868,7 @@ async function buildCsvString(history) {
 
   csv += "\n";
 
-  let soldRow = `,,,Vendidos,`;
+  let soldRow = `,,,,Vendidos,`;
   products.forEach(p => {
     let total = 0;
     history.forEach(sale => {
@@ -1878,7 +1880,7 @@ async function buildCsvString(history) {
 
   const mermaTotals = {};
   mermas.forEach(m => { mermaTotals[m.name] = (mermaTotals[m.name] || 0) + m.qty; });
-  let mermaRow = `,,,Mermas,`;
+  let mermaRow = `,,,,Mermas,`;
   products.forEach(p => { mermaRow += (mermaTotals[p] || 0) + ","; });
   csv += mermaRow + "\n";
 
@@ -2773,10 +2775,57 @@ async function renderPending() {
         <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
           <button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>
+          <button class="btn-secondary" onclick="sharePending('${order._id}')" style="font-size:13px;padding:8px 12px;">Compartir</button>
           <button class="delete-btn" onclick="deletePending('${order._id}')">🗑️</button>
         </div>
       </div>
     `;
     container.appendChild(card);
   });
+}
+
+async function sharePending(id) {
+  const list = await DataStore.getPending();
+  const order = list.find(o => o._id === id);
+  if (!order) return;
+
+  const grouped = {};
+  order.items.forEach(item => {
+    const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+    grouped[key] = { qty: (grouped[key]?.qty || 0) + 1, price: item.price };
+  });
+
+  const entries = Object.entries(grouped).map(([k, { qty, price }]) =>
+    ({ left: `${qty}× ${k}`, right: `$${(qty * price).toFixed(2)}` })
+  );
+  if (order.promos?.length) {
+    order.promos.forEach(p => {
+      if (p.discount > 0) entries.push({ left: `Promo: ${p.name}`, right: `-$${p.discount.toFixed(2)}` });
+    });
+  }
+  const totalEntry = { left: 'Total', right: `$${parseFloat(order.total).toFixed(2)}` };
+
+  const maxLeft  = Math.max(...[...entries, totalEntry].map(e => e.left.length));
+  const maxRight = Math.max(...[...entries, totalEntry].map(e => e.right.length));
+  const colWidth = maxLeft + 2 + maxRight;
+
+  const fmt = ({ left, right }) => left.padEnd(maxLeft) + '  ' + right.padStart(maxRight);
+  const sep = '─'.repeat(colWidth);
+
+  const body = [
+    `Postre Mío — Pedido de ${order.name}`,
+    order.note ? `📝 ${order.note}` : null,
+    sep,
+    ...entries.map(fmt),
+    sep,
+    fmt(totalEntry),
+  ].filter(Boolean).join('\n');
+
+  const text = `\`\`\`\n${body}\n\`\`\``;
+
+  if (navigator.share) {
+    navigator.share({ text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
+  }
 }
