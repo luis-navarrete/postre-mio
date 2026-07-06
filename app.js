@@ -2794,23 +2794,31 @@ async function sharePending(id) {
     const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
     grouped[key] = { qty: (grouped[key]?.qty || 0) + 1, price: item.price };
   });
-  const lines = Object.entries(grouped).map(([k, { qty, price }]) =>
-    `${qty}× ${k}  $${(qty * price).toFixed(2)}`
-  );
 
+  const entries = Object.entries(grouped).map(([k, { qty, price }]) =>
+    ({ left: `${qty}× ${k}`, right: `$${(qty * price).toFixed(2)}` })
+  );
   if (order.promos?.length) {
     order.promos.forEach(p => {
-      if (p.discount > 0) lines.push(`Promo: ${p.name}  -$${p.discount.toFixed(2)}`);
+      if (p.discount > 0) entries.push({ left: `Promo: ${p.name}`, right: `-$${p.discount.toFixed(2)}` });
     });
   }
+  const totalEntry = { left: 'Total', right: `$${parseFloat(order.total).toFixed(2)}` };
+
+  const maxLeft  = Math.max(...[...entries, totalEntry].map(e => e.left.length));
+  const maxRight = Math.max(...[...entries, totalEntry].map(e => e.right.length));
+  const colWidth = maxLeft + 2 + maxRight;
+
+  const fmt = ({ left, right }) => left.padEnd(maxLeft) + '  ' + right.padStart(maxRight);
+  const sep = '─'.repeat(colWidth);
 
   const body = [
     `Postre Mío — Pedido de ${order.name}`,
     order.note ? `📝 ${order.note}` : null,
-    '─'.repeat(24),
-    ...lines,
-    '─'.repeat(24),
-    `Total: $${parseFloat(order.total).toFixed(2)}`,
+    sep,
+    ...entries.map(fmt),
+    sep,
+    fmt(totalEntry),
   ].filter(Boolean).join('\n');
 
   const text = `\`\`\`\n${body}\n\`\`\``;
