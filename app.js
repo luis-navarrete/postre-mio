@@ -2795,7 +2795,7 @@ async function sharePending(id) {
     grouped[key] = { qty: (grouped[key]?.qty || 0) + 1, price: item.price };
   });
   const lines = Object.entries(grouped).map(([k, { qty, price }]) =>
-    `${qty}x ${k}  $${(qty * price).toFixed(2)}`
+    `${qty}× ${k}  $${(qty * price).toFixed(2)}`
   );
 
   if (order.promos?.length) {
@@ -2804,14 +2804,16 @@ async function sharePending(id) {
     });
   }
 
-  const text = [
-    `*Postre Mío* — Pedido de ${order.name}`,
+  const body = [
+    `Postre Mío — Pedido de ${order.name}`,
     order.note ? `📝 ${order.note}` : null,
     '─'.repeat(24),
     ...lines,
     '─'.repeat(24),
-    `*Total: $${parseFloat(order.total).toFixed(2)}*`,
+    `Total: $${parseFloat(order.total).toFixed(2)}`,
   ].filter(Boolean).join('\n');
+
+  const text = `\`\`\`\n${body}\n\`\`\``;
 
   if (navigator.share) {
     navigator.share({ text }).catch(() => {});
