@@ -710,9 +710,14 @@ function clearCart() {
 function openModal(html) {
   const modal = document.getElementById("modal");
   const content = document.getElementById("modalContent");
-
+  content.className = "modal-content";
   content.innerHTML = html;
   modal.classList.remove("hidden");
+}
+
+function openPopupModal(html) {
+  openModal(html);
+  document.getElementById("modalContent").classList.add("modal-popup");
 }
 
 function closeModal() {
@@ -1460,7 +1465,7 @@ function openPricesModal() {
     return `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);">+ Extras: ${esc(productName)}</div>${rows}`;
   }).join('');
 
-  openModal(`
+  openPopupModal(`
     <h3 style="margin-top:0;">💲 Precios</h3>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
       ${productRows}
