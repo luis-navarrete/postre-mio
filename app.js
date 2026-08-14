@@ -1328,46 +1328,68 @@ function renderInventory() {
   renderFrozenSection();
 }
 
+let frozenEditMode = false;
+
+function toggleFrozenEditMode() {
+  frozenEditMode = !frozenEditMode;
+  renderFrozenSection();
+}
+
 function renderFrozenSection() {
   let container = document.getElementById("frozenSection");
   if (!container) return;
 
-  container.innerHTML = `<h3 style="margin:0 0 10px;">❄️ Congelados</h3>`;
+  const anyFrozen = FREEZABLE_PRODUCTS.some(name => (frozenInventory[name] ?? 0) > 0);
+
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="margin:0;">❄️ Congelados</h3>
+      <button
+        class="edit-mode-btn${frozenEditMode ? " active" : ""}"
+        onclick="toggleFrozenEditMode()"
+        title="Editar congelados"
+      ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+    </div>
+  `;
 
   FREEZABLE_PRODUCTS.forEach(name => {
     const qty = frozenInventory[name] ?? 0;
-    const safeId = "frz-" + name.replace(/[^a-zA-Z0-9]/g, '-');
     const row = document.createElement("div");
     row.className = "inventory-card";
     row.innerHTML = `
       <div class="inv-name">${esc(name)}</div>
       <div class="inv-qty">Congelados: ${qty}</div>
-      <div class="inv-controls">
-        <button
-          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-          onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', -1)"
-          onpointerup="stopHold()"
-          onpointerleave="stopHold()"
-          oncontextmenu="return false"
-          ontouchstart="this.ontouchend=stopHold;return true;"
-        >−</button>
-        <button
-          style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-          onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', 1)"
-          onpointerup="stopHold()"
-          onpointerleave="stopHold()"
-          oncontextmenu="return false"
-          ontouchstart="this.ontouchend=stopHold;return true;"
-        >+</button>
-        <button
-          onclick="bakeFromFrozen('${name.replace(/'/g, "\\'")}')"
-          style="font-size:12px;padding:4px 10px;background:var(--brand);color:#fff;border:none;border-radius:var(--radius-sm);cursor:pointer;"
-          ${qty === 0 ? "disabled" : ""}
-        >🔥 Hornear</button>
-      </div>
+      ${frozenEditMode ? `
+        <div class="inv-controls">
+          <button
+            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+            onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', -1)"
+            onpointerup="stopHold()"
+            onpointerleave="stopHold()"
+            oncontextmenu="return false"
+            ontouchstart="this.ontouchend=stopHold;return true;"
+          >−</button>
+          <button
+            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+            onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', 1)"
+            onpointerup="stopHold()"
+            onpointerleave="stopHold()"
+            oncontextmenu="return false"
+            ontouchstart="this.ontouchend=stopHold;return true;"
+          >+</button>
+        </div>
+      ` : ''}
     `;
     container.appendChild(row);
   });
+
+  const bakeBtn = document.createElement("button");
+  bakeBtn.className = "btn-brand";
+  bakeBtn.style.cssText = "width:100%;margin-top:12px;";
+  bakeBtn.textContent = "🔥 Hornear";
+  bakeBtn.disabled = !anyFrozen;
+  bakeBtn.onclick = openBakeModal;
+  container.appendChild(bakeBtn);
 }
 
 function startFrozenHold(name, delta) {
@@ -1384,35 +1406,60 @@ function applyFrozenDelta(name, delta) {
   renderFrozenSection();
 }
 
-function bakeFromFrozen(name) {
-  const frozen = frozenInventory[name] ?? 0;
-  if (frozen === 0) return;
+function openBakeModal() {
+  const available = FREEZABLE_PRODUCTS.filter(name => (frozenInventory[name] ?? 0) > 0);
+  if (available.length === 0) return;
+
+  const rows = available.map(name => {
+    const frozen = frozenInventory[name];
+    const safeId = "bake-qty-" + name.replace(/[^a-zA-Z0-9]/g, '-');
+    return `
+      <div class="costs-row">
+        <span>${esc(name)} <span style="color:var(--text-muted);font-size:12px;">(${frozen} disp.)</span></span>
+        <input id="${safeId}" data-name="${esc(name)}" data-max="${frozen}"
+          type="number" inputmode="numeric" min="0" max="${frozen}" value="${frozen}"
+          style="width:64px;text-align:center;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px;"
+          onfocus="this.select()">
+      </div>
+    `;
+  }).join('');
+
   openModal(`
-    <h3 style="margin-top:0;">🔥 Hornear ${esc(name)}</h3>
-    <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Congelados disponibles: ${frozen}</p>
-    <div class="costs-row" style="border:none;padding:0;margin-bottom:16px;">
-      <span>Cantidad a hornear</span>
-      <input id="bake-qty" type="number" inputmode="numeric" min="1" max="${frozen}" value="${frozen}"
-        style="width:64px;text-align:center;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px;"
-        onfocus="this.select()">
+    <h3 style="margin-top:0;">🔥 Hornear</h3>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Cantidad a pasar al inventario</p>
+    <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
+      ${rows}
     </div>
-    <button class="btn-brand" onclick="confirmBake('${name.replace(/'/g, "\\'")}', ${frozen})">Hornear</button>
+    <button class="btn-brand" style="margin-top:12px;" onclick="confirmBakeAll()">🔥 Hornear</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
 
-async function confirmBake(name, frozen) {
-  const input = document.getElementById('bake-qty');
-  const qty = Math.min(Math.max(1, parseInt(input?.value) || 1), frozen);
+async function confirmBakeAll() {
+  const inputs = document.querySelectorAll('#modalContent [id^="bake-qty-"]');
+  const changes = [];
+  inputs.forEach(input => {
+    const name = input.dataset.name;
+    const max = parseInt(input.dataset.max) || 0;
+    const qty = Math.min(Math.max(0, parseInt(input.value) || 0), max);
+    if (qty > 0) changes.push({ name, qty, max });
+  });
+
   closeModal();
-  frozenInventory[name] = frozen - qty;
-  await DataStore.setFrozenStock(name, frozenInventory[name]);
-  inventory[name] = (inventory[name] ?? 0) + qty;
-  await DataStore.setStock(name, inventory[name]);
+  if (changes.length === 0) return;
+
+  for (const { name, qty, max } of changes) {
+    frozenInventory[name] = max - qty;
+    await DataStore.setFrozenStock(name, frozenInventory[name]);
+    inventory[name] = (inventory[name] ?? 0) + qty;
+    await DataStore.setStock(name, inventory[name]);
+  }
+
   renderFrozenSection();
   renderInventory();
   renderProducts();
-  showToast(`${qty} ${name} pasados al inventario`);
+  const summary = changes.map(c => `${c.qty} ${c.name}`).join(', ');
+  showToast(`${summary} pasados al inventario`);
 }
 
 function updatePrice(name, value) {
