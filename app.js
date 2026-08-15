@@ -1326,8 +1326,6 @@ function renderInventory() {
 
   const bakeBtn = document.getElementById('bakeBtn');
   if (bakeBtn) bakeBtn.disabled = !FREEZABLE_PRODUCTS.some(name => (frozenInventory[name] ?? 0) > 0);
-
-  if (_editModalOpen) renderEditInventoryModalBody();
 }
 
 function openEditInventoryModal() {
@@ -1349,6 +1347,7 @@ function renderEditInventoryModalBody() {
     const isFreezable = FREEZABLE_PRODUCTS.includes(name);
     const frozenQty = frozenInventory[name] ?? 0;
     const safeName = name.replace(/'/g, "\\'");
+    const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
 
     return `
       <div class="edit-inv-row">
@@ -1361,7 +1360,7 @@ function renderEditInventoryModalBody() {
               onpointerdown="startHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
               oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
             >−</button>
-            <span class="edit-inv-qty">${qty}</span>
+            <span class="edit-inv-qty" id="ei-avail-${safeId}">${qty}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -1378,7 +1377,7 @@ function renderEditInventoryModalBody() {
                 onpointerdown="startFrozenEditHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
                 oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
               >−</button>
-              <span class="edit-inv-qty">${frozenQty}</span>
+              <span class="edit-inv-qty" id="ei-frozen-${safeId}">${frozenQty}</span>
               <button
                 style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
                 onpointerdown="startFrozenEditHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -1415,6 +1414,18 @@ function updateFrozenStockDeferred(name, delta) {
     updatedFrozenItems.delete(name);
   }
   renderInventory();
+  refreshEditModalQty(name);
+}
+
+// Update the edit-inventory modal's displayed quantities in place, without
+// rebuilding its HTML (which would reset the modal's scroll position).
+function refreshEditModalQty(name) {
+  if (!_editModalOpen) return;
+  const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
+  const availEl = document.getElementById('ei-avail-' + safeId);
+  if (availEl) availEl.textContent = inventory[name] ?? 0;
+  const frozenEl = document.getElementById('ei-frozen-' + safeId);
+  if (frozenEl) frozenEl.textContent = frozenInventory[name] ?? 0;
 }
 
 async function saveInventoryFromModal() {
@@ -1450,6 +1461,7 @@ function renderBakeModalBody() {
     const frozen = frozenInventory[name] ?? 0;
     const qty = _bakeSelections[name] ?? 0;
     const safeName = name.replace(/'/g, "\\'");
+    const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
     return `
       <div class="edit-inv-row">
         <div class="edit-inv-line">
@@ -1460,7 +1472,7 @@ function renderBakeModalBody() {
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
               oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
             >−</button>
-            <span class="edit-inv-qty">${qty}</span>
+            <span class="edit-inv-qty" id="bk-qty-${safeId}">${qty}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -1494,7 +1506,15 @@ function adjustBakeQty(name, delta) {
   const max = frozenInventory[name] ?? 0;
   const current = _bakeSelections[name] ?? 0;
   _bakeSelections[name] = Math.max(0, Math.min(max, current + delta));
-  renderBakeModalBody();
+  refreshBakeModalQty(name);
+}
+
+// Update the bake modal's displayed quantity in place, without rebuilding
+// its HTML (which would reset the modal's scroll position).
+function refreshBakeModalQty(name) {
+  const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
+  const el = document.getElementById('bk-qty-' + safeId);
+  if (el) el.textContent = _bakeSelections[name] ?? 0;
 }
 
 async function confirmBakeAll() {
@@ -1600,6 +1620,7 @@ function updateStock(name, delta) {
   saveInventory();
   renderInventory();
   renderProducts();
+  refreshEditModalQty(name);
 }
 
 function cancelInventoryChanges() {
