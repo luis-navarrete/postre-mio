@@ -295,6 +295,10 @@ const DataStore = {
     await storeRef("restockLog").add(entry);
   },
 
+  async deleteRestock(id) {
+    await storeRef("restockLog").doc(id).delete();
+  },
+
   async clearRestockLog() {
     const snap = await storeRef("restockLog").get();
     const batch = db.batch();
@@ -1522,6 +1526,8 @@ async function confirmBakeAll() {
   closeModal();
   if (changes.length === 0) return;
 
+  const bakeDate = new Date().toLocaleString();
+
   for (const [name, qty] of changes) {
     frozenInventory[name] = (frozenInventory[name] ?? 0) - qty;
     originalFrozenInventory[name] = frozenInventory[name];
@@ -1529,10 +1535,12 @@ async function confirmBakeAll() {
     await DataStore.setFrozenStock(name, frozenInventory[name]);
     inventory[name] = (inventory[name] ?? 0) + qty;
     await DataStore.setStock(name, inventory[name]);
+    await DataStore.addRestock({ date: bakeDate, name, qty, source: 'bake' });
   }
 
   renderInventory();
   renderProducts();
+  await renderRestockLogFromFirestore();
   const summary = changes.map(([name, qty]) => `${qty} ${name}`).join(', ');
   showToast(`${summary} pasados al inventario`);
 }
@@ -2527,14 +2535,20 @@ function renderRestockLogWithData(log) {
   const rows = log.map(entry => `
     <div class="restock-entry">
       <div>
-        <div style="font-weight:600;">${esc(entry.name)}</div>
+        <div style="font-weight:600;">${entry.source === 'bake' ? '🔥 ' : ''}${esc(entry.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
+      <button onclick="deleteRestockEntry('${entry._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;font-size:16px;line-height:1;" title="Eliminar">×</button>
     </div>
   `).join('');
 
   container.innerHTML = rows;
+}
+
+async function deleteRestockEntry(id) {
+  await DataStore.deleteRestock(id);
+  await renderRestockLogFromFirestore();
 }
 
 function clearRestockLog() {
