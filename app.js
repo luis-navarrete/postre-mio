@@ -734,6 +734,11 @@ function openPopupModal(html) {
   document.getElementById("modalContent").classList.add("modal-popup");
 }
 
+function openCompactModal(html) {
+  openModal(html);
+  document.getElementById("modalContent").classList.add("modal-compact");
+}
+
 function closeModal() {
   document.getElementById("modal").classList.add("hidden");
 }
@@ -759,9 +764,11 @@ function handleCash(total) {
 
     <div class="denom-grid">
       ${denominations.map(d => `
-        <button class="denom-btn" onclick="selectDenom(${d}, ${total})">$${d}</button>
+        <button class="denom-btn" onclick="selectDenom(${d}, ${total}, this)">$${d}</button>
       `).join('')}
     </div>
+
+    <button class="denom-btn" style="width:100%;margin:0 0 8px;" onclick="selectDenom(${total}, ${total}, this)">💰 Exacto ($${total.toFixed(2)})</button>
 
     <div style="margin-bottom:8px;">
       <input
@@ -782,11 +789,9 @@ function handleCash(total) {
   `);
 }
 
-function selectDenom(value, total) {
+function selectDenom(value, total, btnEl) {
   document.querySelectorAll('.denom-btn').forEach(b => b.classList.remove('selected'));
-  document.querySelectorAll('.denom-btn').forEach(b => {
-    if (b.textContent.trim() === `$${value}`) b.classList.add('selected');
-  });
+  if (btnEl) btnEl.classList.add('selected');
 
   // Fill the input with the selected denomination
   const input = document.getElementById('cashInput');
@@ -1394,7 +1399,7 @@ function renderEditInventoryModalBody() {
     `;
   }).join('');
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">✏️ Editar inventario</h3>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
       ${rows}
@@ -1488,7 +1493,7 @@ function renderBakeModalBody() {
     `;
   }).join('');
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">🔥 Hornear</h3>
     <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Cantidad a pasar al inventario</p>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
@@ -2539,7 +2544,7 @@ function renderRestockLogWithData(log) {
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
-      <button onclick="deleteRestockEntry('${entry._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;font-size:16px;line-height:1;" title="Eliminar">×</button>
+      <button onclick="deleteRestockEntry('${entry._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
     </div>
   `).join('');
 
@@ -2787,7 +2792,7 @@ async function renderMermaLog() {
         </div>
         <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
-        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;font-size:16px;line-height:1;" title="Eliminar">×</button>
+        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
       </div>
     `;
   }).join('');

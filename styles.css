@@ -197,6 +197,9 @@ button:active { opacity: 0.75; }
 .modal-content h3 { margin-top: 0; }
 .modal-content button { width: 100%; }
 
+.modal-content.modal-popup { width: 84%; max-width: 300px; }
+.modal-content.modal-compact { width: 88%; max-width: 330px; }
+
 /* ── TOAST ─────────────────────────────── */
 .toast {
   position: fixed;
