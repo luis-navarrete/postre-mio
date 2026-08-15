@@ -472,8 +472,8 @@ const defaultInventory = {
   "Lucky Charms": 0,
   "Conejito Turín": 0,
   "Pistache": 0,
-  "Canela": 0,
-  "Fresa": 0,
+  "Rol": 0,
+  "Fresa Pink Sugar": 0,
   "Crookie": 0,
   "Rol de canela": 0,
   "Brownie": 0,
@@ -484,7 +484,14 @@ const defaultInventory = {
   "Mini pastel Nutella": 0,
   "Mini pastel dulce de leche": 0,
   "Carlota de limón": 0,
-  "Pastel red velvet": 0
+  "Pastel Red Velvet": 0
+};
+
+// Old product names mapped to their current names, for migrating existing Firestore data
+const PRODUCT_RENAMES = {
+  "Canela": "Rol",
+  "Fresa": "Fresa Pink Sugar",
+  "Pastel red velvet": "Pastel Red Velvet",
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
@@ -500,12 +507,15 @@ function saveInventory() {
 // Products that can be frozen (1:1 with menu items)
 const FREEZABLE_PRODUCTS = [
   "M&Ms", "Lotus", "Kinder Bueno", "Red Velvet", "Oreo",
-  "Lucky Charms", "Conejito Turín", "Pistache", "Canela", "Fresa",
+  "Lucky Charms", "Conejito Turín", "Pistache", "Rol", "Fresa Pink Sugar",
   "Crookie"
 ];
 
 let frozenInventory = {};
+let originalFrozenInventory = JSON.parse(JSON.stringify(frozenInventory));
+let updatedFrozenItems = new Set();
 let _frozenHoldInterval = null;
+let _editModalOpen = false;
 
 let currentSale = null;
 
@@ -521,8 +531,8 @@ const menu = [
       { name: "Lucky Charms", price: 49.00, img: "lucky.jpg" },
       { name: "Conejito Turín", price: 49.00, img: "turin.jpg" },
       { name: "Pistache", price: 49.00, img: "pistache.jpg" },
-      { name: "Canela", price: 49.00, img: "canela.jpg" },
-      { name: "Fresa", price: 49.00, img: "fresa.jpg" }
+      { name: "Rol", price: 49.00, img: "canela.jpg" },
+      { name: "Fresa Pink Sugar", price: 49.00, img: "fresa.jpg" }
     ]
   },
   {
@@ -543,7 +553,7 @@ const menu = [
       { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
       { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
-      { name: "Pastel red velvet", price: 80.00, img: "pastel_rv.jpg" }
+      { name: "Pastel Red Velvet", price: 80.00, img: "pastel_rv.jpg" }
     ]
   }
 ];
@@ -1147,7 +1157,7 @@ document.addEventListener("click", function(e) {
 
 function showPage(page) {
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
-  if (page !== 'inventory' && inventoryVisible && updatedItems.size > 0) {
+  if (page !== 'inventory' && inventoryVisible && (updatedItems.size > 0 || updatedFrozenItems.size > 0)) {
     document.getElementById('sideMenu').classList.remove('open');
     openModal(`
       <h3 style="margin-top:0;">Cambios sin guardar</h3>
@@ -1158,14 +1168,13 @@ function showPage(page) {
     `);
     document.getElementById('_navSave').onclick = async () => {
       await saveInventoryChanges();
+      _editModalOpen = false;
       closeModal();
       showPage(page);
     };
     document.getElementById('_navDiscard').onclick = () => {
-      Object.keys(originalInventory).forEach(k => { inventory[k] = originalInventory[k]; });
-      updatedItems.clear();
-      _pendingRestockByName = {};
-      saveInventory();
+      cancelInventoryChanges();
+      _editModalOpen = false;
       closeModal();
       showPage(page);
     };
@@ -1186,7 +1195,8 @@ function showPage(page) {
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
     _pendingRestockByName = {};
-    updateSaveBtn();
+    originalFrozenInventory = JSON.parse(JSON.stringify(frozenInventory));
+    updatedFrozenItems.clear();
     renderProducts();
     renderInventory();
     renderRestockLogFromFirestore();
@@ -1213,6 +1223,8 @@ function showPage(page) {
   if (page !== "inventory") {
     hideModeActive = false;
     updatedItems.clear();
+    updatedFrozenItems.clear();
+    _editModalOpen = false;
   }
   if (page !== "history") {
     editModeActive = false;
@@ -1249,6 +1261,8 @@ function stopHold() {
   holdInterval = null;
   clearInterval(_frozenHoldInterval);
   _frozenHoldInterval = null;
+  clearInterval(_bakeHoldInterval);
+  _bakeHoldInterval = null;
   if (_holdRestockAccum > 0 && _holdRestockName) {
     _pendingRestockByName[_holdRestockName] = (_pendingRestockByName[_holdRestockName] || 0) + _holdRestockAccum;
   }
@@ -1280,146 +1294,180 @@ function renderInventory() {
     const qty = inventory[name];
     const isLow = qty > 0 && qty <= 3;
     const isOut = qty === 0;
-    const menuItem = menu.flatMap(c => c.items).find(i => i.name === name);
+    const isFreezable = FREEZABLE_PRODUCTS.includes(name);
+    const frozenQty = frozenInventory[name] ?? 0;
 
-    let cardClass = "inventory-card";
-    if (hideModeActive) cardClass += " hide-mode-target";
-    if (isHidden) cardClass += " hidden-item";
-    else if (updatedItems.has(name)) cardClass += " updated";
-    else if (isOut || isLow) cardClass += " low-stock";
+    let rowClass = "inv-list-row";
+    if (hideModeActive) rowClass += " hide-mode-target";
+    if (isHidden) rowClass += " hidden-item";
+    else if (isOut || isLow) rowClass += " low-stock";
 
-    const div = document.createElement("div");
-    div.className = cardClass;
+    const row = document.createElement("div");
+    row.className = rowClass;
 
     if (hideModeActive) {
-      div.onclick = () => toggleItemHidden(name);
-      div.innerHTML = `
-        <div class="inv-name">${esc(name)}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px;">${isHidden ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Oculto — toca para mostrar` : `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Visible — toca para ocultar`}</div>
+      row.onclick = () => toggleItemHidden(name);
+      row.innerHTML = `
+        <div class="inv-list-main"><span class="inv-list-name">${esc(name)}</span></div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:4px;">${isHidden ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Oculto — toca para mostrar` : `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Visible — toca para ocultar`}</div>
       `;
     } else {
-      div.innerHTML = `
-        <div class="inv-name">${esc(name)}</div>
-        <div class="inv-qty">Stock: ${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</div>
-        <div class="inv-controls">
-          <button
-            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-            onpointerdown="startHold('${name.replace(/'/g, "\\'")}', -1)"
-            onpointerup="stopHold()"
-            onpointerleave="stopHold()"
-            oncontextmenu="return false"
-            ontouchstart="this.ontouchend=stopHold;return true;"
-          >−</button>
-          <button
-            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-            onpointerdown="startHold('${name.replace(/'/g, "\\'")}', 1)"
-            onpointerup="stopHold()"
-            onpointerleave="stopHold()"
-            oncontextmenu="return false"
-            ontouchstart="this.ontouchend=stopHold;return true;"
-          >+</button>
+      row.innerHTML = `
+        <div class="inv-list-main">
+          <span class="inv-list-name">${esc(name)}</span>
+          <span class="inv-list-qty">${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</span>
         </div>
+        ${isFreezable ? `<div class="inv-list-sub">❄️ Congelados: ${frozenQty}</div>` : ''}
       `;
     }
 
-    container.appendChild(div);
-  });
-
-  renderFrozenSection();
-}
-
-let frozenEditMode = false;
-
-function toggleFrozenEditMode() {
-  frozenEditMode = !frozenEditMode;
-  renderFrozenSection();
-}
-
-function renderFrozenSection() {
-  let container = document.getElementById("frozenSection");
-  if (!container) return;
-
-  const anyFrozen = FREEZABLE_PRODUCTS.some(name => (frozenInventory[name] ?? 0) > 0);
-
-  container.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <h3 style="margin:0;">❄️ Congelados</h3>
-      <button
-        class="edit-mode-btn${frozenEditMode ? " active" : ""}"
-        onclick="toggleFrozenEditMode()"
-        title="Editar congelados"
-      ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-    </div>
-  `;
-
-  FREEZABLE_PRODUCTS.forEach(name => {
-    const qty = frozenInventory[name] ?? 0;
-    const row = document.createElement("div");
-    row.className = "inventory-card";
-    row.innerHTML = `
-      <div class="inv-name">${esc(name)}</div>
-      <div class="inv-qty">Congelados: ${qty}</div>
-      ${frozenEditMode ? `
-        <div class="inv-controls">
-          <button
-            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-            onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', -1)"
-            onpointerup="stopHold()"
-            onpointerleave="stopHold()"
-            oncontextmenu="return false"
-            ontouchstart="this.ontouchend=stopHold;return true;"
-          >−</button>
-          <button
-            style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
-            onpointerdown="startFrozenHold('${name.replace(/'/g, "\\'")}', 1)"
-            onpointerup="stopHold()"
-            onpointerleave="stopHold()"
-            oncontextmenu="return false"
-            ontouchstart="this.ontouchend=stopHold;return true;"
-          >+</button>
-        </div>
-      ` : ''}
-    `;
     container.appendChild(row);
   });
 
-  const bakeBtn = document.createElement("button");
-  bakeBtn.className = "btn-brand";
-  bakeBtn.style.cssText = "width:100%;margin-top:12px;";
-  bakeBtn.textContent = "🔥 Hornear";
-  bakeBtn.disabled = !anyFrozen;
-  bakeBtn.onclick = openBakeModal;
-  container.appendChild(bakeBtn);
+  const bakeBtn = document.getElementById('bakeBtn');
+  if (bakeBtn) bakeBtn.disabled = !FREEZABLE_PRODUCTS.some(name => (frozenInventory[name] ?? 0) > 0);
+
+  if (_editModalOpen) renderEditInventoryModalBody();
 }
 
-function startFrozenHold(name, delta) {
-  applyFrozenDelta(name, delta);
-  _frozenHoldInterval = setInterval(() => applyFrozenDelta(name, delta), 150);
+function openEditInventoryModal() {
+  _editModalOpen = true;
+  renderEditInventoryModalBody();
 }
 
-function applyFrozenDelta(name, delta) {
+function closeEditInventoryModal() {
+  _editModalOpen = false;
+  closeModal();
+}
+
+function renderEditInventoryModalBody() {
+  const hiddenItems = getHiddenItems();
+  const visibleNames = Object.keys(defaultInventory).filter(name => !hiddenItems.includes(name));
+
+  const rows = visibleNames.map(name => {
+    const qty = inventory[name] ?? 0;
+    const isFreezable = FREEZABLE_PRODUCTS.includes(name);
+    const frozenQty = frozenInventory[name] ?? 0;
+    const safeName = name.replace(/'/g, "\\'");
+
+    return `
+      <div class="edit-inv-row">
+        <div class="edit-inv-name">${esc(name)}</div>
+        <div class="edit-inv-line">
+          <span class="edit-inv-label">Disponible</span>
+          <div class="edit-inv-controls">
+            <button
+              style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+              onpointerdown="startHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
+              oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
+            >−</button>
+            <span class="edit-inv-qty">${qty}</span>
+            <button
+              style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+              onpointerdown="startHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
+              oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
+            >+</button>
+          </div>
+        </div>
+        ${isFreezable ? `
+          <div class="edit-inv-line">
+            <span class="edit-inv-label">❄️ Congelados</span>
+            <div class="edit-inv-controls">
+              <button
+                style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+                onpointerdown="startFrozenEditHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
+                oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
+              >−</button>
+              <span class="edit-inv-qty">${frozenQty}</span>
+              <button
+                style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+                onpointerdown="startFrozenEditHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
+                oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
+              >+</button>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  openModal(`
+    <h3 style="margin-top:0;">✏️ Editar inventario</h3>
+    <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
+      ${rows}
+    </div>
+    <button class="btn-brand" id="editInvSaveBtn" style="margin-top:12px;" onclick="saveInventoryFromModal()">💾 Guardar</button>
+    <button class="btn-secondary" onclick="cancelInventoryChanges(); closeEditInventoryModal();">Cancelar</button>
+  `);
+}
+
+function startFrozenEditHold(name, delta) {
+  updateFrozenStockDeferred(name, delta);
+  _frozenHoldInterval = setInterval(() => updateFrozenStockDeferred(name, delta), 80);
+}
+
+function updateFrozenStockDeferred(name, delta) {
   const current = frozenInventory[name] ?? 0;
-  const next = Math.max(0, current + delta);
-  if (next === current) return;
-  frozenInventory[name] = next;
-  DataStore.setFrozenStock(name, next);
-  renderFrozenSection();
+  frozenInventory[name] = Math.max(0, current + delta);
+  if (frozenInventory[name] !== (originalFrozenInventory[name] ?? 0)) {
+    updatedFrozenItems.add(name);
+  } else {
+    updatedFrozenItems.delete(name);
+  }
+  renderInventory();
 }
+
+async function saveInventoryFromModal() {
+  const btn = document.getElementById('editInvSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+  const ok = await saveInventoryChanges();
+
+  if (ok) {
+    closeEditInventoryModal();
+    showToast('Inventario guardado ✅');
+  } else {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+    showToast('Error al guardar. Intenta de nuevo.');
+  }
+}
+
+let _bakeSelections = {};
 
 function openBakeModal() {
-  const available = FREEZABLE_PRODUCTS.filter(name => (frozenInventory[name] ?? 0) > 0);
+  const hiddenItems = getHiddenItems();
+  const available = FREEZABLE_PRODUCTS.filter(name => !hiddenItems.includes(name) && (frozenInventory[name] ?? 0) > 0);
   if (available.length === 0) return;
 
-  const rows = available.map(name => {
-    const frozen = frozenInventory[name];
-    const safeId = "bake-qty-" + name.replace(/[^a-zA-Z0-9]/g, '-');
+  _bakeSelections = {};
+  available.forEach(name => { _bakeSelections[name] = 0; });
+
+  renderBakeModalBody();
+}
+
+function renderBakeModalBody() {
+  const rows = Object.keys(_bakeSelections).map(name => {
+    const frozen = frozenInventory[name] ?? 0;
+    const qty = _bakeSelections[name] ?? 0;
+    const safeName = name.replace(/'/g, "\\'");
     return `
-      <div class="costs-row">
-        <span>${esc(name)} <span style="color:var(--text-muted);font-size:12px;">(${frozen} disp.)</span></span>
-        <input id="${safeId}" data-name="${esc(name)}" data-max="${frozen}"
-          type="number" inputmode="numeric" min="0" max="${frozen}" value="${frozen}"
-          style="width:64px;text-align:center;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:4px 6px;"
-          onfocus="this.select()">
+      <div class="edit-inv-row">
+        <div class="edit-inv-line">
+          <span class="edit-inv-label">${esc(name)} <span style="color:var(--text-muted);font-size:12px;">(${frozen} disp.)</span></span>
+          <div class="edit-inv-controls">
+            <button
+              style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+              onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
+              oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
+            >−</button>
+            <span class="edit-inv-qty">${qty}</span>
+            <button
+              style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
+              onpointerdown="startBakeHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
+              oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
+            >+</button>
+          </div>
+        </div>
       </div>
     `;
   }).join('');
@@ -1435,30 +1483,37 @@ function openBakeModal() {
   `);
 }
 
-async function confirmBakeAll() {
-  const inputs = document.querySelectorAll('#modalContent [id^="bake-qty-"]');
-  const changes = [];
-  inputs.forEach(input => {
-    const name = input.dataset.name;
-    const max = parseInt(input.dataset.max) || 0;
-    const qty = Math.min(Math.max(0, parseInt(input.value) || 0), max);
-    if (qty > 0) changes.push({ name, qty, max });
-  });
+let _bakeHoldInterval = null;
 
+function startBakeHold(name, delta) {
+  adjustBakeQty(name, delta);
+  _bakeHoldInterval = setInterval(() => adjustBakeQty(name, delta), 80);
+}
+
+function adjustBakeQty(name, delta) {
+  const max = frozenInventory[name] ?? 0;
+  const current = _bakeSelections[name] ?? 0;
+  _bakeSelections[name] = Math.max(0, Math.min(max, current + delta));
+  renderBakeModalBody();
+}
+
+async function confirmBakeAll() {
+  const changes = Object.entries(_bakeSelections).filter(([, qty]) => qty > 0);
   closeModal();
   if (changes.length === 0) return;
 
-  for (const { name, qty, max } of changes) {
-    frozenInventory[name] = max - qty;
+  for (const [name, qty] of changes) {
+    frozenInventory[name] = (frozenInventory[name] ?? 0) - qty;
+    originalFrozenInventory[name] = frozenInventory[name];
+    updatedFrozenItems.delete(name);
     await DataStore.setFrozenStock(name, frozenInventory[name]);
     inventory[name] = (inventory[name] ?? 0) + qty;
     await DataStore.setStock(name, inventory[name]);
   }
 
-  renderFrozenSection();
   renderInventory();
   renderProducts();
-  const summary = changes.map(c => `${c.qty} ${c.name}`).join(', ');
+  const summary = changes.map(([name, qty]) => `${qty} ${name}`).join(', ');
   showToast(`${summary} pasados al inventario`);
 }
 
@@ -1545,23 +1600,15 @@ function updateStock(name, delta) {
   saveInventory();
   renderInventory();
   renderProducts();
-  updateSaveBtn();
-}
-
-function updateSaveBtn() {
-  const show = updatedItems.size > 0;
-  const btn = document.getElementById('saveInventoryBtn');
-  const cancelBtn = document.getElementById('cancelInventoryBtn');
-  if (btn) btn.style.display = show ? 'flex' : 'none';
-  if (cancelBtn) cancelBtn.style.display = show ? 'flex' : 'none';
 }
 
 function cancelInventoryChanges() {
   Object.keys(originalInventory).forEach(k => { inventory[k] = originalInventory[k]; });
   updatedItems.clear();
   _pendingRestockByName = {};
+  Object.keys(originalFrozenInventory).forEach(k => { frozenInventory[k] = originalFrozenInventory[k]; });
+  updatedFrozenItems.clear();
   saveInventory();
-  updateSaveBtn();
   renderInventory();
   renderProducts();
 }
@@ -1578,7 +1625,6 @@ function resetInventory() {
     updatedItems.clear();
     _pendingRestockByName = {};
     saveInventory();
-    updateSaveBtn();
     renderInventory();
     renderProducts();
     showToast('Inventario reseteado a 0');
@@ -1586,9 +1632,6 @@ function resetInventory() {
 }
 
 async function saveInventoryChanges() {
-  const btn = document.getElementById('saveInventoryBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
-
   try {
     await Promise.all([...updatedItems].map(name => DataStore.setStock(name, inventory[name])));
 
@@ -1599,19 +1642,21 @@ async function saveInventoryChanges() {
         .map(([name, qty]) => DataStore.addRestock({ date: restockDate, name, qty }))
     );
 
+    await Promise.all([...updatedFrozenItems].map(name => DataStore.setFrozenStock(name, frozenInventory[name])));
+
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
     _pendingRestockByName = {};
+    originalFrozenInventory = JSON.parse(JSON.stringify(frozenInventory));
+    updatedFrozenItems.clear();
 
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
     saveInventory();
-    updateSaveBtn();
     renderInventory();
     await renderRestockLogFromFirestore();
-    showToast('Inventario guardado ✅');
+    return true;
   } catch (e) {
-    showToast('Error al guardar. Intenta de nuevo.');
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+    console.error("saveInventoryChanges failed:", e);
+    return false;
   }
 }
 
@@ -1897,7 +1942,8 @@ async function generateCut() {
 
 async function buildCsvString(history) {
   const mermas   = await DataStore.getMermas();
-  const products = menu.flatMap(c => c.items).map(i => i.name);
+  const hiddenItems = getHiddenItems();
+  const products = menu.flatMap(c => c.items).map(i => i.name).filter(name => !hiddenItems.includes(name));
 
   let csv = `Folio,Fecha,Hora,Método de pago,Total,`;
   products.forEach(p => { csv += `"${p}",`; });
@@ -2472,6 +2518,58 @@ function clearRestockLog() {
   });
 }
 
+// Renamed products: migrate any existing Firestore data (stock, frozen stock, custom
+// prices, hidden flag, promo scope) from the old name to the new one, once.
+async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePrices, firestoreHidden, firestorePromos) {
+  const invBatch = db.batch();
+  let invChanged = false;
+  const tasks = [];
+
+  for (const [oldName, newName] of Object.entries(PRODUCT_RENAMES)) {
+    if (oldName in firestoreInv) {
+      if (!(newName in firestoreInv)) firestoreInv[newName] = firestoreInv[oldName];
+      delete firestoreInv[oldName];
+      invBatch.delete(storeRef("inventory").doc(oldName));
+      invBatch.set(storeRef("inventory").doc(newName), { qty: firestoreInv[newName] });
+      invChanged = true;
+    }
+
+    if (oldName in firestoreFrozen) {
+      if (!(newName in firestoreFrozen)) firestoreFrozen[newName] = firestoreFrozen[oldName];
+      delete firestoreFrozen[oldName];
+      tasks.push(configRef("frozenInventory").set(
+        { [oldName]: firebase.firestore.FieldValue.delete(), [newName]: firestoreFrozen[newName] },
+        { merge: true }
+      ));
+    }
+
+    if (oldName in firestorePrices) {
+      if (!(newName in firestorePrices)) firestorePrices[newName] = firestorePrices[oldName];
+      delete firestorePrices[oldName];
+      tasks.push(configRef("prices").set(
+        { [oldName]: firebase.firestore.FieldValue.delete(), [newName]: firestorePrices[newName] },
+        { merge: true }
+      ));
+    }
+
+    const hiddenIdx = firestoreHidden.indexOf(oldName);
+    if (hiddenIdx > -1) {
+      firestoreHidden[hiddenIdx] = newName;
+      tasks.push(DataStore.saveHiddenItems(firestoreHidden));
+    }
+
+    firestorePromos.forEach(promo => {
+      if (promo.scope === "product" && promo.scopeValue === oldName) {
+        promo.scopeValue = newName;
+        if (promo._id) tasks.push(DataStore.updatePromotion(promo._id, { scopeValue: newName }));
+      }
+    });
+  }
+
+  if (invChanged) tasks.push(invBatch.commit());
+  await Promise.all(tasks);
+}
+
 // ── Init (called after auth) ─────────────────
 async function initApp() {
   // Load initial data from Firestore
@@ -2483,6 +2581,8 @@ async function initApp() {
     DataStore.getExtrasPrices(),
     DataStore.getFrozenInventory(),
   ]);
+
+  await migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePrices, firestoreHidden, firestorePromos);
 
   // Seed inventory if Firestore is empty (first run)
   if (Object.keys(firestoreInv).length === 0) {
@@ -2524,6 +2624,7 @@ async function initApp() {
 
   // Load frozen inventory
   Object.assign(frozenInventory, firestoreFrozen);
+  originalFrozenInventory = JSON.parse(JSON.stringify(frozenInventory));
 
   saveInventory();
   renderProducts();

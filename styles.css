@@ -336,54 +336,87 @@ button:active { opacity: 0.75; }
 
 /* ── INVENTORY PAGE ────────────────────── */
 #inventoryList {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 14px;
-}
-
-.inventory-card {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  padding: 13px;
-  box-shadow: var(--shadow);
-  border: 2px solid transparent;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.inventory-card.updated   { border-color: var(--green);  background: #f1faf2; }
-.inventory-card.low-stock { border-color: var(--orange); background: #fff8f0; }
+.inv-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
 
-.inv-name { font-weight: 700; font-size: 14px; }
+.inv-list-row:last-child { border-bottom: none; }
+.inv-list-row.low-stock { background: #fff8f0; }
+.inv-list-row.hidden-item { opacity: 0.4; }
+.inv-list-row.hide-mode-target { cursor: pointer; transition: transform 0.1s; }
+.inv-list-row.hide-mode-target:active { transform: scale(0.97); }
 
-.inv-price-row {
+.inv-list-main {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.inv-price-row input {
-  width: 58px;
-  padding: 3px 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 13px;
-  text-align: right;
-  background: var(--bg);
+.inv-name, .inv-list-name { font-weight: 700; font-size: 14px; }
+.inv-list-qty { font-size: 14px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
+.inv-list-sub { font-size: 12px; color: var(--text-muted); }
+
+/* ── INVENTORY EDIT / BAKE MODALS ─────────── */
+.edit-inv-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
 }
 
-.inv-controls { display: flex; gap: 6px; margin-top: 6px; }
-.inv-controls button {
-  flex: 1;
+.edit-inv-row:last-child { border-bottom: none; }
+
+.edit-inv-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+
+.edit-inv-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.edit-inv-label { font-size: 13px; color: var(--text-muted); }
+
+.edit-inv-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.edit-inv-controls button {
+  width: 30px;
+  height: 30px;
   margin: 0;
-  padding: 8px;
+  padding: 0;
+  border: none;
   border-radius: var(--radius-sm);
-  font-size: 16px;
   background: var(--btn-secondary-bg);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.edit-inv-controls button:active { opacity: 0.7; }
+
+.edit-inv-qty {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
 }
 
 /* ── HISTORY PAGE ──────────────────────── */
@@ -400,8 +433,17 @@ button:active { opacity: 0.75; }
   box-shadow: var(--shadow);
 }
 
-/* reuse .inventory-card for history entries — override via specific selector */
-#historyList .inventory-card { border-radius: var(--radius); }
+/* Base card style, reused for history entries */
+.inventory-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 13px;
+  box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
 
 .history-header-row {
   display: grid;
@@ -795,19 +837,6 @@ button:active { opacity: 0.75; }
   color: #e65100;
   font-weight: 700;
 }
-
-.inventory-card.hidden-item {
-  opacity: 0.35;
-  border: 2px dashed var(--border);
-}
-
-.inventory-card.hide-mode-target {
-  cursor: pointer;
-  transition: transform 0.1s;
-  outline: 2px dashed var(--orange);
-}
-
-.inventory-card.hide-mode-target:active { transform: scale(0.96); }
 
 /* ── HISTORY EDIT MODE ── */
 .edit-mode-btn {
