@@ -476,7 +476,7 @@ const defaultInventory = {
   "Lucky Charms": 0,
   "Conejito Turín": 0,
   "Pistache": 0,
-  "Rol": 0,
+  "Cinnamon Roll": 0,
   "Fresa Pink Sugar": 0,
   "Crookie": 0,
   "Rol de canela": 0,
@@ -493,7 +493,8 @@ const defaultInventory = {
 
 // Old product names mapped to their current names, for migrating existing Firestore data
 const PRODUCT_RENAMES = {
-  "Canela": "Rol",
+  "Canela": "Cinnamon Roll",
+  "Rol": "Cinnamon Roll",
   "Fresa": "Fresa Pink Sugar",
   "Pastel red velvet": "Pastel Red Velvet",
 };
@@ -511,7 +512,7 @@ function saveInventory() {
 // Products that can be frozen (1:1 with menu items)
 const FREEZABLE_PRODUCTS = [
   "M&Ms", "Lotus", "Kinder Bueno", "Red Velvet", "Oreo",
-  "Lucky Charms", "Conejito Turín", "Pistache", "Rol", "Fresa Pink Sugar",
+  "Lucky Charms", "Conejito Turín", "Pistache", "Cinnamon Roll", "Fresa Pink Sugar",
   "Crookie"
 ];
 
@@ -535,7 +536,7 @@ const menu = [
       { name: "Lucky Charms", price: 49.00, img: "lucky.jpg" },
       { name: "Conejito Turín", price: 49.00, img: "turin.jpg" },
       { name: "Pistache", price: 49.00, img: "pistache.jpg" },
-      { name: "Rol", price: 49.00, img: "canela.jpg" },
+      { name: "Cinnamon Roll", price: 49.00, img: "canela.jpg" },
       { name: "Fresa Pink Sugar", price: 49.00, img: "fresa.jpg" }
     ]
   },
