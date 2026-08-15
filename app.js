@@ -1909,24 +1909,29 @@ async function generateCut() {
   const total = todaySales.reduce((sum, s) => sum + s.total, 0);
   const count = todaySales.length;
 
-  // Build CSV data now (Firestore reads) before any download or clearing
+  // Build CSV data now (Firestore reads), before any download or clearing.
+  // If this fails, bail out entirely — never offer to delete without a ready export.
   let csvString = null;
   try {
     csvString = await buildCsvString(history);
   } catch (e) {
-    showToast("Error al preparar el archivo");
+    showToast("Error al preparar el archivo. Cierre de caja cancelado.");
+    return;
   }
 
   confirmModal("¿Cerrar caja y borrar ventas?", async () => {
+    // Export must actually happen before anything gets deleted.
+    try {
+      triggerCsvDownload(csvString);
+    } catch (e) {
+      showToast("Error al descargar el archivo. Cierre de caja cancelado.");
+      return;
+    }
+
     try {
       await DataStore.clearDayData();
       _historyData = [];
       renderHistoryWithData([]);
-
-      // Download after all Firestore operations are done
-      if (csvString) {
-        try { triggerCsvDownload(csvString); } catch (e) { showToast("Error al descargar el archivo"); }
-      }
 
       openModal(`
         <h3 style="margin-top:0;">Corte del día</h3>
@@ -1935,7 +1940,7 @@ async function generateCut() {
         <button class="btn-primary" onclick="closeModal()">Cerrar</button>
       `);
     } catch (e) {
-      showToast("Error al cerrar caja: " + (e.message || "reintenta"));
+      showToast("El archivo ya se descargó, pero hubo un error al borrar las ventas: " + (e.message || "reintenta"));
     }
   });
 }
