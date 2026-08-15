@@ -643,7 +643,7 @@ function openExtrasModal(item, extras) {
     </button>
   `).join("");
 
-  openModal(`
+  openPopupModal(`
     <h3 style="margin-top:0;">🥐 ${esc(item.name)}</h3>
     <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
     <div class="extras-grid">${buttonsHTML}</div>
@@ -745,7 +745,7 @@ function closeModal() {
 
 function openPaymentOptions() {
   const { finalTotal } = computeCartTotals();
-  openModal(`
+  openPopupModal(`
     <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
     <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
     <button class="btn-brand" onclick="handleTransfer(${finalTotal})">Transferencia</button>
@@ -758,7 +758,7 @@ function handleCash(total) {
   vibrate(10);
   const denominations = [50, 100, 200, 500];
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">💵 Pago en efectivo</h3>
     <p style="color:var(--text-muted);font-size:13px;margin:4px 0 8px;">Total: <strong>$${total.toFixed(2)}</strong></p>
 
@@ -893,7 +893,7 @@ function showFinalStep(total, method, change, amount) {
     if (currentSale) currentSale.folio = folio;
   });
 
-  openModal(`
+  openPopupModal(`
     <h3>Total: $${total}</h3>
 
     ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
@@ -1168,7 +1168,7 @@ function showPage(page) {
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
   if (page !== 'inventory' && inventoryVisible && (updatedItems.size > 0 || updatedFrozenItems.size > 0)) {
     document.getElementById('sideMenu').classList.remove('open');
-    openModal(`
+    openPopupModal(`
       <h3 style="margin-top:0;">Cambios sin guardar</h3>
       <p style="color:var(--text-muted);font-size:14px;">Tienes cambios de inventario sin guardar.</p>
       <button class="btn-brand" id="_navSave">💾 Guardar y salir</button>
@@ -1748,7 +1748,7 @@ function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">✏️ Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
     <div class="promo-form">
@@ -1967,7 +1967,7 @@ async function generateCut() {
       _historyData = [];
       renderHistoryWithData([]);
 
-      openModal(`
+      openPopupModal(`
         <h3 style="margin-top:0;">Corte del día</h3>
         <p>Ventas: <strong>${count}</strong></p>
         <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
@@ -2066,7 +2066,7 @@ function showToast(msg) {
 }
 
 function confirmModal(message, onConfirm) {
-  openModal(`
+  openPopupModal(`
     <h3 style="margin-top:0;">${esc(message)}</h3>
     <button class="btn-primary" id="_confirmYes">Sí</button>
     <button class="btn-secondary" id="_confirmNo">Cancelar</button>
@@ -2361,7 +2361,7 @@ function openPromoModal() {
   const categoryOptions = allCategories()
     .map(c => `<option value="${c}">${c}</option>`).join("");
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">Nueva promoción</h3>
     <div class="promo-form">
 
@@ -2707,7 +2707,7 @@ function openMermaModal() {
     `<option value="${k}">${v.emoji} ${v.label}</option>`
   ).join('');
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">📉 Registrar merma</h3>
     <div class="promo-form">
 
@@ -2829,7 +2829,7 @@ function saveAsPending() {
     return;
   }
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">📋 Guardar pedido</h3>
     <div class="promo-form">
       <label>Nombre del cliente</label>
