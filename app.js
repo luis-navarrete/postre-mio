@@ -295,6 +295,10 @@ const DataStore = {
     await storeRef("restockLog").add(entry);
   },
 
+  async deleteRestock(id) {
+    await storeRef("restockLog").doc(id).delete();
+  },
+
   async clearRestockLog() {
     const snap = await storeRef("restockLog").get();
     const batch = db.batch();
@@ -639,7 +643,7 @@ function openExtrasModal(item, extras) {
     </button>
   `).join("");
 
-  openModal(`
+  openPopupModal(`
     <h3 style="margin-top:0;">🥐 ${esc(item.name)}</h3>
     <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
     <div class="extras-grid">${buttonsHTML}</div>
@@ -730,13 +734,18 @@ function openPopupModal(html) {
   document.getElementById("modalContent").classList.add("modal-popup");
 }
 
+function openCompactModal(html) {
+  openModal(html);
+  document.getElementById("modalContent").classList.add("modal-compact");
+}
+
 function closeModal() {
   document.getElementById("modal").classList.add("hidden");
 }
 
 function openPaymentOptions() {
   const { finalTotal } = computeCartTotals();
-  openModal(`
+  openPopupModal(`
     <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
     <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
     <button class="btn-brand" onclick="handleTransfer(${finalTotal})">Transferencia</button>
@@ -749,15 +758,17 @@ function handleCash(total) {
   vibrate(10);
   const denominations = [50, 100, 200, 500];
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">💵 Pago en efectivo</h3>
     <p style="color:var(--text-muted);font-size:13px;margin:4px 0 8px;">Total: <strong>$${total.toFixed(2)}</strong></p>
 
     <div class="denom-grid">
       ${denominations.map(d => `
-        <button class="denom-btn" onclick="selectDenom(${d}, ${total})">$${d}</button>
+        <button class="denom-btn" onclick="selectDenom(${d}, ${total}, this)">$${d}</button>
       `).join('')}
     </div>
+
+    <button class="denom-btn" style="width:100%;margin:0 0 8px;" onclick="selectDenom(${total}, ${total}, this)">💰 Exacto ($${total.toFixed(2)})</button>
 
     <div style="margin-bottom:8px;">
       <input
@@ -778,11 +789,9 @@ function handleCash(total) {
   `);
 }
 
-function selectDenom(value, total) {
+function selectDenom(value, total, btnEl) {
   document.querySelectorAll('.denom-btn').forEach(b => b.classList.remove('selected'));
-  document.querySelectorAll('.denom-btn').forEach(b => {
-    if (b.textContent.trim() === `$${value}`) b.classList.add('selected');
-  });
+  if (btnEl) btnEl.classList.add('selected');
 
   // Fill the input with the selected denomination
   const input = document.getElementById('cashInput');
@@ -884,7 +893,7 @@ function showFinalStep(total, method, change, amount) {
     if (currentSale) currentSale.folio = folio;
   });
 
-  openModal(`
+  openPopupModal(`
     <h3>Total: $${total}</h3>
 
     ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
@@ -1159,7 +1168,7 @@ function showPage(page) {
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
   if (page !== 'inventory' && inventoryVisible && (updatedItems.size > 0 || updatedFrozenItems.size > 0)) {
     document.getElementById('sideMenu').classList.remove('open');
-    openModal(`
+    openPopupModal(`
       <h3 style="margin-top:0;">Cambios sin guardar</h3>
       <p style="color:var(--text-muted);font-size:14px;">Tienes cambios de inventario sin guardar.</p>
       <button class="btn-brand" id="_navSave">💾 Guardar y salir</button>
@@ -1326,8 +1335,6 @@ function renderInventory() {
 
   const bakeBtn = document.getElementById('bakeBtn');
   if (bakeBtn) bakeBtn.disabled = !FREEZABLE_PRODUCTS.some(name => (frozenInventory[name] ?? 0) > 0);
-
-  if (_editModalOpen) renderEditInventoryModalBody();
 }
 
 function openEditInventoryModal() {
@@ -1349,6 +1356,7 @@ function renderEditInventoryModalBody() {
     const isFreezable = FREEZABLE_PRODUCTS.includes(name);
     const frozenQty = frozenInventory[name] ?? 0;
     const safeName = name.replace(/'/g, "\\'");
+    const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
 
     return `
       <div class="edit-inv-row">
@@ -1361,7 +1369,7 @@ function renderEditInventoryModalBody() {
               onpointerdown="startHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
               oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
             >−</button>
-            <span class="edit-inv-qty">${qty}</span>
+            <span class="edit-inv-qty" id="ei-avail-${safeId}">${qty}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -1378,7 +1386,7 @@ function renderEditInventoryModalBody() {
                 onpointerdown="startFrozenEditHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
                 oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
               >−</button>
-              <span class="edit-inv-qty">${frozenQty}</span>
+              <span class="edit-inv-qty" id="ei-frozen-${safeId}">${frozenQty}</span>
               <button
                 style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
                 onpointerdown="startFrozenEditHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -1391,7 +1399,7 @@ function renderEditInventoryModalBody() {
     `;
   }).join('');
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">✏️ Editar inventario</h3>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
       ${rows}
@@ -1415,6 +1423,18 @@ function updateFrozenStockDeferred(name, delta) {
     updatedFrozenItems.delete(name);
   }
   renderInventory();
+  refreshEditModalQty(name);
+}
+
+// Update the edit-inventory modal's displayed quantities in place, without
+// rebuilding its HTML (which would reset the modal's scroll position).
+function refreshEditModalQty(name) {
+  if (!_editModalOpen) return;
+  const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
+  const availEl = document.getElementById('ei-avail-' + safeId);
+  if (availEl) availEl.textContent = inventory[name] ?? 0;
+  const frozenEl = document.getElementById('ei-frozen-' + safeId);
+  if (frozenEl) frozenEl.textContent = frozenInventory[name] ?? 0;
 }
 
 async function saveInventoryFromModal() {
@@ -1450,6 +1470,7 @@ function renderBakeModalBody() {
     const frozen = frozenInventory[name] ?? 0;
     const qty = _bakeSelections[name] ?? 0;
     const safeName = name.replace(/'/g, "\\'");
+    const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
     return `
       <div class="edit-inv-row">
         <div class="edit-inv-line">
@@ -1460,7 +1481,7 @@ function renderBakeModalBody() {
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
               oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"
             >−</button>
-            <span class="edit-inv-qty">${qty}</span>
+            <span class="edit-inv-qty" id="bk-qty-${safeId}">${qty}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', 1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -1472,7 +1493,7 @@ function renderBakeModalBody() {
     `;
   }).join('');
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">🔥 Hornear</h3>
     <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Cantidad a pasar al inventario</p>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
@@ -1494,13 +1515,23 @@ function adjustBakeQty(name, delta) {
   const max = frozenInventory[name] ?? 0;
   const current = _bakeSelections[name] ?? 0;
   _bakeSelections[name] = Math.max(0, Math.min(max, current + delta));
-  renderBakeModalBody();
+  refreshBakeModalQty(name);
+}
+
+// Update the bake modal's displayed quantity in place, without rebuilding
+// its HTML (which would reset the modal's scroll position).
+function refreshBakeModalQty(name) {
+  const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
+  const el = document.getElementById('bk-qty-' + safeId);
+  if (el) el.textContent = _bakeSelections[name] ?? 0;
 }
 
 async function confirmBakeAll() {
   const changes = Object.entries(_bakeSelections).filter(([, qty]) => qty > 0);
   closeModal();
   if (changes.length === 0) return;
+
+  const bakeDate = new Date().toLocaleString();
 
   for (const [name, qty] of changes) {
     frozenInventory[name] = (frozenInventory[name] ?? 0) - qty;
@@ -1509,10 +1540,12 @@ async function confirmBakeAll() {
     await DataStore.setFrozenStock(name, frozenInventory[name]);
     inventory[name] = (inventory[name] ?? 0) + qty;
     await DataStore.setStock(name, inventory[name]);
+    await DataStore.addRestock({ date: bakeDate, name, qty, source: 'bake' });
   }
 
   renderInventory();
   renderProducts();
+  await renderRestockLogFromFirestore();
   const summary = changes.map(([name, qty]) => `${qty} ${name}`).join(', ');
   showToast(`${summary} pasados al inventario`);
 }
@@ -1600,6 +1633,7 @@ function updateStock(name, delta) {
   saveInventory();
   renderInventory();
   renderProducts();
+  refreshEditModalQty(name);
 }
 
 function cancelInventoryChanges() {
@@ -1714,7 +1748,7 @@ function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">✏️ Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
     <div class="promo-form">
@@ -1933,7 +1967,7 @@ async function generateCut() {
       _historyData = [];
       renderHistoryWithData([]);
 
-      openModal(`
+      openPopupModal(`
         <h3 style="margin-top:0;">Corte del día</h3>
         <p>Ventas: <strong>${count}</strong></p>
         <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
@@ -2032,7 +2066,7 @@ function showToast(msg) {
 }
 
 function confirmModal(message, onConfirm) {
-  openModal(`
+  openPopupModal(`
     <h3 style="margin-top:0;">${esc(message)}</h3>
     <button class="btn-primary" id="_confirmYes">Sí</button>
     <button class="btn-secondary" id="_confirmNo">Cancelar</button>
@@ -2327,7 +2361,7 @@ function openPromoModal() {
   const categoryOptions = allCategories()
     .map(c => `<option value="${c}">${c}</option>`).join("");
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">Nueva promoción</h3>
     <div class="promo-form">
 
@@ -2506,14 +2540,20 @@ function renderRestockLogWithData(log) {
   const rows = log.map(entry => `
     <div class="restock-entry">
       <div>
-        <div style="font-weight:600;">${esc(entry.name)}</div>
+        <div style="font-weight:600;">${entry.source === 'bake' ? '🔥 ' : ''}${esc(entry.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
+      <button onclick="deleteRestockEntry('${entry._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
     </div>
   `).join('');
 
   container.innerHTML = rows;
+}
+
+async function deleteRestockEntry(id) {
+  await DataStore.deleteRestock(id);
+  await renderRestockLogFromFirestore();
 }
 
 function clearRestockLog() {
@@ -2667,7 +2707,7 @@ function openMermaModal() {
     `<option value="${k}">${v.emoji} ${v.label}</option>`
   ).join('');
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">📉 Registrar merma</h3>
     <div class="promo-form">
 
@@ -2752,7 +2792,7 @@ async function renderMermaLog() {
         </div>
         <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
-        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;font-size:16px;line-height:1;" title="Eliminar">×</button>
+        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
       </div>
     `;
   }).join('');
@@ -2789,7 +2829,7 @@ function saveAsPending() {
     return;
   }
 
-  openModal(`
+  openCompactModal(`
     <h3 style="margin-top:0;">📋 Guardar pedido</h3>
     <div class="promo-form">
       <label>Nombre del cliente</label>
