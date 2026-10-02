@@ -563,7 +563,8 @@ const menu = [
   }
 ];
 
-let cart = JSON.parse(localStorage.getItem("cart")) || [];
+// Drop cart items saved under product names that no longer exist (renamed/merged)
+let cart = (JSON.parse(localStorage.getItem("cart")) || []).filter(i => i.name in defaultInventory);
 
 // Render productos
 function renderProducts() {
@@ -1617,6 +1618,8 @@ async function confirmBakeAll() {
     updatedFrozenItems.delete(name);
     await DataStore.setFrozenStock(name, frozenInventory[name]);
     inventory[name] = (inventory[name] ?? 0) + qty;
+    originalInventory[name] = inventory[name];
+    updatedItems.delete(name);
     await DataStore.setStock(name, inventory[name]);
     await DataStore.addRestock({ date: bakeDate, name, qty, source: 'bake' });
   }
