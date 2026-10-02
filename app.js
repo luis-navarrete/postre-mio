@@ -483,10 +483,7 @@ const defaultInventory = {
   "Brownie": 0,
   "Cookie bites": 0,
   "Besos de nuez": 0,
-  "Mini pastel zanahoria": 0,
-  "Mini pastel red velvet": 0,
-  "Mini pastel Nutella": 0,
-  "Mini pastel dulce de leche": 0,
+  "Mini pastel maceta": 0,
   "Carlota de limón": 0,
   "Pastel Red Velvet": 0,
   "Pan de muerto": 0
@@ -498,6 +495,10 @@ const PRODUCT_RENAMES = {
   "Rol": "Cinnamon Roll",
   "Fresa": "Fresa Pink Sugar",
   "Pastel red velvet": "Pastel Red Velvet",
+  "Mini pastel zanahoria": "Mini pastel maceta",
+  "Mini pastel red velvet": "Mini pastel maceta",
+  "Mini pastel Nutella": "Mini pastel maceta",
+  "Mini pastel dulce de leche": "Mini pastel maceta",
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
@@ -555,10 +556,7 @@ const menu = [
   {
     category: "🍰 Postres",
     items: [
-      { name: "Mini pastel zanahoria", price: 220.00, img: "cake_carrot.jpg" },
-      { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
-      { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
-      { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
+      { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
       { name: "Pastel Red Velvet", price: 80.00, img: "pastel_rv.jpg" }
     ]
@@ -623,6 +621,13 @@ let ITEM_EXTRAS = {
     { name: "Lotus biscoff",                    price: 95 },
     { name: "Betún de queso crema y fresas",    price: 95 },
   ],
+  // Mini pastel maceta: flavor choice only, no price difference between them.
+  "Mini pastel maceta": [
+    { name: "Zanahoria",      price: 0 },
+    { name: "Red velvet",     price: 0 },
+    { name: "Nutella",        price: 0 },
+    { name: "Dulce de leche", price: 0 },
+  ],
 };
 
 // Items with a second extras step after the first one (e.g. flavor, then a
@@ -634,18 +639,25 @@ const ITEM_EXTRAS_STEP2 = {
   ],
 };
 
+// Items whose extra choice must always be recorded even when its price is 0
+// (the choice itself is meaningful, e.g. a cake flavor) — unlike Rol de
+// canela's "Natural", which is the default/no-extra state and can be omitted.
+const ITEM_EXTRAS_ALWAYS_KEEP = new Set(["Mini pastel maceta"]);
+
 const ITEM_EXTRAS_LABEL = {
   "Rol de canela": "Elige el betún:",
-  "Pan de muerto": "Elige el sabor:",
+  "Pan de muerto": "Elige el relleno:",
+  "Mini pastel maceta": "Elige el sabor:",
 };
 
 const ITEM_EXTRAS_STEP2_LABEL = {
-  "Pan de muerto": "Elige el relleno:",
+  "Pan de muerto": "Extras:",
 };
 
 const ITEM_EXTRAS_EMOJI = {
   "Rol de canela": "🥐",
   "Pan de muerto": "🍞",
+  "Mini pastel maceta": "🍰",
 };
 
 // Carrito
@@ -689,7 +701,8 @@ function confirmExtra(item, extra) {
   if (step2) {
     openExtrasStep2Modal(item, extra, step2);
   } else {
-    pushCartItem(item, extra.price > 0 ? extra : null);
+    const keep = extra.price > 0 || ITEM_EXTRAS_ALWAYS_KEEP.has(item.name);
+    pushCartItem(item, keep ? extra : null);
   }
 }
 
@@ -2639,8 +2652,11 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
   const tasks = [];
 
   for (const [oldName, newName] of Object.entries(PRODUCT_RENAMES)) {
+    // Inventory and frozen stock are quantities, so when several old names
+    // collapse into the same new name (e.g. the four "Mini pastel X"
+    // products merging into one), sum them instead of keeping only one.
     if (oldName in firestoreInv) {
-      if (!(newName in firestoreInv)) firestoreInv[newName] = firestoreInv[oldName];
+      firestoreInv[newName] = (firestoreInv[newName] || 0) + firestoreInv[oldName];
       delete firestoreInv[oldName];
       invBatch.delete(storeRef("inventory").doc(oldName));
       invBatch.set(storeRef("inventory").doc(newName), { qty: firestoreInv[newName] });
@@ -2648,7 +2664,7 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
     }
 
     if (oldName in firestoreFrozen) {
-      if (!(newName in firestoreFrozen)) firestoreFrozen[newName] = firestoreFrozen[oldName];
+      firestoreFrozen[newName] = (firestoreFrozen[newName] || 0) + firestoreFrozen[oldName];
       delete firestoreFrozen[oldName];
       tasks.push(configRef("frozenInventory").set(
         { [oldName]: firebase.firestore.FieldValue.delete(), [newName]: firestoreFrozen[newName] },
@@ -2656,6 +2672,7 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
       ));
     }
 
+    // Prices aren't additive — keep whichever one is found first.
     if (oldName in firestorePrices) {
       if (!(newName in firestorePrices)) firestorePrices[newName] = firestorePrices[oldName];
       delete firestorePrices[oldName];
@@ -2667,7 +2684,11 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
 
     const hiddenIdx = firestoreHidden.indexOf(oldName);
     if (hiddenIdx > -1) {
-      firestoreHidden[hiddenIdx] = newName;
+      if (firestoreHidden.includes(newName)) {
+        firestoreHidden.splice(hiddenIdx, 1);
+      } else {
+        firestoreHidden[hiddenIdx] = newName;
+      }
       tasks.push(DataStore.saveHiddenItems(firestoreHidden));
     }
 
