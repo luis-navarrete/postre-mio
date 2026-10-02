@@ -476,26 +476,29 @@ const defaultInventory = {
   "Lucky Charms": 0,
   "Conejito Turín": 0,
   "Pistache": 0,
-  "Rol": 0,
+  "Cinnamon Roll": 0,
   "Fresa Pink Sugar": 0,
   "Crookie": 0,
   "Rol de canela": 0,
   "Brownie": 0,
   "Cookie bites": 0,
   "Besos de nuez": 0,
-  "Mini pastel zanahoria": 0,
-  "Mini pastel red velvet": 0,
-  "Mini pastel Nutella": 0,
-  "Mini pastel dulce de leche": 0,
+  "Mini pastel maceta": 0,
   "Carlota de limón": 0,
-  "Pastel Red Velvet": 0
+  "Pastel Red Velvet": 0,
+  "Pan de muerto": 0
 };
 
 // Old product names mapped to their current names, for migrating existing Firestore data
 const PRODUCT_RENAMES = {
-  "Canela": "Rol",
+  "Canela": "Cinnamon Roll",
+  "Rol": "Cinnamon Roll",
   "Fresa": "Fresa Pink Sugar",
   "Pastel red velvet": "Pastel Red Velvet",
+  "Mini pastel zanahoria": "Mini pastel maceta",
+  "Mini pastel red velvet": "Mini pastel maceta",
+  "Mini pastel Nutella": "Mini pastel maceta",
+  "Mini pastel dulce de leche": "Mini pastel maceta",
 };
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
@@ -511,7 +514,7 @@ function saveInventory() {
 // Products that can be frozen (1:1 with menu items)
 const FREEZABLE_PRODUCTS = [
   "M&Ms", "Lotus", "Kinder Bueno", "Red Velvet", "Oreo",
-  "Lucky Charms", "Conejito Turín", "Pistache", "Rol", "Fresa Pink Sugar",
+  "Lucky Charms", "Conejito Turín", "Pistache", "Cinnamon Roll", "Fresa Pink Sugar",
   "Crookie"
 ];
 
@@ -535,7 +538,7 @@ const menu = [
       { name: "Lucky Charms", price: 49.00, img: "lucky.jpg" },
       { name: "Conejito Turín", price: 49.00, img: "turin.jpg" },
       { name: "Pistache", price: 49.00, img: "pistache.jpg" },
-      { name: "Rol", price: 49.00, img: "canela.jpg" },
+      { name: "Cinnamon Roll", price: 49.00, img: "canela.jpg" },
       { name: "Fresa Pink Sugar", price: 49.00, img: "fresa.jpg" }
     ]
   },
@@ -546,23 +549,22 @@ const menu = [
       { name: "Rol de canela", price: 60.00, img: "rol.jpg" },
       { name: "Brownie", price: 40.00, img: "brownie.jpg" },
       { name: "Cookie bites", price: 100.00, img: "bites.jpg" },
-      { name: "Besos de nuez", price: 90.00, img: "besosnuez.jpg" }
+      { name: "Besos de nuez", price: 90.00, img: "besosnuez.jpg" },
+      { name: "Pan de muerto", price: 0, img: "pandemuerto.jpg", noBasePrice: true }
     ]
   },
   {
     category: "🍰 Postres",
     items: [
-      { name: "Mini pastel zanahoria", price: 220.00, img: "cake_carrot.jpg" },
-      { name: "Mini pastel red velvet", price: 220.00, img: "cake_velvet.jpg" },
-      { name: "Mini pastel Nutella", price: 220.00, img: "cake_gvan.jpg" },
-      { name: "Mini pastel dulce de leche", price: 220.00, img: "cake_fvan.jpg" },
+      { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
       { name: "Pastel Red Velvet", price: 80.00, img: "pastel_rv.jpg" }
     ]
   }
 ];
 
-let cart = JSON.parse(localStorage.getItem("cart")) || [];
+// Drop cart items saved under product names that no longer exist (renamed/merged)
+let cart = (JSON.parse(localStorage.getItem("cart")) || []).filter(i => i.name in defaultInventory);
 
 // Render productos
 function renderProducts() {
@@ -592,7 +594,7 @@ function renderProducts() {
       div.innerHTML = `
         <img src="${item.img}">
         <h3>${esc(item.name)}</h3>
-        <p>$${parseFloat(item.price).toFixed(2)}</p>
+        ${item.noBasePrice ? '' : `<p>$${parseFloat(item.price).toFixed(2)}</p>`}
         <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
@@ -613,7 +615,50 @@ let ITEM_EXTRAS = {
     { name: "Glaseado queso crema", price: 5  },
     { name: "Nutella",              price: 10  },
     { name: "Lotus",                price: 25  },
-  ]
+  ],
+  // Pan de muerto has no base price — each flavor carries its own full price.
+  "Pan de muerto": [
+    { name: "Nutella y kínder",                 price: 90 },
+    { name: "Lotus biscoff",                    price: 95 },
+    { name: "Betún de queso crema y fresas",    price: 95 },
+  ],
+  // Mini pastel maceta: flavor choice only, no price difference between them.
+  "Mini pastel maceta": [
+    { name: "Zanahoria",      price: 0 },
+    { name: "Red velvet",     price: 0 },
+    { name: "Nutella",        price: 0 },
+    { name: "Dulce de leche", price: 0 },
+  ],
+};
+
+// Items with a second extras step after the first one (e.g. flavor, then a
+// separate filling choice). Combined into a single cart "extra" on confirm.
+const ITEM_EXTRAS_STEP2 = {
+  "Pan de muerto": [
+    { name: "Natural",                price: 0  },
+    { name: "Extra de tres leches",   price: 25 },
+  ],
+};
+
+// Items whose extra choice must always be recorded even when its price is 0
+// (the choice itself is meaningful, e.g. a cake flavor) — unlike Rol de
+// canela's "Natural", which is the default/no-extra state and can be omitted.
+const ITEM_EXTRAS_ALWAYS_KEEP = new Set(["Mini pastel maceta"]);
+
+const ITEM_EXTRAS_LABEL = {
+  "Rol de canela": "Elige el betún:",
+  "Pan de muerto": "Elige el relleno:",
+  "Mini pastel maceta": "Elige el sabor:",
+};
+
+const ITEM_EXTRAS_STEP2_LABEL = {
+  "Pan de muerto": "Extras:",
+};
+
+const ITEM_EXTRAS_EMOJI = {
+  "Rol de canela": "🥐",
+  "Pan de muerto": "🍞",
+  "Mini pastel maceta": "🍰",
 };
 
 // Carrito
@@ -639,13 +684,13 @@ function openExtrasModal(item, extras) {
       onclick="confirmExtra(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(e).replace(/"/g, '&quot;')})"
     >
       ${esc(e.name)}
-      <span class="extra-price">${e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2)}</span>
+      <span class="extra-price">${item.noBasePrice ? '$' + e.price.toFixed(2) : (e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2))}</span>
     </button>
   `).join("");
 
   openPopupModal(`
-    <h3 style="margin-top:0;">🥐 ${esc(item.name)}</h3>
-    <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
+    <h3 style="margin-top:0;">${ITEM_EXTRAS_EMOJI[item.name] || '🥐'} ${esc(item.name)}</h3>
+    <p style="color:#666;font-size:14px;margin:4px 0 8px;">${esc(ITEM_EXTRAS_LABEL[item.name] || 'Elige una opción:')}</p>
     <div class="extras-grid">${buttonsHTML}</div>
     <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
   `);
@@ -653,7 +698,41 @@ function openExtrasModal(item, extras) {
 
 function confirmExtra(item, extra) {
   closeModal();
-  pushCartItem(item, extra.price > 0 ? extra : null);
+  const step2 = ITEM_EXTRAS_STEP2[item.name];
+  if (step2) {
+    openExtrasStep2Modal(item, extra, step2);
+  } else {
+    const keep = extra.price > 0 || ITEM_EXTRAS_ALWAYS_KEEP.has(item.name);
+    pushCartItem(item, keep ? extra : null);
+  }
+}
+
+function openExtrasStep2Modal(item, firstExtra, options) {
+  const buttonsHTML = options.map(o => `
+    <button
+      class="extra-btn ${o.price === 0 ? 'natural' : 'paid'}"
+      onclick="confirmExtrasStep2(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(firstExtra).replace(/"/g, '&quot;')}, ${JSON.stringify(o).replace(/"/g, '&quot;')})"
+    >
+      ${esc(o.name)}
+      <span class="extra-price">${o.price === 0 ? 'Incluido' : '+$' + o.price.toFixed(2)}</span>
+    </button>
+  `).join("");
+
+  openPopupModal(`
+    <h3 style="margin-top:0;">${ITEM_EXTRAS_EMOJI[item.name] || '🥐'} ${esc(item.name)}</h3>
+    <p style="color:#666;font-size:14px;margin:4px 0 8px;">${esc(ITEM_EXTRAS_STEP2_LABEL[item.name] || 'Elige una opción:')}</p>
+    <div class="extras-grid">${buttonsHTML}</div>
+    <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
+  `);
+}
+
+function confirmExtrasStep2(item, firstExtra, addon) {
+  closeModal();
+  const combined = {
+    name: addon.price > 0 ? `${firstExtra.name} + ${addon.name}` : firstExtra.name,
+    price: firstExtra.price + addon.price,
+  };
+  pushCartItem(item, combined);
 }
 
 // Assigns a unique cartId so each rol is independent in the cart
@@ -1539,6 +1618,8 @@ async function confirmBakeAll() {
     updatedFrozenItems.delete(name);
     await DataStore.setFrozenStock(name, frozenInventory[name]);
     inventory[name] = (inventory[name] ?? 0) + qty;
+    originalInventory[name] = inventory[name];
+    updatedItems.delete(name);
     await DataStore.setStock(name, inventory[name]);
     await DataStore.addRestock({ date: bakeDate, name, qty, source: 'bake' });
   }
@@ -1573,7 +1654,7 @@ function updatePrice(name, value) {
 
 function openPricesModal() {
   const productRows = menu.map(cat => {
-    const rows = cat.items.map(item => `
+    const rows = cat.items.filter(item => !item.noBasePrice).map(item => `
       <div class="costs-row">
         <span>${esc(item.name)}</span>
         <span style="color:var(--text-muted);font-size:12px;">$</span>
@@ -2199,11 +2280,14 @@ function renderCart() {
   Object.values(grouped).forEach(item => {
     const basePrice = item.extra ? item.price - item.extra.price : item.price;
     const extraName = item.extra ? item.extra.name : null;
+    const priceLine = (item.extra && basePrice === 0)
+      ? `$${item.extra.price.toFixed(2)} × ${item.qty}`
+      : `$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}`;
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div class="cart-item-name">${esc(item.name)}</div>
-      <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
+      <div class="cart-item-price">${priceLine}</div>
       ${item.extra ? `<div class="cart-extra-line"><span>↳ ${esc(item.extra.name)}</span></div>` : ''}
       <div class="cart-item-controls">
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
@@ -2571,8 +2655,11 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
   const tasks = [];
 
   for (const [oldName, newName] of Object.entries(PRODUCT_RENAMES)) {
+    // Inventory and frozen stock are quantities, so when several old names
+    // collapse into the same new name (e.g. the four "Mini pastel X"
+    // products merging into one), sum them instead of keeping only one.
     if (oldName in firestoreInv) {
-      if (!(newName in firestoreInv)) firestoreInv[newName] = firestoreInv[oldName];
+      firestoreInv[newName] = (firestoreInv[newName] || 0) + firestoreInv[oldName];
       delete firestoreInv[oldName];
       invBatch.delete(storeRef("inventory").doc(oldName));
       invBatch.set(storeRef("inventory").doc(newName), { qty: firestoreInv[newName] });
@@ -2580,7 +2667,7 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
     }
 
     if (oldName in firestoreFrozen) {
-      if (!(newName in firestoreFrozen)) firestoreFrozen[newName] = firestoreFrozen[oldName];
+      firestoreFrozen[newName] = (firestoreFrozen[newName] || 0) + firestoreFrozen[oldName];
       delete firestoreFrozen[oldName];
       tasks.push(configRef("frozenInventory").set(
         { [oldName]: firebase.firestore.FieldValue.delete(), [newName]: firestoreFrozen[newName] },
@@ -2588,6 +2675,7 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
       ));
     }
 
+    // Prices aren't additive — keep whichever one is found first.
     if (oldName in firestorePrices) {
       if (!(newName in firestorePrices)) firestorePrices[newName] = firestorePrices[oldName];
       delete firestorePrices[oldName];
@@ -2599,7 +2687,11 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
 
     const hiddenIdx = firestoreHidden.indexOf(oldName);
     if (hiddenIdx > -1) {
-      firestoreHidden[hiddenIdx] = newName;
+      if (firestoreHidden.includes(newName)) {
+        firestoreHidden.splice(hiddenIdx, 1);
+      } else {
+        firestoreHidden[hiddenIdx] = newName;
+      }
       tasks.push(DataStore.saveHiddenItems(firestoreHidden));
     }
 
