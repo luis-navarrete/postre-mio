@@ -488,7 +488,8 @@ const defaultInventory = {
   "Mini pastel Nutella": 0,
   "Mini pastel dulce de leche": 0,
   "Carlota de limón": 0,
-  "Pastel Red Velvet": 0
+  "Pastel Red Velvet": 0,
+  "Pan de muerto": 0
 };
 
 // Old product names mapped to their current names, for migrating existing Firestore data
@@ -547,7 +548,8 @@ const menu = [
       { name: "Rol de canela", price: 60.00, img: "rol.jpg" },
       { name: "Brownie", price: 40.00, img: "brownie.jpg" },
       { name: "Cookie bites", price: 100.00, img: "bites.jpg" },
-      { name: "Besos de nuez", price: 90.00, img: "besosnuez.jpg" }
+      { name: "Besos de nuez", price: 90.00, img: "besosnuez.jpg" },
+      { name: "Pan de muerto", price: 0, img: "pandemuerto.jpg", noBasePrice: true }
     ]
   },
   {
@@ -593,7 +595,7 @@ function renderProducts() {
       div.innerHTML = `
         <img src="${item.img}">
         <h3>${esc(item.name)}</h3>
-        <p>$${parseFloat(item.price).toFixed(2)}</p>
+        ${item.noBasePrice ? '' : `<p>$${parseFloat(item.price).toFixed(2)}</p>`}
         <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
@@ -614,7 +616,36 @@ let ITEM_EXTRAS = {
     { name: "Glaseado queso crema", price: 5  },
     { name: "Nutella",              price: 10  },
     { name: "Lotus",                price: 25  },
-  ]
+  ],
+  // Pan de muerto has no base price — each flavor carries its own full price.
+  "Pan de muerto": [
+    { name: "Nutella y kínder",                 price: 90 },
+    { name: "Lotus biscoff",                    price: 95 },
+    { name: "Betún de queso crema y fresas",    price: 95 },
+  ],
+};
+
+// Items with a second extras step after the first one (e.g. flavor, then a
+// separate filling choice). Combined into a single cart "extra" on confirm.
+const ITEM_EXTRAS_STEP2 = {
+  "Pan de muerto": [
+    { name: "Natural",                price: 0  },
+    { name: "Extra de tres leches",   price: 25 },
+  ],
+};
+
+const ITEM_EXTRAS_LABEL = {
+  "Rol de canela": "Elige el betún:",
+  "Pan de muerto": "Elige el sabor:",
+};
+
+const ITEM_EXTRAS_STEP2_LABEL = {
+  "Pan de muerto": "Elige el relleno:",
+};
+
+const ITEM_EXTRAS_EMOJI = {
+  "Rol de canela": "🥐",
+  "Pan de muerto": "🍞",
 };
 
 // Carrito
@@ -640,13 +671,13 @@ function openExtrasModal(item, extras) {
       onclick="confirmExtra(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(e).replace(/"/g, '&quot;')})"
     >
       ${esc(e.name)}
-      <span class="extra-price">${e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2)}</span>
+      <span class="extra-price">${item.noBasePrice ? '$' + e.price.toFixed(2) : (e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2))}</span>
     </button>
   `).join("");
 
   openPopupModal(`
-    <h3 style="margin-top:0;">🥐 ${esc(item.name)}</h3>
-    <p style="color:#666;font-size:14px;margin:4px 0 8px;">Elige el betún:</p>
+    <h3 style="margin-top:0;">${ITEM_EXTRAS_EMOJI[item.name] || '🥐'} ${esc(item.name)}</h3>
+    <p style="color:#666;font-size:14px;margin:4px 0 8px;">${esc(ITEM_EXTRAS_LABEL[item.name] || 'Elige una opción:')}</p>
     <div class="extras-grid">${buttonsHTML}</div>
     <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
   `);
@@ -654,7 +685,40 @@ function openExtrasModal(item, extras) {
 
 function confirmExtra(item, extra) {
   closeModal();
-  pushCartItem(item, extra.price > 0 ? extra : null);
+  const step2 = ITEM_EXTRAS_STEP2[item.name];
+  if (step2) {
+    openExtrasStep2Modal(item, extra, step2);
+  } else {
+    pushCartItem(item, extra.price > 0 ? extra : null);
+  }
+}
+
+function openExtrasStep2Modal(item, firstExtra, options) {
+  const buttonsHTML = options.map(o => `
+    <button
+      class="extra-btn ${o.price === 0 ? 'natural' : 'paid'}"
+      onclick="confirmExtrasStep2(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(firstExtra).replace(/"/g, '&quot;')}, ${JSON.stringify(o).replace(/"/g, '&quot;')})"
+    >
+      ${esc(o.name)}
+      <span class="extra-price">${o.price === 0 ? 'Incluido' : '+$' + o.price.toFixed(2)}</span>
+    </button>
+  `).join("");
+
+  openPopupModal(`
+    <h3 style="margin-top:0;">${ITEM_EXTRAS_EMOJI[item.name] || '🥐'} ${esc(item.name)}</h3>
+    <p style="color:#666;font-size:14px;margin:4px 0 8px;">${esc(ITEM_EXTRAS_STEP2_LABEL[item.name] || 'Elige una opción:')}</p>
+    <div class="extras-grid">${buttonsHTML}</div>
+    <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
+  `);
+}
+
+function confirmExtrasStep2(item, firstExtra, addon) {
+  closeModal();
+  const combined = {
+    name: addon.price > 0 ? `${firstExtra.name} + ${addon.name}` : firstExtra.name,
+    price: firstExtra.price + addon.price,
+  };
+  pushCartItem(item, combined);
 }
 
 // Assigns a unique cartId so each rol is independent in the cart
@@ -1574,7 +1638,7 @@ function updatePrice(name, value) {
 
 function openPricesModal() {
   const productRows = menu.map(cat => {
-    const rows = cat.items.map(item => `
+    const rows = cat.items.filter(item => !item.noBasePrice).map(item => `
       <div class="costs-row">
         <span>${esc(item.name)}</span>
         <span style="color:var(--text-muted);font-size:12px;">$</span>
@@ -2200,11 +2264,14 @@ function renderCart() {
   Object.values(grouped).forEach(item => {
     const basePrice = item.extra ? item.price - item.extra.price : item.price;
     const extraName = item.extra ? item.extra.name : null;
+    const priceLine = (item.extra && basePrice === 0)
+      ? `$${item.extra.price.toFixed(2)} × ${item.qty}`
+      : `$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}`;
     const div = document.createElement("div");
     div.className = "item";
     div.innerHTML = `
       <div class="cart-item-name">${esc(item.name)}</div>
-      <div class="cart-item-price">$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}</div>
+      <div class="cart-item-price">${priceLine}</div>
       ${item.extra ? `<div class="cart-extra-line"><span>↳ ${esc(item.extra.name)}</span></div>` : ''}
       <div class="cart-item-controls">
         <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
