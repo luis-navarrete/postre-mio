@@ -17,6 +17,28 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
+// Reads used during startup must never hang the loading screen: if the server
+// doesn't answer in time, fall back to the offline cache. requireData makes the
+// fallback fail when the cache is empty, so a missing cache is never mistaken
+// for "no data yet" (which would seed defaults or reset the PIN).
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+  ]);
+}
+
+async function fastGet(ref, requireData = false) {
+  try {
+    return await withTimeout(ref.get(), 8000);
+  } catch (e) {
+    const snap = await ref.get({ source: "cache" });
+    const empty = snap.exists === undefined ? snap.empty : !snap.exists;
+    if (requireData && empty) throw e;
+    return snap;
+  }
+}
+
 function storeRef(path) {
   return db.collection("stores").doc(STORE_ID).collection(path);
 }
@@ -99,10 +121,10 @@ async function submitPin() {
 
   try {
     if (!auth.currentUser) {
-      await auth.signInAnonymously();
+      await withTimeout(auth.signInAnonymously(), 15000);
     }
 
-    const authDoc = await configRef("auth").get();
+    const authDoc = await fastGet(configRef("auth"), true);
 
     if (!authDoc.exists || !authDoc.data().pinHash) {
       if (!_isSettingUp) {
@@ -180,7 +202,7 @@ updateConnBadge(navigator.onLine);
 const DataStore = {
   // ── Inventory ──
   async getInventory() {
-    const snap = await storeRef("inventory").get();
+    const snap = await fastGet(storeRef("inventory"), true);
     const inv = {};
     snap.forEach(doc => { inv[doc.id] = doc.data().qty; });
     return inv;
@@ -234,7 +256,7 @@ const DataStore = {
 
   // ── Promotions ──
   async getPromotions() {
-    const snap = await storeRef("promotions").get();
+    const snap = await fastGet(storeRef("promotions"));
     return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
   },
 
@@ -309,7 +331,7 @@ const DataStore = {
   // ── Config (prices, hidden) ──
 
   async getCustomPrices() {
-    const doc = await configRef("prices").get();
+    const doc = await fastGet(configRef("prices"));
     return doc.exists ? doc.data() : {};
   },
 
@@ -318,7 +340,7 @@ const DataStore = {
   },
 
   async getExtrasPrices() {
-    const doc = await configRef("extrasPrices").get();
+    const doc = await fastGet(configRef("extrasPrices"));
     return doc.exists ? doc.data() : {};
   },
 
@@ -328,7 +350,7 @@ const DataStore = {
   },
 
   async getHiddenItems() {
-    const doc = await configRef("hidden").get();
+    const doc = await fastGet(configRef("hidden"));
     return doc.exists ? (doc.data().items || []) : [];
   },
 
@@ -338,7 +360,7 @@ const DataStore = {
 
   // ── Frozen Inventory ──
   async getFrozenInventory() {
-    const doc = await configRef("frozenInventory").get();
+    const doc = await fastGet(configRef("frozenInventory"));
     return doc.exists ? doc.data() : {};
   },
 
@@ -2716,7 +2738,8 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
   }
 
   if (invChanged) tasks.push(invBatch.commit());
-  await Promise.all(tasks);
+  // Don't block startup on write acknowledgements (they stall while offline).
+  Promise.all(tasks).catch(e => console.error("migration failed:", e));
 }
 
 // ── Init (called after auth) ─────────────────
@@ -2739,7 +2762,7 @@ async function initApp() {
     Object.entries(defaultInventory).forEach(([name, qty]) => {
       batch.set(storeRef("inventory").doc(name), { qty });
     });
-    await batch.commit();
+    batch.commit().catch(e => console.error("seed failed:", e));
     Object.assign(inventory, defaultInventory);
   } else {
     Object.keys(inventory).forEach(k => delete inventory[k]);
