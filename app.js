@@ -17,6 +17,28 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
+// Reads used during startup must never hang the loading screen: if the server
+// doesn't answer in time, fall back to the offline cache. requireData makes the
+// fallback fail when the cache is empty, so a missing cache is never mistaken
+// for "no data yet" (which would seed defaults or reset the PIN).
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+  ]);
+}
+
+async function fastGet(ref, requireData = false) {
+  try {
+    return await withTimeout(ref.get(), 8000);
+  } catch (e) {
+    const snap = await ref.get({ source: "cache" });
+    const empty = snap.exists === undefined ? snap.empty : !snap.exists;
+    if (requireData && empty) throw e;
+    return snap;
+  }
+}
+
 function storeRef(path) {
   return db.collection("stores").doc(STORE_ID).collection(path);
 }
@@ -99,10 +121,10 @@ async function submitPin() {
 
   try {
     if (!auth.currentUser) {
-      await auth.signInAnonymously();
+      await withTimeout(auth.signInAnonymously(), 15000);
     }
 
-    const authDoc = await configRef("auth").get();
+    const authDoc = await fastGet(configRef("auth"), true);
 
     if (!authDoc.exists || !authDoc.data().pinHash) {
       if (!_isSettingUp) {
@@ -180,7 +202,7 @@ updateConnBadge(navigator.onLine);
 const DataStore = {
   // ── Inventory ──
   async getInventory() {
-    const snap = await storeRef("inventory").get();
+    const snap = await fastGet(storeRef("inventory"), true);
     const inv = {};
     snap.forEach(doc => { inv[doc.id] = doc.data().qty; });
     return inv;
@@ -234,7 +256,7 @@ const DataStore = {
 
   // ── Promotions ──
   async getPromotions() {
-    const snap = await storeRef("promotions").get();
+    const snap = await fastGet(storeRef("promotions"));
     return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
   },
 
@@ -309,7 +331,7 @@ const DataStore = {
   // ── Config (prices, hidden) ──
 
   async getCustomPrices() {
-    const doc = await configRef("prices").get();
+    const doc = await fastGet(configRef("prices"));
     return doc.exists ? doc.data() : {};
   },
 
@@ -318,7 +340,7 @@ const DataStore = {
   },
 
   async getExtrasPrices() {
-    const doc = await configRef("extrasPrices").get();
+    const doc = await fastGet(configRef("extrasPrices"));
     return doc.exists ? doc.data() : {};
   },
 
@@ -328,7 +350,7 @@ const DataStore = {
   },
 
   async getHiddenItems() {
-    const doc = await configRef("hidden").get();
+    const doc = await fastGet(configRef("hidden"));
     return doc.exists ? (doc.data().items || []) : [];
   },
 
@@ -338,7 +360,7 @@ const DataStore = {
 
   // ── Frozen Inventory ──
   async getFrozenInventory() {
-    const doc = await configRef("frozenInventory").get();
+    const doc = await fastGet(configRef("frozenInventory"));
     return doc.exists ? doc.data() : {};
   },
 
@@ -1652,40 +1674,54 @@ function updatePrice(name, value) {
   showToast(`Precio de ${name} actualizado a $${price}`);
 }
 
-function openPricesModal() {
-  const productRows = menu.map(cat => {
-    const rows = cat.items.filter(item => !item.noBasePrice).map(item => `
-      <div class="costs-row">
-        <span>${esc(item.name)}</span>
-        <span style="color:var(--text-muted);font-size:12px;">$</span>
-        <input type="number" inputmode="decimal" min="0" step="1"
-          value="${item.price}"
-          onfocus="this.select()"
-          onchange="updatePrice('${item.name.replace(/'/g, "\\'")}', this.value)">
-      </div>
-    `).join('');
-    return `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">${esc(cat.category)}</div>${rows}`;
-  }).join('');
+function findExtra(productName, extraName) {
+  return [...(ITEM_EXTRAS[productName] || []), ...(ITEM_EXTRAS_STEP2[productName] || [])]
+    .find(e => e.name === extraName);
+}
 
-  const extrasRows = Object.entries(ITEM_EXTRAS).map(([productName, extras]) => {
-    const rows = extras.map(e => `
-      <div class="costs-row">
-        <span>${esc(e.name)}</span>
-        <span style="color:var(--text-muted);font-size:12px;">$</span>
-        <input type="number" inputmode="decimal" min="0" step="1"
-          value="${e.price}"
-          onfocus="this.select()"
-          onchange="updateExtrasPrice('${productName.replace(/'/g, "\\'")}', '${e.name.replace(/'/g, "\\'")}', this.value)">
-      </div>
-    `).join('');
-    return `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);">+ Extras: ${esc(productName)}</div>${rows}`;
-  }).join('');
+function openPricesModal() {
+  const sectionTitle = (text, upper) =>
+    `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);${upper ? 'text-transform:uppercase;letter-spacing:0.5px;' : ''}">${esc(text)}</div>`;
+
+  const priceRow = (label, price, onchange) => `
+    <div class="costs-row">
+      <span>${esc(label)}</span>
+      <span style="color:var(--text-muted);font-size:12px;">$</span>
+      <input type="number" inputmode="decimal" min="0" step="1"
+        value="${price}"
+        onfocus="this.select()"
+        onchange="${onchange}">
+    </div>`;
+
+  const categoryRows = cat => sectionTitle(cat.category, true) +
+    cat.items.filter(item => !item.noBasePrice).map(item =>
+      priceRow(item.name, item.price, `updatePrice('${item.name.replace(/'/g, "\\'")}', this.value)`)
+    ).join('');
+
+  // Flavor/filling prices for one product, plus its second-step extras (minus the free "Natural")
+  const extrasSection = (productName, title) => {
+    const entries = [
+      ...(ITEM_EXTRAS[productName] || []),
+      ...(ITEM_EXTRAS_STEP2[productName] || []).filter(e => e.name !== "Natural"),
+    ];
+    return sectionTitle(title, false) + entries.map(e =>
+      priceRow(e.name, e.price, `updateExtrasPrice('${productName.replace(/'/g, "\\'")}', '${e.name.replace(/'/g, "\\'")}', this.value)`)
+    ).join('');
+  };
+
+  const cats = Object.fromEntries(menu.map(c => [c.category, c]));
+  const body =
+    categoryRows(cats["🍪 Galletas"]) +
+    categoryRows(cats["✨ Especiales"]) +
+    extrasSection("Rol de canela", "+ Extras: Rol de canela") +
+    extrasSection("Pan de muerto", "Pan de muerto") +
+    categoryRows(cats["🍰 Postres"]) +
+    extrasSection("Mini pastel maceta", "Mini pastel maceta");
 
   openPopupModal(`
     <h3 style="margin-top:0;">💲 Precios</h3>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
-      ${productRows}
-      ${extrasRows ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">${extrasRows}</div>` : ''}
+      ${body}
     </div>
     <button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal()">Cerrar</button>
   `);
@@ -1694,10 +1730,8 @@ function openPricesModal() {
 function updateExtrasPrice(productName, extraName, value) {
   const price = Math.max(0, parseFloat(value));
   if (isNaN(price)) return;
-  if (ITEM_EXTRAS[productName]) {
-    const extra = ITEM_EXTRAS[productName].find(e => e.name === extraName);
-    if (extra) extra.price = price;
-  }
+  const extra = findExtra(productName, extraName);
+  if (extra) extra.price = price;
   DataStore.saveExtrasPrice(productName, extraName, price);
 }
 
@@ -2704,7 +2738,8 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
   }
 
   if (invChanged) tasks.push(invBatch.commit());
-  await Promise.all(tasks);
+  // Don't block startup on write acknowledgements (they stall while offline).
+  Promise.all(tasks).catch(e => console.error("migration failed:", e));
 }
 
 // ── Init (called after auth) ─────────────────
@@ -2727,7 +2762,7 @@ async function initApp() {
     Object.entries(defaultInventory).forEach(([name, qty]) => {
       batch.set(storeRef("inventory").doc(name), { qty });
     });
-    await batch.commit();
+    batch.commit().catch(e => console.error("seed failed:", e));
     Object.assign(inventory, defaultInventory);
   } else {
     Object.keys(inventory).forEach(k => delete inventory[k]);
@@ -2747,10 +2782,8 @@ async function initApp() {
     if (sep === -1) return;
     const productName = key.slice(0, sep);
     const extraName   = key.slice(sep + 2);
-    if (ITEM_EXTRAS[productName]) {
-      const extra = ITEM_EXTRAS[productName].find(e => e.name === extraName);
-      if (extra) extra.price = price;
-    }
+    const extra = findExtra(productName, extraName);
+    if (extra) extra.price = price;
   });
 
   // Load promotions
