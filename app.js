@@ -529,6 +529,28 @@ const CATEGORY_ICONS = { "🍪 Galletas": "cookie", "✨ Especiales": "sparkles"
 function catName(category) { return category.replace(/^\S+\s/, ""); }
 function catHTML(category) { return `${icon(CATEGORY_ICONS[category])} ${esc(catName(category))}`; }
 
+// Products whose variants (the first extras choice) each have their own stock.
+const VARIANT_PRODUCTS = {
+  "Pan de muerto": ["Nutella y kínder", "Lotus biscoff", "Betún de queso crema y fresas"],
+  "Cheesecake": ["Mermelada de fresa", "Nutella"],
+};
+const variantKey = (product, variant) => `${product} · ${variant}`;
+// Inventory key for a cart/sale item (its variant's own key, or just its name)
+function stockKey(item) {
+  return VARIANT_PRODUCTS[item.name] && item.extra && item.extra.variant
+    ? variantKey(item.name, item.extra.variant)
+    : item.name;
+}
+function stockNamesFor(productName) {
+  return VARIANT_PRODUCTS[productName]
+    ? VARIANT_PRODUCTS[productName].map(v => variantKey(productName, v))
+    : [productName];
+}
+function productStock(productName) {
+  return stockNamesFor(productName).reduce((sum, k) => sum + (inventory[k] ?? 0), 0);
+}
+function parentProduct(key) { return key.split(" · ")[0]; }
+
 const defaultInventory = {
   "M&Ms": 0,
   "Lotus": 0,
@@ -548,11 +570,11 @@ const defaultInventory = {
   "Mini pastel maceta": 0,
   "Carlota de limón": 0,
   "Rebanada Red Velvet": 0,
-  "Pan de muerto": 0,
+  ...Object.fromEntries(stockNamesFor("Pan de muerto").map(k => [k, 0])),
   "Pan de zanahoria": 0,
   "Pay de elote": 0,
   "Rebanada de tres leches": 0,
-  "Cheesecake": 0
+  ...Object.fromEntries(stockNamesFor("Cheesecake").map(k => [k, 0]))
 };
 
 // Old product names mapped to their current names, for migrating existing Firestore data
@@ -642,7 +664,7 @@ const menu = [
 ];
 
 // Drop cart items saved under product names that no longer exist (renamed/merged)
-let cart = (JSON.parse(localStorage.getItem("cart")) || []).filter(i => i.name in defaultInventory);
+let cart = (JSON.parse(localStorage.getItem("cart")) || []).filter(i => stockKey(i) in defaultInventory);
 
 // Render productos
 function renderProducts() {
@@ -662,7 +684,7 @@ function renderProducts() {
     cat.items.forEach(item => {
       if (hiddenItems.includes(item.name)) return;
 
-      const stock = inventory[item.name] ?? 0;
+      const stock = productStock(item.name);
       const isOut = stock === 0;
       const isLow = stock > 0 && stock <= 3;
 
@@ -749,7 +771,7 @@ const ITEM_EXTRAS_ICON = {
 // Carrito
 function addToCart(item) {
   const inCart = cart.filter(i => i.name === item.name).length;
-  if (inCart >= (inventory[item.name] ?? 0)) {
+  if (inCart >= productStock(item.name)) {
     showToast("Sin stock disponible");
     return;
   }
@@ -763,15 +785,21 @@ function addToCart(item) {
 }
 
 function openExtrasModal(item, extras) {
-  const buttonsHTML = extras.map(e => `
+  const buttonsHTML = extras.map(e => {
+    const variantStock = VARIANT_PRODUCTS[item.name]
+      ? (inventory[variantKey(item.name, e.name)] ?? 0) - cart.filter(i => stockKey(i) === variantKey(item.name, e.name)).length
+      : null;
+    return `
     <button
       class="extra-btn ${e.price === 0 ? 'natural' : 'paid'}"
+      ${variantStock !== null && variantStock <= 0 ? 'disabled' : ''}
       onclick="confirmExtra(${JSON.stringify(item).replace(/"/g, '&quot;')}, ${JSON.stringify(e).replace(/"/g, '&quot;')})"
     >
-      ${esc(e.name)}
+      ${esc(e.name)}${variantStock !== null ? ` <span class="extra-price">Stock: ${Math.max(0, variantStock)}</span>` : ''}
       <span class="extra-price">${item.noBasePrice ? '$' + e.price.toFixed(2) : (e.price === 0 ? 'Incluido' : '+$' + e.price.toFixed(2))}</span>
     </button>
-  `).join("");
+  `;
+  }).join("");
 
   openPopupModal(`
     <h3 style="margin-top:0;">${icon(ITEM_EXTRAS_ICON[item.name] || 'croissant')} ${esc(item.name)}</h3>
@@ -783,6 +811,7 @@ function openExtrasModal(item, extras) {
 
 function confirmExtra(item, extra) {
   closeModal();
+  if (VARIANT_PRODUCTS[item.name]) extra = { ...extra, variant: extra.name };
   const step2 = ITEM_EXTRAS_STEP2[item.name];
   if (step2) {
     openExtrasStep2Modal(item, extra, step2);
@@ -816,6 +845,7 @@ function confirmExtrasStep2(item, firstExtra, addon) {
   const combined = {
     name: addon.price > 0 ? `${firstExtra.name} + ${addon.name}` : firstExtra.name,
     price: firstExtra.price + addon.price,
+    variant: firstExtra.variant,
   };
   pushCartItem(item, combined);
 }
@@ -824,6 +854,14 @@ function confirmExtrasStep2(item, firstExtra, addon) {
 let _cartIdCounter = 0;
 
 function pushCartItem(item, extra) {
+  if (VARIANT_PRODUCTS[item.name]) {
+    const key = stockKey({ ...item, extra });
+    const inCart = cart.filter(i => stockKey(i) === key).length;
+    if (inCart >= (inventory[key] ?? 0)) {
+      showToast("Sin stock de esa opción");
+      return;
+    }
+  }
   vibrate(10);
   const cartItem = {
     ...item,
@@ -848,7 +886,7 @@ function changeQtyGrouped(name, extraName, delta) {
   if (delta > 0) {
     // Check total in cart for this item name (all variants combined) vs stock
     const totalInCart = cart.filter(i => i.name === name).length;
-    if (totalInCart >= (inventory[name] ?? 0)) {
+    if (totalInCart >= productStock(name)) {
       showToast("No hay más stock disponible");
       return;
     }
@@ -1078,7 +1116,8 @@ async function finalizeSale() {
 
   const itemCounts = {};
   currentSale.items.forEach(item => {
-    itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
+    const k = stockKey(item);
+    itemCounts[k] = (itemCounts[k] || 0) + 1;
   });
 
   // Update local inventory immediately for instant UI feedback
@@ -1458,10 +1497,10 @@ function renderInventory() {
 
   menu.forEach(cat => {
     let headerAdded = false;
-    cat.items.map(i => i.name).forEach(name => {
+    cat.items.flatMap(i => stockNamesFor(i.name).map(k => [k, i.name])).forEach(([name, parent]) => {
     if (!(name in inventory)) inventory[name] = defaultInventory[name];
 
-    const isHidden = hiddenItems.includes(name);
+    const isHidden = hiddenItems.includes(parent);
 
     // In normal mode, skip hidden items
     if (!hideModeActive && isHidden) return;
@@ -1489,7 +1528,7 @@ function renderInventory() {
     row.className = rowClass;
 
     if (hideModeActive) {
-      row.onclick = () => toggleItemHidden(name);
+      row.onclick = () => toggleItemHidden(parent);
       row.innerHTML = `
         <div class="inv-list-main"><span class="inv-list-name">${esc(name)}</span></div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:4px;">${isHidden ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Oculto — toca para mostrar` : `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Visible — toca para ocultar`}</div>
@@ -1574,7 +1613,7 @@ function renderEditInventoryModalBody() {
   };
 
   const rows = menu.map(cat => {
-    const names = cat.items.map(i => i.name).filter(name => !hiddenItems.includes(name));
+    const names = cat.items.filter(i => !hiddenItems.includes(i.name)).flatMap(i => stockNamesFor(i.name));
     if (!names.length) return '';
     return `<div class="edit-inv-cat">${catHTML(cat.category)}</div>` + names.map(rowHTML).join('');
   }).join('');
@@ -2112,10 +2151,11 @@ function deleteSale(saleId) {
   if (!sale) return;
   confirmModal("¿Borrar esta transacción?", async () => {
     (sale.items || []).forEach(item => {
-      if (!(item.name in defaultInventory)) return;
-      if (!inventory[item.name]) inventory[item.name] = 0;
-      inventory[item.name]++;
-      DataStore.incrementStock(item.name, 1);
+      const k = stockKey(item);
+      if (!(k in defaultInventory)) return;
+      if (!inventory[k]) inventory[k] = 0;
+      inventory[k]++;
+      DataStore.incrementStock(k, 1);
     });
 
     saveInventory();
@@ -2212,7 +2252,7 @@ async function buildCsvString(history) {
   csv += soldRow + "\n";
 
   const mermaTotals = {};
-  mermas.forEach(m => { mermaTotals[m.name] = (mermaTotals[m.name] || 0) + m.qty; });
+  mermas.forEach(m => { const p = parentProduct(m.name); mermaTotals[p] = (mermaTotals[p] || 0) + m.qty; });
   let mermaRow = `,,,,Mermas,`;
   products.forEach(p => { mermaRow += (mermaTotals[p] || 0) + ","; });
   csv += mermaRow + "\n";
@@ -2452,7 +2492,7 @@ function renderCart() {
     const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
     const el = document.getElementById('stock-' + safeId);
     if (!el) return;
-    const remaining = (inventory[item.name] ?? 0) - inCart;
+    const remaining = productStock(item.name) - inCart;
     const isLow = remaining > 0 && remaining <= 3;
     const isOut = remaining <= 0;
     el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
@@ -2906,8 +2946,8 @@ function openMermaModal() {
 
   // Build item options for first category
   const firstCatItems = menu[0]?.items || [];
-  const itemOptions = firstCatItems.map(i =>
-    `<option value="${i.name}">${i.name} (stock: ${inventory[i.name] ?? 0})</option>`
+  const itemOptions = firstCatItems.flatMap(i => stockNamesFor(i.name)).map(k =>
+    `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
   ).join('');
 
   const reasonOptions = Object.entries(MERMA_REASONS).map(([k, v]) =>
@@ -2946,8 +2986,8 @@ function onMermaCatChange() {
   const catData = menu.find(c => c.category === cat);
   const itemSel = document.getElementById('merma-item');
   if (!catData || !itemSel) return;
-  itemSel.innerHTML = catData.items.map(i =>
-    `<option value="${i.name}">${i.name} (stock: ${inventory[i.name] ?? 0})</option>`
+  itemSel.innerHTML = catData.items.flatMap(i => stockNamesFor(i.name)).map(k =>
+    `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
   ).join('');
 }
 
@@ -3074,9 +3114,10 @@ async function confirmSaveAsPending() {
     };
 
     for (const item of order.items) {
-      if (inventory[item.name] > 0) {
-        inventory[item.name]--;
-        DataStore.setStock(item.name, inventory[item.name]);
+      const k = stockKey(item);
+      if (inventory[k] > 0) {
+        inventory[k]--;
+        DataStore.setStock(k, inventory[k]);
       }
     }
 
@@ -3102,8 +3143,9 @@ async function loadPending(id) {
 
   const doLoad = async () => {
     for (const item of order.items) {
-      inventory[item.name] = (inventory[item.name] ?? 0) + 1;
-      DataStore.setStock(item.name, inventory[item.name]);
+      const k = stockKey(item);
+      inventory[k] = (inventory[k] ?? 0) + 1;
+      DataStore.setStock(k, inventory[k]);
     }
     await DataStore.deletePending(id);
     cart = order.items.map(item => ({ ...item }));
@@ -3126,8 +3168,9 @@ async function deletePending(id) {
   confirmModal(`¿Eliminar el pedido de ${order?.name || 'este cliente'}?`, async () => {
     if (order) {
       for (const item of order.items) {
-        inventory[item.name] = (inventory[item.name] ?? 0) + 1;
-        DataStore.setStock(item.name, inventory[item.name]);
+        const k = stockKey(item);
+        inventory[k] = (inventory[k] ?? 0) + 1;
+        DataStore.setStock(k, inventory[k]);
       }
       renderProducts();
     }
