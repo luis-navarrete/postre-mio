@@ -60,13 +60,13 @@
     <div class="products" id="products"></div>
 
     <div class="cart">
-      <h2>🛒 Orden</h2>
+      <h2><span data-icon="cart"></span> Orden</h2>
       <div class="cart-items" id="cart"></div>
       <div class="total">Total: $<span id="total">0</span></div>
 
       <button id="payBtn" class="pay" onclick="openPaymentOptions();">Cobrar</button>
       <button class="clear" onclick="clearCart()">Limpiar</button>
-      <button class="btn-secondary" onclick="saveAsPending()" style="font-size:13px;padding:10px;">📋 Guardar como pendiente</button>
+      <button class="btn-secondary" onclick="saveAsPending()" style="font-size:13px;padding:10px;"><span data-icon="clipboard"></span> Guardar como pendiente</button>
     </div>
 
   </div>
@@ -112,10 +112,10 @@
       </div>
     </div>
     <div id="inventoryList"></div>
-    <button class="btn-brand" style="width:100%;margin-top:16px;font-size:14px;" onclick="openEditInventoryModal()">✏️ Editar inventario</button>
-    <button id="bakeBtn" class="btn-brand" style="width:100%;margin-top:10px;font-size:14px;" onclick="openBakeModal()">🔥 Hornear</button>
+    <button class="btn-brand" style="width:100%;margin-top:16px;font-size:14px;" onclick="openEditInventoryModal()"><span data-icon="pencil"></span> Editar inventario</button>
+    <button id="bakeBtn" class="btn-brand" style="width:100%;margin-top:10px;font-size:14px;" onclick="openBakeModal()"><span data-icon="flame"></span> Hornear</button>
     <div class="restock-section" id="restockSection" style="display:none;">
-      <h3>📦 Reabastecimientos</h3>
+      <h3><span data-icon="package"></span> Reabastecimientos</h3>
       <div id="restockList"></div>
       <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="clearRestockLog()">Borrar registro</button>
     </div>
