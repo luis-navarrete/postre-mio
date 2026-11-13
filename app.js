@@ -10,6 +10,10 @@ const firebaseConfig = {
   appId:             "1:15227550841:web:a01be146ce95b7b267e8a8"
 };
 
+// Bump both when releasing a change (shown in Ajustes > Acerca de)
+const APP_VERSION = "1.0.0";
+const APP_UPDATED = "2026-11-13T19:50Z";
+
 const STORE_ID = "postremio_main";
 
 firebase.initializeApp(firebaseConfig);
@@ -1563,6 +1567,12 @@ function renderSettings() {
         <input id="denomInput" type="text" inputmode="numeric" value="${esc(appSettings.cashDenominations.join(', '))}">
       </div>
       <button class="btn-brand" style="width:100%;" onclick="saveCashSettings()">${icon('save')} Guardar</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('note')} Acerca de</h3>
+      <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
+      <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
     </div>
   `;
 }
