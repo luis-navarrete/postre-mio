@@ -563,6 +563,16 @@ function parentProduct(key) { return key.split(" · ")[0]; }
 // Stock at or below this (but above 0) is flagged as "Poco"; editable in Ajustes.
 let lowStockThreshold = 3;
 
+// Editable in Ajustes; stored in config/settings (missing fields use these defaults)
+const DEFAULT_SETTINGS = {
+  ticketThanks: "¡Gracias por su compra! ❤️",
+  ticketFooter: "Tel. 229 157 4962\n@postremio.mx",
+  shareMessage: "Gracias por tu compra en Postre Mío ❤️",
+  askSendTicket: true,
+  cashDenominations: [50, 100, 200, 500],
+};
+let appSettings = { ...DEFAULT_SETTINGS };
+
 const defaultInventory = {
   "M&Ms": 0,
   "Lotus": 0,
@@ -967,7 +977,7 @@ function openPaymentOptions() {
 
 function handleCash(total) {
   vibrate(10);
-  const denominations = [50, 100, 200, 500];
+  const denominations = appSettings.cashDenominations;
 
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('banknote')} Pago en efectivo</h3>
@@ -1145,9 +1155,11 @@ async function finalizeSale() {
 
   showToast("Venta registrada");
 
-  confirmModal("¿Enviar ticket al cliente?", () => {
-    generateTicket(sale);
-  });
+  if (appSettings.askSendTicket) {
+    confirmModal("¿Enviar ticket al cliente?", () => {
+      generateTicket(sale);
+    });
+  }
 
   // Write to Firestore in parallel (non-blocking)
   try {
@@ -1297,9 +1309,8 @@ function generateTicket(sale) {
 
       <br><br>
       <div style="text-align:center;font-size:10px;">
-        ¡Gracias por su compra! ❤️<br><br>
-        Tel. 229 157 4962<br>
-        @postremio.mx
+        ${esc(appSettings.ticketThanks)}<br><br>
+        ${esc(appSettings.ticketFooter).replace(/\n/g, "<br>")}
       </div>
     </div>
   `;
@@ -1361,7 +1372,7 @@ function shareTicket() {
   const file = new File([_ticketBlob], "ticket_postremio.png", { type: "image/png" });
   navigator.share({
     title: "Ticket Postre Mío",
-    text: "Gracias por tu compra en Postre Mío ❤️",
+    text: appSettings.shareMessage,
     files: [file]
   }).catch(() => {}); // user cancelled
 }
@@ -1492,15 +1503,6 @@ function showPage(page) {
 
 // ── SETTINGS ─────────────────────────────────
 function renderSettings() {
-  const hidden = getHiddenItems().filter(n => menu.some(c => c.items.some(i => i.name === n)));
-  const hiddenRows = hidden.length
-    ? hidden.map(n => `
-        <div class="costs-row">
-          <span>${esc(n)}</span>
-          <button class="btn-secondary" style="width:auto;margin:0;padding:6px 12px;font-size:13px;" onclick="showHiddenProduct('${n.replace(/'/g, "\\'")}')">Mostrar</button>
-        </div>`).join('')
-    : `<p style="color:var(--text-muted);font-size:13px;margin:4px 0;">No hay productos ocultos.</p>`;
-
   document.getElementById("settingsContent").innerHTML = `
     <div class="settings-card">
       <h3>${icon('save')} Seguridad</h3>
@@ -1519,8 +1521,29 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
-      <h3>${icon('tag')} Productos ocultos</h3>
-      ${hiddenRows}
+      <h3>${icon('note')} Tickets y mensajes</h3>
+      <label class="switch-row">
+        <span>Preguntar "¿Enviar ticket?" después de cada venta</span>
+        <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''} onchange="toggleAskSendTicket(this.checked)">
+      </label>
+      <div class="promo-form">
+        <label>Agradecimiento en el ticket</label>
+        <input id="ticketThanksInput" type="text" value="${esc(appSettings.ticketThanks)}">
+        <label>Pie del ticket (una línea por renglón)</label>
+        <textarea id="ticketFooterInput" rows="3">${esc(appSettings.ticketFooter)}</textarea>
+        <label>Mensaje al compartir el ticket</label>
+        <input id="shareMessageInput" type="text" value="${esc(appSettings.shareMessage)}">
+      </div>
+      <button class="btn-brand" style="width:100%;" onclick="saveTicketSettings()">${icon('save')} Guardar</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('banknote')} Efectivo</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Botones rápidos del pago en efectivo (separados por comas, hasta 8).</p>
+      <div class="promo-form">
+        <input id="denomInput" type="text" inputmode="numeric" value="${esc(appSettings.cashDenominations.join(', '))}">
+      </div>
+      <button class="btn-brand" style="width:100%;" onclick="saveCashSettings()">${icon('save')} Guardar</button>
     </div>
   `;
 }
@@ -1540,9 +1563,35 @@ async function saveLowStockThreshold() {
   renderInventory();
 }
 
-function showHiddenProduct(name) {
-  toggleItemHidden(name);
-  renderSettings();
+async function saveAppSettings(fields) {
+  Object.assign(appSettings, fields);
+  try {
+    await withTimeout(DataStore.saveSettings(fields), 10000);
+    showToast("Guardado", "check");
+  } catch (e) {
+    showToast("Error al guardar. Intenta de nuevo.");
+  }
+}
+
+function toggleAskSendTicket(checked) {
+  saveAppSettings({ askSendTicket: checked });
+}
+
+function saveTicketSettings() {
+  saveAppSettings({
+    ticketThanks: document.getElementById("ticketThanksInput").value.trim(),
+    ticketFooter: document.getElementById("ticketFooterInput").value.trim(),
+    shareMessage: document.getElementById("shareMessageInput").value.trim(),
+  });
+}
+
+function saveCashSettings() {
+  const nums = [...new Set(
+    document.getElementById("denomInput").value.split(/[,\s]+/).map(Number)
+  )].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+  if (nums.length === 0 || nums.length > 8) { showToast("Escribe entre 1 y 8 cantidades"); return; }
+  saveAppSettings({ cashDenominations: nums });
+  document.getElementById("denomInput").value = nums.join(", ");
 }
 
 function openChangePinModal() {
@@ -3047,6 +3096,9 @@ async function initApp() {
   if (Number.isInteger(firestoreSettings.lowStockThreshold)) {
     lowStockThreshold = firestoreSettings.lowStockThreshold;
   }
+  Object.keys(DEFAULT_SETTINGS).forEach(k => {
+    if (firestoreSettings[k] !== undefined) appSettings[k] = firestoreSettings[k];
+  });
 
   await migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePrices, firestoreHidden, firestorePromos);
 
