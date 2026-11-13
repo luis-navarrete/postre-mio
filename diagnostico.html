@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico</title>
+<style>
+  body { font-family: -apple-system, sans-serif; margin: 0; padding: 16px; background: #f4f4f4; color: #1a1a1a; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p { font-size: 13px; color: #666; margin: 0 0 12px; }
+  .row { background: #fff; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; display: flex; justify-content: space-between; gap: 10px; }
+  .row small { color: #666; display: block; word-break: break-all; }
+  .ok { color: #2e7d32; font-weight: 700; white-space: nowrap; }
+  .bad { color: #c62828; font-weight: 700; white-space: nowrap; }
+  .wait { color: #888; white-space: nowrap; }
+  pre { background: #fff; border-radius: 10px; padding: 10px 12px; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Diagnóstico de Postre Mío</h1>
+<p>Espera unos segundos a que terminen las pruebas y envía una captura de esta pantalla.</p>
+<div id="results"></div>
+<pre id="info"></pre>
+
+<script>
+var TIMEOUT = 12000;
+var results = document.getElementById("results");
+
+function addRow(label, detail) {
+  var row = document.createElement("div");
+  row.className = "row";
+  row.innerHTML = "<div>" + label + "<small>" + (detail || "") + "</small></div><div class='wait'>probando…</div>";
+  results.appendChild(row);
+  var status = row.lastChild;
+  return function (ok, text) {
+    status.className = ok ? "ok" : "bad";
+    status.textContent = text;
+  };
+}
+
+function withTimeout(promise, ms) {
+  return new Promise(function (resolve, reject) {
+    var t = setTimeout(function () { reject(new Error("tiempo agotado")); }, ms);
+    promise.then(function (v) { clearTimeout(t); resolve(v); }, function (e) { clearTimeout(t); reject(e); });
+  });
+}
+
+function testFetch(label, url, opts) {
+  var done = addRow(label, url);
+  var start = Date.now();
+  var options = Object.assign({ cache: "no-store" }, opts || {});
+  return withTimeout(fetch(url, options), TIMEOUT).then(function (res) {
+    if (options.mode === "no-cors") return { size: null };
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return res.text().then(function (t) { return { size: t.length }; });
+  }).then(function (r) {
+    var kb = r.size === null ? "" : " · " + Math.round(r.size / 1024) + " KB";
+    done(true, "OK " + (Date.now() - start) + " ms" + kb);
+  }).catch(function (e) {
+    done(false, "FALLÓ (" + e.message + ")");
+  });
+}
+
+function testIndexedDB() {
+  var done = addRow("Almacenamiento del navegador (IndexedDB)", "");
+  return withTimeout(new Promise(function (resolve, reject) {
+    var req = indexedDB.open("diag-test");
+    req.onsuccess = function () { req.result.close(); resolve(); };
+    req.onerror = function () { reject(req.error || new Error("error")); };
+    req.onblocked = function () { reject(new Error("bloqueado")); };
+  }), 5000).then(function () { done(true, "OK"); })
+    .catch(function (e) { done(false, "FALLÓ (" + e.message + ")"); });
+}
+
+function testSimple(label, fn) {
+  var done = addRow(label, "");
+  try { var v = fn(); done(!!v, v ? "OK" : "NO DISPONIBLE"); }
+  catch (e) { done(false, "FALLÓ (" + e.message + ")"); }
+}
+
+document.getElementById("info").textContent =
+  "Navegador: " + navigator.userAgent + "\nEn línea: " + navigator.onLine +
+  "\nDirección: " + location.href + "\nHora: " + new Date().toString();
+
+testSimple("localStorage", function () { localStorage.setItem("t", "1"); localStorage.removeItem("t"); return true; });
+testSimple("Cifrado (crypto.subtle)", function () { return !!(window.crypto && crypto.subtle); });
+testIndexedDB();
+
+var base = [
+  ["Página principal", "index.html"],
+  ["Código de la app", "app.js"],
+  ["Estilos", "styles.css"],
+  ["Firebase app (propio)", "vendor/firebase/firebase-app-compat.js"],
+  ["Firebase auth (propio)", "vendor/firebase/firebase-auth-compat.js"],
+  ["Firebase firestore (propio)", "vendor/firebase/firebase-firestore-compat.js"],
+  ["html2canvas", "html2canvas.min.js"],
+  ["Logo", "logo.jpeg"]
+];
+base.reduce(function (p, item) {
+  return p.then(function () { return testFetch(item[0], item[1]); });
+}, Promise.resolve()).then(function () {
+  return testFetch("Servidor de datos de Google (Firestore)", "https://firestore.googleapis.com/", { mode: "no-cors" });
+}).then(function () {
+  return testFetch("Servidor de inicio de sesión de Google", "https://identitytoolkit.googleapis.com/", { mode: "no-cors" });
+}).then(function () {
+  return testFetch("gstatic.com", "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js", { mode: "no-cors" });
+});
+</script>
+</body>
+</html>
