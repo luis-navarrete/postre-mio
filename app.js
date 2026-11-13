@@ -358,6 +358,16 @@ const DataStore = {
     await configRef("hidden").set({ items });
   },
 
+  // ── Settings ──
+  async getSettings() {
+    const doc = await fastGet(configRef("settings"));
+    return doc.exists ? doc.data() : {};
+  },
+
+  async saveSettings(fields) {
+    await configRef("settings").set(fields, { merge: true });
+  },
+
   // ── Frozen Inventory ──
   async getFrozenInventory() {
     const doc = await fastGet(configRef("frozenInventory"));
@@ -550,6 +560,9 @@ function productStock(productName) {
 }
 function parentProduct(key) { return key.split(" · ")[0]; }
 
+// Stock at or below this (but above 0) is flagged as "Poco"; editable in Ajustes.
+let lowStockThreshold = 3;
+
 const defaultInventory = {
   "M&Ms": 0,
   "Lotus": 0,
@@ -688,7 +701,7 @@ function renderProducts() {
 
       const stock = productStock(item.name);
       const isOut = stock === 0;
-      const isLow = stock > 0 && stock <= 3;
+      const isLow = stock > 0 && stock <= lowStockThreshold;
 
       const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
       const div = document.createElement("div");
@@ -1389,7 +1402,7 @@ function showPage(page) {
     return;
   }
 
-  ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage"]
+  ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage","settingsPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
   ["promoFab","mermaFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
@@ -1421,6 +1434,10 @@ function showPage(page) {
     document.getElementById("pendingPage").style.display = "block";
     renderPending();
   }
+  if (page === "settings") {
+    document.getElementById("settingsPage").style.display = "block";
+    renderSettings();
+  }
   if (page === "mermas") {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
@@ -1439,12 +1456,109 @@ function showPage(page) {
   document.getElementById("sideMenu").classList.remove("open");
 
   const pageEl = document.getElementById(
-    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage" }[page]
+    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
   );
   if (pageEl) {
     pageEl.classList.remove("page-enter");
     void pageEl.offsetWidth; // restart the animation
     pageEl.classList.add("page-enter");
+  }
+}
+
+// ── SETTINGS ─────────────────────────────────
+function renderSettings() {
+  const hidden = getHiddenItems().filter(n => menu.some(c => c.items.some(i => i.name === n)));
+  const hiddenRows = hidden.length
+    ? hidden.map(n => `
+        <div class="costs-row">
+          <span>${esc(n)}</span>
+          <button class="btn-secondary" style="width:auto;margin:0;padding:6px 12px;font-size:13px;" onclick="showHiddenProduct('${n.replace(/'/g, "\\'")}')">Mostrar</button>
+        </div>`).join('')
+    : `<p style="color:var(--text-muted);font-size:13px;margin:4px 0;">No hay productos ocultos.</p>`;
+
+  document.getElementById("settingsContent").innerHTML = `
+    <div class="settings-card">
+      <h3>${icon('save')} Seguridad</h3>
+      <button class="btn-secondary" style="width:100%;" onclick="openChangePinModal()">Cambiar PIN</button>
+      <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('alert')} Stock bajo</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Se muestra "Poco" cuando el stock es esta cantidad o menos.</p>
+      <div class="costs-row" style="border:none;">
+        <span>Avisar con stock de</span>
+        <input id="lowStockInput" type="number" inputmode="numeric" min="0" max="99" value="${lowStockThreshold}" onfocus="this.select()">
+      </div>
+      <button class="btn-brand" style="width:100%;" onclick="saveLowStockThreshold()">${icon('save')} Guardar</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('tag')} Productos ocultos</h3>
+      ${hiddenRows}
+    </div>
+  `;
+}
+
+async function saveLowStockThreshold() {
+  const value = parseInt(document.getElementById("lowStockInput").value, 10);
+  if (isNaN(value) || value < 0 || value > 99) { showToast("Número inválido"); return; }
+  lowStockThreshold = value;
+  try {
+    await withTimeout(DataStore.saveSettings({ lowStockThreshold: value }), 10000);
+    showToast("Guardado", "check");
+  } catch (e) {
+    showToast("Error al guardar. Intenta de nuevo.");
+  }
+  renderProducts();
+  renderCart();
+  renderInventory();
+}
+
+function showHiddenProduct(name) {
+  toggleItemHidden(name);
+  renderSettings();
+}
+
+function openChangePinModal() {
+  openCompactModal(`
+    <h3 style="margin-top:0;">${icon('save')} Cambiar PIN</h3>
+    <div class="promo-form">
+      <label>PIN actual</label>
+      <input id="pin-current" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+      <label>PIN nuevo (4 dígitos)</label>
+      <input id="pin-new" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+      <label>Repite el PIN nuevo</label>
+      <input id="pin-confirm" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+    </div>
+    <button class="btn-brand" id="changePinBtn" style="margin-top:14px;" onclick="confirmChangePin()">Guardar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function confirmChangePin() {
+  const current = document.getElementById("pin-current").value;
+  const next    = document.getElementById("pin-new").value;
+  const confirm = document.getElementById("pin-confirm").value;
+
+  if (!/^\d{4}$/.test(next)) { showToast("El PIN nuevo debe tener 4 dígitos"); return; }
+  if (next !== confirm)       { showToast("Los PIN nuevos no coinciden"); return; }
+
+  const btn = document.getElementById("changePinBtn");
+  btn.disabled = true;
+  try {
+    const authDoc = await fastGet(configRef("auth"), true);
+    if (await hashPin(current) !== authDoc.data().pinHash) {
+      showToast("PIN actual incorrecto");
+      btn.disabled = false;
+      return;
+    }
+    await withTimeout(configRef("auth").set({ pinHash: await hashPin(next) }, { merge: true }), 10000);
+    closeModal();
+    showToast("PIN actualizado", "check");
+  } catch (e) {
+    showToast("No se pudo cambiar el PIN. Intenta de nuevo.");
+    btn.disabled = false;
   }
 }
 
@@ -1525,7 +1639,7 @@ function renderInventory() {
     }
 
     const qty = inventory[name];
-    const isLow = qty > 0 && qty <= 3;
+    const isLow = qty > 0 && qty <= lowStockThreshold;
     const isOut = qty === 0;
     const isFreezable = FREEZABLE_PRODUCTS.includes(name);
     const frozenQty = frozenInventory[name] ?? 0;
@@ -2507,7 +2621,7 @@ function renderCart() {
     const el = document.getElementById('stock-' + safeId);
     if (!el) return;
     const remaining = productStock(item.name) - inCart;
-    const isLow = remaining > 0 && remaining <= 3;
+    const isLow = remaining > 0 && remaining <= lowStockThreshold;
     const isOut = remaining <= 0;
     el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
@@ -2881,14 +2995,19 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
 // ── Init (called after auth) ─────────────────
 async function initApp() {
   // Load initial data from Firestore
-  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices, firestoreFrozen] = await Promise.all([
+  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices, firestoreFrozen, firestoreSettings] = await Promise.all([
     DataStore.getInventory(),
     DataStore.getCustomPrices(),
     DataStore.getPromotions(),
     DataStore.getHiddenItems(),
     DataStore.getExtrasPrices(),
     DataStore.getFrozenInventory(),
+    DataStore.getSettings(),
   ]);
+
+  if (Number.isInteger(firestoreSettings.lowStockThreshold)) {
+    lowStockThreshold = firestoreSettings.lowStockThreshold;
+  }
 
   await migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePrices, firestoreHidden, firestorePromos);
 
