@@ -358,6 +358,16 @@ const DataStore = {
     await configRef("hidden").set({ items });
   },
 
+  // ── Settings ──
+  async getSettings() {
+    const doc = await fastGet(configRef("settings"));
+    return doc.exists ? doc.data() : {};
+  },
+
+  async saveSettings(fields) {
+    await configRef("settings").set(fields, { merge: true });
+  },
+
   // ── Frozen Inventory ──
   async getFrozenInventory() {
     const doc = await fastGet(configRef("frozenInventory"));
@@ -550,6 +560,9 @@ function productStock(productName) {
 }
 function parentProduct(key) { return key.split(" · ")[0]; }
 
+// Stock at or below this (but above 0) is flagged as "Poco"; editable in Ajustes.
+let lowStockThreshold = 3;
+
 const defaultInventory = {
   "M&Ms": 0,
   "Lotus": 0,
@@ -675,6 +688,7 @@ function renderProducts() {
   const hiddenItems = getHiddenItems();
 
   menu.forEach(cat => {
+    if (cat.items.every(i => hiddenItems.includes(i.name))) return;
     const section = document.createElement("div");
     section.className = "category";
 
@@ -688,7 +702,7 @@ function renderProducts() {
 
       const stock = productStock(item.name);
       const isOut = stock === 0;
-      const isLow = stock > 0 && stock <= 3;
+      const isLow = stock > 0 && stock <= lowStockThreshold;
 
       const safeId = item.name.replace(/[^a-zA-Z0-9]/g, '-');
       const div = document.createElement("div");
@@ -1302,38 +1316,62 @@ function generateTicket(sale) {
       return;
     }
 
+    if (typeof html2canvas === "undefined") {
+      showToast("El generador de tickets aún no carga, intenta de nuevo");
+      return;
+    }
+
     html2canvas(ticketElement, {
       scale: 2,
       useCORS: true
     }).then(canvas => {
-
       canvas.toBlob(blob => {
-        const file = new File([blob], "ticket_postremio.png", { type: "image/png" });
-
-        // Best path: Web Share API with file (works on Android Chrome and iOS Safari)
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({
-            title: "Ticket Postre Mío",
-            text: "Gracias por tu compra en Postre Mío ❤️",
-            files: [file]
-          }).catch(() => {}); // user cancelled — do nothing
-        } else {
-          // Fallback: download image, then open WhatsApp with a message
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `ticket_postremio_${Date.now()}.png`;
-          link.click();
-          URL.revokeObjectURL(url);
-
-          const message = encodeURIComponent("Gracias por tu compra en Postre Mío ❤️\n(Adjunta la imagen del ticket que se acaba de descargar)");
-          setTimeout(() => window.open(`https://wa.me/?text=${message}`, "_blank"), 800);
-        }
+        if (!blob) { showToast("No se pudo generar el ticket"); return; }
+        showTicketModal(blob);
       }, "image/png");
-
-    });
+    }).catch(() => showToast("No se pudo generar el ticket"));
 
   }, 100);
+}
+
+// Sharing must start from a tap: the image is rendered asynchronously, so by the
+// time it's ready the original tap no longer counts (iOS/iPadOS Safari then
+// rejects navigator.share). Show a preview with buttons that start a fresh tap.
+let _ticketBlob = null;
+let _ticketUrl = null;
+
+function showTicketModal(blob) {
+  if (_ticketUrl) URL.revokeObjectURL(_ticketUrl);
+  _ticketBlob = blob;
+  _ticketUrl = URL.createObjectURL(blob);
+  const file = new File([blob], "ticket_postremio.png", { type: "image/png" });
+  const canShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+
+  openCompactModal(`
+    <h3 style="margin-top:0;">${icon('note')} Ticket</h3>
+    <img src="${_ticketUrl}" style="width:100%;max-height:45vh;object-fit:contain;border:1px solid var(--border);border-radius:var(--radius-sm);">
+    ${canShare ? `<button class="btn-brand" style="margin-top:12px;" onclick="shareTicket()">Compartir</button>` : ''}
+    <button class="btn-secondary" onclick="downloadTicket()">Descargar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+  `);
+}
+
+function shareTicket() {
+  if (!_ticketBlob) return;
+  const file = new File([_ticketBlob], "ticket_postremio.png", { type: "image/png" });
+  navigator.share({
+    title: "Ticket Postre Mío",
+    text: "Gracias por tu compra en Postre Mío ❤️",
+    files: [file]
+  }).catch(() => {}); // user cancelled
+}
+
+function downloadTicket() {
+  if (!_ticketUrl) return;
+  const link = document.createElement("a");
+  link.href = _ticketUrl;
+  link.download = `ticket_postremio_${Date.now()}.png`;
+  link.click();
 }
 
 let _rafSync = 0;
@@ -1389,7 +1427,7 @@ function showPage(page) {
     return;
   }
 
-  ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage"]
+  ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage","settingsPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
   ["promoFab","mermaFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
@@ -1421,6 +1459,10 @@ function showPage(page) {
     document.getElementById("pendingPage").style.display = "block";
     renderPending();
   }
+  if (page === "settings") {
+    document.getElementById("settingsPage").style.display = "block";
+    renderSettings();
+  }
   if (page === "mermas") {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
@@ -1439,12 +1481,109 @@ function showPage(page) {
   document.getElementById("sideMenu").classList.remove("open");
 
   const pageEl = document.getElementById(
-    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage" }[page]
+    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
   );
   if (pageEl) {
     pageEl.classList.remove("page-enter");
     void pageEl.offsetWidth; // restart the animation
     pageEl.classList.add("page-enter");
+  }
+}
+
+// ── SETTINGS ─────────────────────────────────
+function renderSettings() {
+  const hidden = getHiddenItems().filter(n => menu.some(c => c.items.some(i => i.name === n)));
+  const hiddenRows = hidden.length
+    ? hidden.map(n => `
+        <div class="costs-row">
+          <span>${esc(n)}</span>
+          <button class="btn-secondary" style="width:auto;margin:0;padding:6px 12px;font-size:13px;" onclick="showHiddenProduct('${n.replace(/'/g, "\\'")}')">Mostrar</button>
+        </div>`).join('')
+    : `<p style="color:var(--text-muted);font-size:13px;margin:4px 0;">No hay productos ocultos.</p>`;
+
+  document.getElementById("settingsContent").innerHTML = `
+    <div class="settings-card">
+      <h3>${icon('save')} Seguridad</h3>
+      <button class="btn-secondary" style="width:100%;" onclick="openChangePinModal()">Cambiar PIN</button>
+      <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('alert')} Stock bajo</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Se muestra "Poco" cuando el stock es esta cantidad o menos.</p>
+      <div class="costs-row" style="border:none;">
+        <span>Avisar con stock de</span>
+        <input id="lowStockInput" type="number" inputmode="numeric" min="0" max="99" value="${lowStockThreshold}" onfocus="this.select()">
+      </div>
+      <button class="btn-brand" style="width:100%;" onclick="saveLowStockThreshold()">${icon('save')} Guardar</button>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('tag')} Productos ocultos</h3>
+      ${hiddenRows}
+    </div>
+  `;
+}
+
+async function saveLowStockThreshold() {
+  const value = parseInt(document.getElementById("lowStockInput").value, 10);
+  if (isNaN(value) || value < 0 || value > 99) { showToast("Número inválido"); return; }
+  lowStockThreshold = value;
+  try {
+    await withTimeout(DataStore.saveSettings({ lowStockThreshold: value }), 10000);
+    showToast("Guardado", "check");
+  } catch (e) {
+    showToast("Error al guardar. Intenta de nuevo.");
+  }
+  renderProducts();
+  renderCart();
+  renderInventory();
+}
+
+function showHiddenProduct(name) {
+  toggleItemHidden(name);
+  renderSettings();
+}
+
+function openChangePinModal() {
+  openCompactModal(`
+    <h3 style="margin-top:0;">${icon('save')} Cambiar PIN</h3>
+    <div class="promo-form">
+      <label>PIN actual</label>
+      <input id="pin-current" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+      <label>PIN nuevo (4 dígitos)</label>
+      <input id="pin-new" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+      <label>Repite el PIN nuevo</label>
+      <input id="pin-confirm" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+    </div>
+    <button class="btn-brand" id="changePinBtn" style="margin-top:14px;" onclick="confirmChangePin()">Guardar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+async function confirmChangePin() {
+  const current = document.getElementById("pin-current").value;
+  const next    = document.getElementById("pin-new").value;
+  const confirm = document.getElementById("pin-confirm").value;
+
+  if (!/^\d{4}$/.test(next)) { showToast("El PIN nuevo debe tener 4 dígitos"); return; }
+  if (next !== confirm)       { showToast("Los PIN nuevos no coinciden"); return; }
+
+  const btn = document.getElementById("changePinBtn");
+  btn.disabled = true;
+  try {
+    const authDoc = await fastGet(configRef("auth"), true);
+    if (await hashPin(current) !== authDoc.data().pinHash) {
+      showToast("PIN actual incorrecto");
+      btn.disabled = false;
+      return;
+    }
+    await withTimeout(configRef("auth").set({ pinHash: await hashPin(next) }, { merge: true }), 10000);
+    closeModal();
+    showToast("PIN actualizado", "check");
+  } catch (e) {
+    showToast("No se pudo cambiar el PIN. Intenta de nuevo.");
+    btn.disabled = false;
   }
 }
 
@@ -1525,7 +1664,7 @@ function renderInventory() {
     }
 
     const qty = inventory[name];
-    const isLow = qty > 0 && qty <= 3;
+    const isLow = qty > 0 && qty <= lowStockThreshold;
     const isOut = qty === 0;
     const isFreezable = FREEZABLE_PRODUCTS.includes(name);
     const frozenQty = frozenInventory[name] ?? 0;
@@ -1826,13 +1965,15 @@ function openPricesModal() {
         onchange="${onchange}">
     </div>`;
 
-  const categoryRows = cat => sectionTitle(cat.category, true, catHTML(cat.category)) +
-    cat.items.filter(item => !item.noBasePrice).map(item =>
+  const hiddenNow = getHiddenItems();
+  const categoryRows = cat => !cat ? '' : sectionTitle(cat.category, true, catHTML(cat.category)) +
+    cat.items.filter(item => !item.noBasePrice && !hiddenNow.includes(item.name)).map(item =>
       priceRow(item.name, item.price, `updatePrice('${item.name.replace(/'/g, "\\'")}', this.value)`)
     ).join('');
 
   // Flavor/filling prices for one product, plus its second-step extras (minus the free "Natural")
   const extrasSection = (productName, title) => {
+    if (hiddenNow.includes(productName)) return '';
     const entries = [
       ...(ITEM_EXTRAS[productName] || []),
       ...(ITEM_EXTRAS_STEP2[productName] || []).filter(e => e.name !== "Natural"),
@@ -1842,7 +1983,7 @@ function openPricesModal() {
     ).join('');
   };
 
-  const cats = Object.fromEntries(menu.map(c => [c.category, c]));
+  const cats = Object.fromEntries(visibleMenu().map(c => [c.category, c]));
   const body =
     categoryRows(cats["🍪 Galletas"]) +
     categoryRows(cats["✨ Especiales"]) +
@@ -1950,6 +2091,14 @@ function getHiddenItems() {
   return JSON.parse(localStorage.getItem("hiddenItems")) || [];
 }
 
+// Menu without hidden products (and without categories left empty by hiding)
+function visibleMenu() {
+  const hidden = getHiddenItems();
+  return menu
+    .map(cat => ({ ...cat, items: cat.items.filter(i => !hidden.includes(i.name)) }))
+    .filter(cat => cat.items.length);
+}
+
 function saveHiddenItems(list) {
   localStorage.setItem("hiddenItems", JSON.stringify(list));
   DataStore.saveHiddenItems(list);
@@ -1977,6 +2126,10 @@ function toggleItemHidden(name) {
   } else {
     hidden.push(name);
     showToast(`${name} ocultado`);
+    if (cart.some(i => i.name === name)) {
+      cart = cart.filter(i => i.name !== name);
+      renderCart();
+    }
   }
   saveHiddenItems(hidden);
   renderInventory();
@@ -2351,11 +2504,11 @@ let promotions = [];
 // ── helpers ──────────────────────────────────
 
 function allMenuItems() {
-  return menu.flatMap(c => c.items);
+  return visibleMenu().flatMap(c => c.items);
 }
 
 function allCategories() {
-  return menu.map(c => c.category);
+  return visibleMenu().map(c => c.category);
 }
 
 function itemMatchesScope(item, promo) {
@@ -2507,7 +2660,7 @@ function renderCart() {
     const el = document.getElementById('stock-' + safeId);
     if (!el) return;
     const remaining = productStock(item.name) - inCart;
-    const isLow = remaining > 0 && remaining <= 3;
+    const isLow = remaining > 0 && remaining <= lowStockThreshold;
     const isOut = remaining <= 0;
     el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
@@ -2881,14 +3034,19 @@ async function migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePr
 // ── Init (called after auth) ─────────────────
 async function initApp() {
   // Load initial data from Firestore
-  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices, firestoreFrozen] = await Promise.all([
+  const [firestoreInv, firestorePrices, firestorePromos, firestoreHidden, firestoreExtrasPrices, firestoreFrozen, firestoreSettings] = await Promise.all([
     DataStore.getInventory(),
     DataStore.getCustomPrices(),
     DataStore.getPromotions(),
     DataStore.getHiddenItems(),
     DataStore.getExtrasPrices(),
     DataStore.getFrozenInventory(),
+    DataStore.getSettings(),
   ]);
+
+  if (Number.isInteger(firestoreSettings.lowStockThreshold)) {
+    lowStockThreshold = firestoreSettings.lowStockThreshold;
+  }
 
   await migrateRenamedProducts(firestoreInv, firestoreFrozen, firestorePrices, firestoreHidden, firestorePromos);
 
@@ -2954,12 +3112,13 @@ const MERMA_REASONS = {
 
 function openMermaModal() {
   // Build category options
-  const catOptions = menu.map(c =>
+  const vMenu = visibleMenu();
+  const catOptions = vMenu.map(c =>
     `<option value="${c.category}">${esc(catName(c.category))}</option>`
   ).join('');
 
   // Build item options for first category
-  const firstCatItems = menu[0]?.items || [];
+  const firstCatItems = vMenu[0]?.items || [];
   const itemOptions = firstCatItems.flatMap(i => stockNamesFor(i.name)).map(k =>
     `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
   ).join('');
@@ -2997,7 +3156,7 @@ function openMermaModal() {
 
 function onMermaCatChange() {
   const cat = document.getElementById('merma-cat')?.value;
-  const catData = menu.find(c => c.category === cat);
+  const catData = visibleMenu().find(c => c.category === cat);
   const itemSel = document.getElementById('merma-item');
   if (!catData || !itemSel) return;
   itemSel.innerHTML = catData.items.flatMap(i => stockNamesFor(i.name)).map(k =>
