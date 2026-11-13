@@ -580,16 +580,21 @@ const menu = [
     ]
   },
   {
-    category: "🍰 Postres",
+    category: "🎂 Pasteles",
     items: [
       { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
-      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
       { name: "Pastel Red Velvet", price: 80.00, img: "pastel_rv.jpg" },
       // TODO: replace placeholder images (mini_cake.jpg) once photos are available
-      { name: "Pan de zanahoria", price: 50.00, img: "mini_cake.jpg" },
-      { name: "Pay de elote", price: 40.00, img: "mini_cake.jpg" },
       { name: "Pastel de tres leches", price: 95.00, img: "mini_cake.jpg" },
       { name: "Cheesecake", price: 0, img: "mini_cake.jpg", noBasePrice: true }
+    ]
+  },
+  {
+    category: "🍰 Postres",
+    items: [
+      { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
+      { name: "Pan de zanahoria", price: 50.00, img: "mini_cake.jpg" },
+      { name: "Pay de elote", price: 40.00, img: "mini_cake.jpg" }
     ]
   }
 ];
@@ -1731,9 +1736,10 @@ function openPricesModal() {
     categoryRows(cats["✨ Especiales"]) +
     extrasSection("Rol de canela", "+ Extras: Rol de canela") +
     extrasSection("Pan de muerto", "Pan de muerto") +
-    categoryRows(cats["🍰 Postres"]) +
+    categoryRows(cats["🎂 Pasteles"]) +
     extrasSection("Cheesecake", "Cheesecake") +
-    extrasSection("Mini pastel maceta", "Mini pastel maceta");
+    extrasSection("Mini pastel maceta", "Mini pastel maceta") +
+    categoryRows(cats["🍰 Postres"]);
 
   openPopupModal(`
     <h3 style="margin-top:0;">💲 Precios</h3>
