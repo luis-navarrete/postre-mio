@@ -1625,7 +1625,9 @@ function renderEditInventoryModalBody() {
 
 function startFrozenEditHold(name, delta) {
   updateFrozenStockDeferred(name, delta);
-  _frozenHoldInterval = setInterval(() => updateFrozenStockDeferred(name, delta), 80);
+  holdTimer = setTimeout(() => {
+    _frozenHoldInterval = setInterval(() => updateFrozenStockDeferred(name, delta), 80);
+  }, 500);
 }
 
 function updateFrozenStockDeferred(name, delta) {
@@ -1722,7 +1724,9 @@ let _bakeHoldInterval = null;
 
 function startBakeHold(name, delta) {
   adjustBakeQty(name, delta);
-  _bakeHoldInterval = setInterval(() => adjustBakeQty(name, delta), 80);
+  holdTimer = setTimeout(() => {
+    _bakeHoldInterval = setInterval(() => adjustBakeQty(name, delta), 80);
+  }, 500);
 }
 
 function adjustBakeQty(name, delta) {
