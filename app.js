@@ -489,6 +489,46 @@ function esc(str) {
   return d.innerHTML;
 }
 
+// ── SVG ICONS ─────────────────────────────────
+const _ICON_PATHS = {
+  cookie:   '<path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5"/><path d="M8.5 8.5v.01"/><path d="M16 15.5v.01"/><path d="M12 12v.01"/><path d="M11 17v.01"/><path d="M7 14v.01"/>',
+  sparkles: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/>',
+  cake:     '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8"/><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1"/><path d="M2 21h20"/><path d="M7 8v3M12 8v3M17 8v3"/><path d="M7 4h.01M12 4h.01M17 4h.01"/>',
+  cupcake:  '<path d="M5 11a7 7 0 0 1 14 0"/><path d="M4 11h16l-2 9a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1z"/><path d="M12 4V3"/><path d="M9 14v4M12 14v4M15 14v4"/>',
+  croissant:'<path d="M3 16c-1-4 1-8 5-9l2 3 2-4 2 4 2-3c4 1 6 5 5 9-2 1-4-1-5-3l-3 1-3-1c-1 2-3 4-5 3z"/>',
+  bread:    '<path d="M5 11a4 4 0 0 1 0-8h14a4 4 0 0 1 0 8v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/>',
+  banknote: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  coins:    '<circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18"/><path d="M7 6h1v4"/><path d="m16.7 13.9.7.7-2.8 2.8"/>',
+  tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  gift:     '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+  ticket:   '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2M13 11v2M13 17v2"/>',
+  check:    '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  pause:    '<circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>',
+  pencil:   '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+  flame:    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  snowflake:'<line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/>',
+  save:     '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  package:  '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+  dollar:   '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  alert:    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
+  note:     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+  trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+  utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
+  chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
+  cart:     '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+};
+
+function icon(name) {
+  return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${_ICON_PATHS[name] || ''}</svg>`;
+}
+
+// Category identity strings (stored in promos) start with an emoji; show a name + SVG instead.
+const CATEGORY_ICONS = { "🍪 Galletas": "cookie", "✨ Especiales": "sparkles", "🎂 Pasteles": "cake", "🍰 Postres": "cupcake" };
+function catName(category) { return category.replace(/^\S+\s/, ""); }
+function catHTML(category) { return `${icon(CATEGORY_ICONS[category])} ${esc(catName(category))}`; }
+
 const defaultInventory = {
   "M&Ms": 0,
   "Lotus": 0,
@@ -614,7 +654,7 @@ function renderProducts() {
     const section = document.createElement("div");
     section.className = "category";
 
-    section.innerHTML = `<h2>${cat.category}</h2>`;
+    section.innerHTML = `<h2>${catHTML(cat.category)}</h2>`;
 
     const grid = document.createElement("div");
     grid.className = "grid";
@@ -633,7 +673,7 @@ function renderProducts() {
         <img src="${item.img}">
         <h3>${esc(item.name)}</h3>
         ${item.noBasePrice ? '' : `<p>$${parseFloat(item.price).toFixed(2)}</p>`}
-        <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
+        <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
       grid.appendChild(div);
@@ -699,11 +739,11 @@ const ITEM_EXTRAS_STEP2_LABEL = {
   "Pan de muerto": "Extras:",
 };
 
-const ITEM_EXTRAS_EMOJI = {
-  "Rol de canela": "🥐",
-  "Pan de muerto": "🍞",
-  "Mini pastel maceta": "🍰",
-  "Cheesecake": "🍰",
+const ITEM_EXTRAS_ICON = {
+  "Rol de canela": "croissant",
+  "Pan de muerto": "bread",
+  "Mini pastel maceta": "cupcake",
+  "Cheesecake": "cupcake",
 };
 
 // Carrito
@@ -734,7 +774,7 @@ function openExtrasModal(item, extras) {
   `).join("");
 
   openPopupModal(`
-    <h3 style="margin-top:0;">${ITEM_EXTRAS_EMOJI[item.name] || '🥐'} ${esc(item.name)}</h3>
+    <h3 style="margin-top:0;">${icon(ITEM_EXTRAS_ICON[item.name] || 'croissant')} ${esc(item.name)}</h3>
     <p style="color:#666;font-size:14px;margin:4px 0 8px;">${esc(ITEM_EXTRAS_LABEL[item.name] || 'Elige una opción:')}</p>
     <div class="extras-grid">${buttonsHTML}</div>
     <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
@@ -764,7 +804,7 @@ function openExtrasStep2Modal(item, firstExtra, options) {
   `).join("");
 
   openPopupModal(`
-    <h3 style="margin-top:0;">${ITEM_EXTRAS_EMOJI[item.name] || '🥐'} ${esc(item.name)}</h3>
+    <h3 style="margin-top:0;">${icon(ITEM_EXTRAS_ICON[item.name] || 'croissant')} ${esc(item.name)}</h3>
     <p style="color:#666;font-size:14px;margin:4px 0 8px;">${esc(ITEM_EXTRAS_STEP2_LABEL[item.name] || 'Elige una opción:')}</p>
     <div class="extras-grid">${buttonsHTML}</div>
     <button onclick="closeModal()" style="background:#f5f5f5;margin-top:14px;">Cancelar</button>
@@ -883,7 +923,7 @@ function handleCash(total) {
   const denominations = [50, 100, 200, 500];
 
   openCompactModal(`
-    <h3 style="margin-top:0;">💵 Pago en efectivo</h3>
+    <h3 style="margin-top:0;">${icon('banknote')} Pago en efectivo</h3>
     <p style="color:var(--text-muted);font-size:13px;margin:4px 0 8px;">Total: <strong>$${total.toFixed(2)}</strong></p>
 
     <div class="denom-grid">
@@ -892,7 +932,7 @@ function handleCash(total) {
       `).join('')}
     </div>
 
-    <button class="denom-btn" style="width:100%;margin:0 0 8px;" onclick="selectDenom(${total}, ${total}, this)">💰 Exacto ($${total.toFixed(2)})</button>
+    <button class="denom-btn" style="width:100%;margin:0 0 8px;" onclick="selectDenom(${total}, ${total}, this)">${icon('coins')} Exacto ($${total.toFixed(2)})</button>
 
     <div style="margin-bottom:8px;">
       <input
@@ -1201,7 +1241,7 @@ function generateTicket(sale) {
       ${totalRaffleEntries > 0 ? `
       <hr style="border:none;border-top:1px dashed black;margin:8px 0;"/>
       <div style="text-align:center;">
-        <strong style="font-size:13px;">🎟 RIFA 🎟</strong><br>
+        <strong style="font-size:13px;">${icon('ticket')} RIFA ${icon('ticket')}</strong><br>
         <span style="font-size:11px;">¡Ganaste <strong>${totalRaffleEntries}</strong> ${totalRaffleEntries === 1 ? 'entrada' : 'entradas'}!</span><br>
         ${rafflePromos.map(p => `<span style="font-size:10px;opacity:0.7;">${esc(p.name)} (×${p.raffleEntries})</span>`).join('<br>')}
       </div>
@@ -1295,7 +1335,7 @@ function showPage(page) {
     openPopupModal(`
       <h3 style="margin-top:0;">Cambios sin guardar</h3>
       <p style="color:var(--text-muted);font-size:14px;">Tienes cambios de inventario sin guardar.</p>
-      <button class="btn-brand" id="_navSave">💾 Guardar y salir</button>
+      <button class="btn-brand" id="_navSave">${icon('save')} Guardar y salir</button>
       <button class="btn-danger" id="_navDiscard">Descartar cambios</button>
       <button class="btn-secondary" id="_navCancel">Cancelar</button>
     `);
@@ -1448,9 +1488,9 @@ function renderInventory() {
       row.innerHTML = `
         <div class="inv-list-main">
           <span class="inv-list-name">${esc(name)}</span>
-          <span class="inv-list-qty">${qty}${isLow && !isOut ? ' <span class="low-stock-badge">⚠ Poco</span>' : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</span>
+          <span class="inv-list-qty">${qty}${isLow && !isOut ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</span>
         </div>
-        ${isFreezable ? `<div class="inv-list-sub">❄️ Congelados: ${frozenQty}</div>` : ''}
+        ${isFreezable ? `<div class="inv-list-sub">${icon('snowflake')} Congelados: ${frozenQty}</div>` : ''}
       `;
     }
 
@@ -1503,7 +1543,7 @@ function renderEditInventoryModalBody() {
         </div>
         ${isFreezable ? `
           <div class="edit-inv-line">
-            <span class="edit-inv-label">❄️ Congelados</span>
+            <span class="edit-inv-label">${icon('snowflake')} Congelados</span>
             <div class="edit-inv-controls">
               <button
                 style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
@@ -1524,11 +1564,11 @@ function renderEditInventoryModalBody() {
   }).join('');
 
   openCompactModal(`
-    <h3 style="margin-top:0;">✏️ Editar inventario</h3>
+    <h3 style="margin-top:0;">${icon('pencil')} Editar inventario</h3>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
       ${rows}
     </div>
-    <button class="btn-brand" id="editInvSaveBtn" style="margin-top:12px;" onclick="saveInventoryFromModal()">💾 Guardar</button>
+    <button class="btn-brand" id="editInvSaveBtn" style="margin-top:12px;" onclick="saveInventoryFromModal()">${icon('save')} Guardar</button>
     <button class="btn-secondary" onclick="cancelInventoryChanges(); closeEditInventoryModal();">Cancelar</button>
   `);
 }
@@ -1569,9 +1609,9 @@ async function saveInventoryFromModal() {
 
   if (ok) {
     closeEditInventoryModal();
-    showToast('Inventario guardado ✅');
+    showToast('Inventario guardado', 'check');
   } else {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = `${icon('save')} Guardar`; }
     showToast('Error al guardar. Intenta de nuevo.');
   }
 }
@@ -1618,12 +1658,12 @@ function renderBakeModalBody() {
   }).join('');
 
   openCompactModal(`
-    <h3 style="margin-top:0;">🔥 Hornear</h3>
+    <h3 style="margin-top:0;">${icon('flame')} Hornear</h3>
     <p style="margin:0 0 12px;font-size:14px;color:var(--text-muted);">Cantidad a pasar al inventario</p>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
       ${rows}
     </div>
-    <button class="btn-brand" style="margin-top:12px;" onclick="confirmBakeAll()">🔥 Hornear</button>
+    <button class="btn-brand" style="margin-top:12px;" onclick="confirmBakeAll()">${icon('flame')} Hornear</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
@@ -1703,8 +1743,8 @@ function findExtra(productName, extraName) {
 }
 
 function openPricesModal() {
-  const sectionTitle = (text, upper) =>
-    `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);${upper ? 'text-transform:uppercase;letter-spacing:0.5px;' : ''}">${esc(text)}</div>`;
+  const sectionTitle = (text, upper, html) =>
+    `<div style="font-size:12px;font-weight:700;margin:12px 0 6px;color:var(--text-muted);${upper ? 'text-transform:uppercase;letter-spacing:0.5px;' : ''}">${html || esc(text)}</div>`;
 
   const priceRow = (label, price, onchange) => `
     <div class="costs-row">
@@ -1716,7 +1756,7 @@ function openPricesModal() {
         onchange="${onchange}">
     </div>`;
 
-  const categoryRows = cat => sectionTitle(cat.category, true) +
+  const categoryRows = cat => sectionTitle(cat.category, true, catHTML(cat.category)) +
     cat.items.filter(item => !item.noBasePrice).map(item =>
       priceRow(item.name, item.price, `updatePrice('${item.name.replace(/'/g, "\\'")}', this.value)`)
     ).join('');
@@ -1744,7 +1784,7 @@ function openPricesModal() {
     categoryRows(cats["🍰 Postres"]);
 
   openPopupModal(`
-    <h3 style="margin-top:0;">💲 Precios</h3>
+    <h3 style="margin-top:0;">${icon('dollar')} Precios</h3>
     <div class="costs-section" style="margin-top:8px;max-height:55vh;overflow-y:auto;">
       ${body}
     </div>
@@ -1889,7 +1929,7 @@ function openEditSale(saleId) {
   if (!sale) return;
 
   openCompactModal(`
-    <h3 style="margin-top:0;">✏️ Editar venta</h3>
+    <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
     <div class="promo-form">
       <label>Total ($)</label>
@@ -1922,7 +1962,7 @@ async function confirmEditSale(saleId) {
 
   await DataStore.updateSale(saleId, updates);
   closeModal();
-  showToast("Venta actualizada ✅");
+  showToast("Venta actualizada", "check");
   await renderHistoryFromFirestore();
 }
 
@@ -1994,13 +2034,13 @@ function renderHistoryWithData(data) {
         itemsHTML += `
           <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:#e91e63;padding:2px 0;">
             <span></span>
-            <span>🎟 ${esc(p.name)} (×${p.raffleEntries})</span>
+            <span>${icon('ticket')} ${esc(p.name)} (×${p.raffleEntries})</span>
             <span></span>
             <span style="text-align:right;">¡Rifa!</span>
           </div>
         `;
       } else {
-        let label = `🏷 ${esc(p.name)}`;
+        let label = `${icon('tag')} ${esc(p.name)}`;
         if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
         itemsHTML += `
           <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
@@ -2029,9 +2069,9 @@ function renderHistoryWithData(data) {
       <div class="history-footer">
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;">
-          ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale('${saleId}')">✏️</button>` : ''}
+          ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>` : ''}
           <button onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">🧾</button>
-          <button class="delete-btn" onclick="deleteSale('${saleId}')">🗑️</button>
+          <button class="delete-btn" onclick="deleteSale('${saleId}')">${icon('trash')}</button>
         </div>
       </div>
     `;
@@ -2189,10 +2229,11 @@ function hideSpinner() {
   }
 }
 
-function showToast(msg) {
+function showToast(msg, iconName) {
   const toast = document.createElement("div");
   toast.className = "toast";
-  toast.textContent = msg;
+  if (iconName) toast.insertAdjacentHTML("beforeend", icon(iconName) + " ");
+  toast.appendChild(document.createTextNode(msg));
 
   document.body.appendChild(toast);
 
@@ -2362,9 +2403,9 @@ function renderCart() {
     const line = document.createElement("div");
     line.className = "cart-discount-line";
     if (a.raffleEntries) {
-      line.innerHTML = `<span>🎟 ${esc(a.promo.name)} (×${a.raffleEntries})</span><span style="color:var(--green);">¡Rifa!</span>`;
+      line.innerHTML = `<span>${icon('ticket')} ${esc(a.promo.name)} (×${a.raffleEntries})</span><span style="color:var(--green);">¡Rifa!</span>`;
     } else {
-      let label = `🏷 ${esc(a.promo.name)}`;
+      let label = `${icon('tag')} ${esc(a.promo.name)}`;
       if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
       line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
     }
@@ -2398,7 +2439,7 @@ function renderCart() {
     const remaining = (inventory[item.name] ?? 0) - inCart;
     const isLow = remaining > 0 && remaining <= 3;
     const isOut = remaining <= 0;
-    el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ' <span class="low-stock-badge">⚠ Poco</span>' : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
+    el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
 
     const card = el.closest('.product');
@@ -2412,7 +2453,7 @@ function renderCart() {
 // ── render promo list ─────────────────────────
 
 function promoTypeLabel(type) {
-  return { free_item: "🎁 Gratis", fixed_price: "💰 Precio fijo", pct_discount: "% Descuento", raffle: "🎟 Rifa" }[type] || type;
+  return { free_item: `${icon('gift')} Gratis`, fixed_price: `${icon('coins')} Precio fijo`, pct_discount: "% Descuento", raffle: `${icon('ticket')} Rifa` }[type] || type;
 }
 
 function promoTypeClass(type) {
@@ -2421,7 +2462,7 @@ function promoTypeClass(type) {
 
 function promoDescription(p) {
   const scopeStr = p.scope === "any" ? "cualquier producto"
-    : p.scope === "category" ? `categoría "${p.scopeValue}"`
+    : p.scope === "category" ? `categoría "${catName(p.scopeValue)}"`
     : `"${p.scopeValue}"`;
 
   if (p.type === "free_item") {
@@ -2449,7 +2490,7 @@ function renderPromos() {
   if (!promotions.length) {
     container.innerHTML = `
       <div class="promo-empty">
-        <div class="promo-empty-icon">🏷️</div>
+        <div class="promo-empty-icon">${icon('tag')}</div>
         <p>No hay promociones activas.</p>
         <p style="font-size:12px;">Toca el botón + para agregar una.</p>
       </div>
@@ -2469,9 +2510,9 @@ function renderPromos() {
       <div class="promo-card-footer">
         <button class="promo-toggle ${p.active ? 'active' : 'inactive'}"
           onclick="togglePromo(${idx})">
-          ${p.active ? "✅ Activa" : "⏸ Inactiva"}
+          ${p.active ? `${icon('check')} Activa` : `${icon('pause')} Inactiva`}
         </button>
-        <button class="delete-btn" onclick="deletePromo(${idx})">🗑️</button>
+        <button class="delete-btn" onclick="deletePromo(${idx})">${icon('trash')}</button>
       </div>
     `;
     container.appendChild(card);
@@ -2502,7 +2543,7 @@ function openPromoModal() {
   const productOptions = allMenuItems()
     .map(i => `<option value="${i.name}">${i.name}</option>`).join("");
   const categoryOptions = allCategories()
-    .map(c => `<option value="${c}">${c}</option>`).join("");
+    .map(c => `<option value="${c}">${esc(catName(c))}</option>`).join("");
 
   openCompactModal(`
     <h3 style="margin-top:0;">Nueva promoción</h3>
@@ -2513,10 +2554,10 @@ function openPromoModal() {
 
       <label>Tipo de descuento</label>
       <select id="pf-type" onchange="onPromoTypeChange()">
-        <option value="free_item">🎁 Producto gratis</option>
-        <option value="fixed_price">💰 Precio fijo por grupo</option>
+        <option value="free_item">Producto gratis</option>
+        <option value="fixed_price">Precio fijo por grupo</option>
         <option value="pct_discount">% Descuento</option>
-        <option value="raffle">🎟 Entrada de rifa</option>
+        <option value="raffle">Entrada de rifa</option>
       </select>
 
       <label>Aplica a</label>
@@ -2653,7 +2694,7 @@ function savePromo() {
   promotions.push(promo);
 
   closeModal();
-  showToast(`Promoción "${name}" creada ✅`);
+  showToast(`Promoción "${name}" creada`, "check");
   renderPromos();
   renderCart();
 }
@@ -2683,7 +2724,7 @@ function renderRestockLogWithData(log) {
   const rows = log.map(entry => `
     <div class="restock-entry">
       <div>
-        <div style="font-weight:600;">${entry.source === 'bake' ? '🔥 ' : ''}${esc(entry.name)}</div>
+        <div style="font-weight:600;">${entry.source === 'bake' ? icon('flame') + ' ' : ''}${esc(entry.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
@@ -2833,10 +2874,10 @@ async function initApp() {
 // ─────────────────────────────────────────────
 
 const MERMA_REASONS = {
-  merma:   { label: "Merma",            emoji: "🗑️" },
-  muestra: { label: "Muestra/Degusto",  emoji: "🍽️" },
-  regalo:  { label: "Regalo",           emoji: "🎁" },
-  consumo: { label: "Consumo propio",   emoji: "👩‍🍳" },
+  merma:   { label: "Merma",            icon: "trash" },
+  muestra: { label: "Muestra/Degusto",  icon: "utensils" },
+  regalo:  { label: "Regalo",           icon: "gift" },
+  consumo: { label: "Consumo propio",   icon: "chef" },
 };
 
 
@@ -2844,7 +2885,7 @@ const MERMA_REASONS = {
 function openMermaModal() {
   // Build category options
   const catOptions = menu.map(c =>
-    `<option value="${c.category}">${c.category}</option>`
+    `<option value="${c.category}">${esc(catName(c.category))}</option>`
   ).join('');
 
   // Build item options for first category
@@ -2854,11 +2895,11 @@ function openMermaModal() {
   ).join('');
 
   const reasonOptions = Object.entries(MERMA_REASONS).map(([k, v]) =>
-    `<option value="${k}">${v.emoji} ${v.label}</option>`
+    `<option value="${k}">${v.label}</option>`
   ).join('');
 
   openCompactModal(`
-    <h3 style="margin-top:0;">📉 Registrar merma</h3>
+    <h3 style="margin-top:0;">${icon('trendDown')} Registrar merma</h3>
     <div class="promo-form">
 
       <label>Categoría</label>
@@ -2925,7 +2966,7 @@ async function renderMermaLog() {
   if (!mermas.length) {
     container.innerHTML = `
       <div class="pending-empty">
-        <div style="font-size:36px;margin-bottom:10px;">📋</div>
+        <div style="font-size:36px;margin-bottom:10px;">${icon('clipboard')}</div>
         <p>No hay mermas registradas.</p>
       </div>
     `;
@@ -2933,14 +2974,14 @@ async function renderMermaLog() {
   }
 
   const rows = mermas.map(m => {
-    const r = MERMA_REASONS[m.reason] || { label: m.reason, emoji: "📦" };
+    const r = MERMA_REASONS[m.reason] || { label: m.reason, icon: "package" };
     return `
       <div class="merma-entry">
         <div>
           <div style="font-weight:600;">${esc(m.name)}</div>
           <div style="font-size:11px;color:var(--text-muted);">${esc(m.date)}</div>
         </div>
-        <span class="merma-reason ${m.reason}">${r.emoji} ${r.label}</span>
+        <span class="merma-reason ${m.reason}">${icon(r.icon)} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
         <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
       </div>
@@ -2980,7 +3021,7 @@ function saveAsPending() {
   }
 
   openCompactModal(`
-    <h3 style="margin-top:0;">📋 Guardar pedido</h3>
+    <h3 style="margin-top:0;">${icon('clipboard')} Guardar pedido</h3>
     <div class="promo-form">
       <label>Nombre del cliente</label>
       <input id="pending-name" type="text" placeholder="Ej: Ana García" autocomplete="off">
@@ -3090,7 +3131,7 @@ async function renderPending() {
   if (!list.length) {
     container.innerHTML = `
       <div class="pending-empty">
-        <div style="font-size:36px;margin-bottom:10px;">📋</div>
+        <div style="font-size:36px;margin-bottom:10px;">${icon('clipboard')}</div>
         <p>No hay pedidos pendientes.</p>
         <p style="font-size:12px;">Usa "Guardar como pendiente" desde el carrito.</p>
       </div>
@@ -3117,14 +3158,14 @@ async function renderPending() {
         <div class="pending-name">${esc(order.name)}</div>
         <div class="pending-date">${esc(order.date)}</div>
       </div>
-      ${order.note ? `<div class="pending-note">📝 ${esc(order.note)}</div>` : ''}
+      ${order.note ? `<div class="pending-note">${icon('note')} ${esc(order.note)}</div>` : ''}
       <div class="pending-items">${esc(summary)}</div>
       <div class="pending-footer">
         <div class="pending-total">$${parseFloat(order.total).toFixed(2)}</div>
         <div class="pending-actions">
-          <button class="btn-brand" onclick="loadPending('${order._id}')">🛒 Cobrar</button>
+          <button class="btn-brand" onclick="loadPending('${order._id}')">${icon('cart')} Cobrar</button>
           <button class="btn-secondary" onclick="sharePending('${order._id}')" style="font-size:13px;padding:8px 12px;">Compartir</button>
-          <button class="delete-btn" onclick="deletePending('${order._id}')">🗑️</button>
+          <button class="delete-btn" onclick="deletePending('${order._id}')">${icon('trash')}</button>
         </div>
       </div>
     `;
@@ -3177,3 +3218,6 @@ async function sharePending(id) {
     navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
   }
 }
+
+// Fill static icon placeholders in index.html
+document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });

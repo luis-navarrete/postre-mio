@@ -1107,3 +1107,17 @@ button:active { opacity: 0.75; }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ── SVG ICONS ─────────────────────────── */
+.icon {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.2em;
+  flex-shrink: 0;
+}
+
+.promo-empty-icon .icon,
+.pending-empty .icon,
+.history-empty .icon { color: var(--text-muted); }
+
+.low-stock-badge .icon { width: 1em; height: 1em; vertical-align: -0.15em; }
