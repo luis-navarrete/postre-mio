@@ -507,11 +507,11 @@ const defaultInventory = {
   "Besos de nuez": 0,
   "Mini pastel maceta": 0,
   "Carlota de limón": 0,
-  "Pastel Red Velvet": 0,
+  "Rebanada Red Velvet": 0,
   "Pan de muerto": 0,
   "Pan de zanahoria": 0,
   "Pay de elote": 0,
-  "Pastel de tres leches": 0,
+  "Rebanada de tres leches": 0,
   "Cheesecake": 0
 };
 
@@ -520,7 +520,9 @@ const PRODUCT_RENAMES = {
   "Canela": "Cinnamon Roll",
   "Rol": "Cinnamon Roll",
   "Fresa": "Fresa Pink Sugar",
-  "Pastel red velvet": "Pastel Red Velvet",
+  "Pastel red velvet": "Rebanada Red Velvet",
+  "Pastel Red Velvet": "Rebanada Red Velvet",
+  "Pastel de tres leches": "Rebanada de tres leches",
   "Mini pastel zanahoria": "Mini pastel maceta",
   "Mini pastel red velvet": "Mini pastel maceta",
   "Mini pastel Nutella": "Mini pastel maceta",
@@ -583,9 +585,9 @@ const menu = [
     category: "🎂 Pasteles",
     items: [
       { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
-      { name: "Pastel Red Velvet", price: 80.00, img: "pastel_rv.jpg" },
+      { name: "Rebanada Red Velvet", price: 80.00, img: "pastel_rv.jpg" },
       // TODO: replace placeholder images (mini_cake.jpg) once photos are available
-      { name: "Pastel de tres leches", price: 95.00, img: "mini_cake.jpg" },
+      { name: "Rebanada de tres leches", price: 95.00, img: "mini_cake.jpg" },
       { name: "Cheesecake", price: 0, img: "mini_cake.jpg", noBasePrice: true }
     ]
   },
