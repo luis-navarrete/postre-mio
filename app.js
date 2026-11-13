@@ -1456,13 +1456,23 @@ function renderInventory() {
   });
   saveInventory();
 
-  validNames.forEach(name => {
+  menu.forEach(cat => {
+    let headerAdded = false;
+    cat.items.map(i => i.name).forEach(name => {
     if (!(name in inventory)) inventory[name] = defaultInventory[name];
 
     const isHidden = hiddenItems.includes(name);
 
     // In normal mode, skip hidden items
     if (!hideModeActive && isHidden) return;
+
+    if (!headerAdded) {
+      const header = document.createElement("div");
+      header.className = "inv-list-cat";
+      header.innerHTML = catHTML(cat.category);
+      container.appendChild(header);
+      headerAdded = true;
+    }
 
     const qty = inventory[name];
     const isLow = qty > 0 && qty <= 3;
@@ -1495,6 +1505,7 @@ function renderInventory() {
     }
 
     container.appendChild(row);
+    });
   });
 
   const bakeBtn = document.getElementById('bakeBtn');
@@ -1513,9 +1524,8 @@ function closeEditInventoryModal() {
 
 function renderEditInventoryModalBody() {
   const hiddenItems = getHiddenItems();
-  const visibleNames = Object.keys(defaultInventory).filter(name => !hiddenItems.includes(name));
 
-  const rows = visibleNames.map(name => {
+  const rowHTML = name => {
     const qty = inventory[name] ?? 0;
     const isFreezable = FREEZABLE_PRODUCTS.includes(name);
     const frozenQty = frozenInventory[name] ?? 0;
@@ -1561,6 +1571,12 @@ function renderEditInventoryModalBody() {
         ` : ''}
       </div>
     `;
+  };
+
+  const rows = menu.map(cat => {
+    const names = cat.items.map(i => i.name).filter(name => !hiddenItems.includes(name));
+    if (!names.length) return '';
+    return `<div class="edit-inv-cat">${catHTML(cat.category)}</div>` + names.map(rowHTML).join('');
   }).join('');
 
   openCompactModal(`

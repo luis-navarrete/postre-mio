@@ -1121,3 +1121,26 @@ button:active { opacity: 0.75; }
 .history-empty .icon { color: var(--text-muted); }
 
 .low-stock-badge .icon { width: 1em; height: 1em; vertical-align: -0.15em; }
+
+/* ── INVENTORY CATEGORIES / DISABLED BUTTONS ── */
+.inv-list-cat,
+.edit-inv-cat {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.inv-list-cat {
+  padding: 10px 14px 6px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.edit-inv-cat { margin: 14px 0 2px; }
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
