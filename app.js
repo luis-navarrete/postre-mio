@@ -2336,10 +2336,10 @@ function renderHistoryWithData(data) {
 
       <div class="history-footer">
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
-        <div style="display:flex;gap:6px;">
-          ${editModeActive ? `<button class="edit-mode-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>` : ''}
-          <button onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">🧾</button>
-          <button class="delete-btn" onclick="deleteSale('${saleId}')">${icon('trash')}</button>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${editModeActive ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>` : ''}
+          <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">🧾</button>
+          <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>
         </div>
       </div>
     `;
