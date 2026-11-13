@@ -688,6 +688,7 @@ function renderProducts() {
   const hiddenItems = getHiddenItems();
 
   menu.forEach(cat => {
+    if (cat.items.every(i => hiddenItems.includes(i.name))) return;
     const section = document.createElement("div");
     section.className = "category";
 
@@ -1315,38 +1316,62 @@ function generateTicket(sale) {
       return;
     }
 
+    if (typeof html2canvas === "undefined") {
+      showToast("El generador de tickets aún no carga, intenta de nuevo");
+      return;
+    }
+
     html2canvas(ticketElement, {
       scale: 2,
       useCORS: true
     }).then(canvas => {
-
       canvas.toBlob(blob => {
-        const file = new File([blob], "ticket_postremio.png", { type: "image/png" });
-
-        // Best path: Web Share API with file (works on Android Chrome and iOS Safari)
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({
-            title: "Ticket Postre Mío",
-            text: "Gracias por tu compra en Postre Mío ❤️",
-            files: [file]
-          }).catch(() => {}); // user cancelled — do nothing
-        } else {
-          // Fallback: download image, then open WhatsApp with a message
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `ticket_postremio_${Date.now()}.png`;
-          link.click();
-          URL.revokeObjectURL(url);
-
-          const message = encodeURIComponent("Gracias por tu compra en Postre Mío ❤️\n(Adjunta la imagen del ticket que se acaba de descargar)");
-          setTimeout(() => window.open(`https://wa.me/?text=${message}`, "_blank"), 800);
-        }
+        if (!blob) { showToast("No se pudo generar el ticket"); return; }
+        showTicketModal(blob);
       }, "image/png");
-
-    });
+    }).catch(() => showToast("No se pudo generar el ticket"));
 
   }, 100);
+}
+
+// Sharing must start from a tap: the image is rendered asynchronously, so by the
+// time it's ready the original tap no longer counts (iOS/iPadOS Safari then
+// rejects navigator.share). Show a preview with buttons that start a fresh tap.
+let _ticketBlob = null;
+let _ticketUrl = null;
+
+function showTicketModal(blob) {
+  if (_ticketUrl) URL.revokeObjectURL(_ticketUrl);
+  _ticketBlob = blob;
+  _ticketUrl = URL.createObjectURL(blob);
+  const file = new File([blob], "ticket_postremio.png", { type: "image/png" });
+  const canShare = !!(navigator.share && navigator.canShare && navigator.canShare({ files: [file] }));
+
+  openCompactModal(`
+    <h3 style="margin-top:0;">${icon('note')} Ticket</h3>
+    <img src="${_ticketUrl}" style="width:100%;max-height:45vh;object-fit:contain;border:1px solid var(--border);border-radius:var(--radius-sm);">
+    ${canShare ? `<button class="btn-brand" style="margin-top:12px;" onclick="shareTicket()">Compartir</button>` : ''}
+    <button class="btn-secondary" onclick="downloadTicket()">Descargar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+  `);
+}
+
+function shareTicket() {
+  if (!_ticketBlob) return;
+  const file = new File([_ticketBlob], "ticket_postremio.png", { type: "image/png" });
+  navigator.share({
+    title: "Ticket Postre Mío",
+    text: "Gracias por tu compra en Postre Mío ❤️",
+    files: [file]
+  }).catch(() => {}); // user cancelled
+}
+
+function downloadTicket() {
+  if (!_ticketUrl) return;
+  const link = document.createElement("a");
+  link.href = _ticketUrl;
+  link.download = `ticket_postremio_${Date.now()}.png`;
+  link.click();
 }
 
 let _rafSync = 0;
@@ -1940,13 +1965,15 @@ function openPricesModal() {
         onchange="${onchange}">
     </div>`;
 
-  const categoryRows = cat => sectionTitle(cat.category, true, catHTML(cat.category)) +
-    cat.items.filter(item => !item.noBasePrice).map(item =>
+  const hiddenNow = getHiddenItems();
+  const categoryRows = cat => !cat ? '' : sectionTitle(cat.category, true, catHTML(cat.category)) +
+    cat.items.filter(item => !item.noBasePrice && !hiddenNow.includes(item.name)).map(item =>
       priceRow(item.name, item.price, `updatePrice('${item.name.replace(/'/g, "\\'")}', this.value)`)
     ).join('');
 
   // Flavor/filling prices for one product, plus its second-step extras (minus the free "Natural")
   const extrasSection = (productName, title) => {
+    if (hiddenNow.includes(productName)) return '';
     const entries = [
       ...(ITEM_EXTRAS[productName] || []),
       ...(ITEM_EXTRAS_STEP2[productName] || []).filter(e => e.name !== "Natural"),
@@ -1956,7 +1983,7 @@ function openPricesModal() {
     ).join('');
   };
 
-  const cats = Object.fromEntries(menu.map(c => [c.category, c]));
+  const cats = Object.fromEntries(visibleMenu().map(c => [c.category, c]));
   const body =
     categoryRows(cats["🍪 Galletas"]) +
     categoryRows(cats["✨ Especiales"]) +
@@ -2064,6 +2091,14 @@ function getHiddenItems() {
   return JSON.parse(localStorage.getItem("hiddenItems")) || [];
 }
 
+// Menu without hidden products (and without categories left empty by hiding)
+function visibleMenu() {
+  const hidden = getHiddenItems();
+  return menu
+    .map(cat => ({ ...cat, items: cat.items.filter(i => !hidden.includes(i.name)) }))
+    .filter(cat => cat.items.length);
+}
+
 function saveHiddenItems(list) {
   localStorage.setItem("hiddenItems", JSON.stringify(list));
   DataStore.saveHiddenItems(list);
@@ -2091,6 +2126,10 @@ function toggleItemHidden(name) {
   } else {
     hidden.push(name);
     showToast(`${name} ocultado`);
+    if (cart.some(i => i.name === name)) {
+      cart = cart.filter(i => i.name !== name);
+      renderCart();
+    }
   }
   saveHiddenItems(hidden);
   renderInventory();
@@ -2465,11 +2504,11 @@ let promotions = [];
 // ── helpers ──────────────────────────────────
 
 function allMenuItems() {
-  return menu.flatMap(c => c.items);
+  return visibleMenu().flatMap(c => c.items);
 }
 
 function allCategories() {
-  return menu.map(c => c.category);
+  return visibleMenu().map(c => c.category);
 }
 
 function itemMatchesScope(item, promo) {
@@ -3073,12 +3112,13 @@ const MERMA_REASONS = {
 
 function openMermaModal() {
   // Build category options
-  const catOptions = menu.map(c =>
+  const vMenu = visibleMenu();
+  const catOptions = vMenu.map(c =>
     `<option value="${c.category}">${esc(catName(c.category))}</option>`
   ).join('');
 
   // Build item options for first category
-  const firstCatItems = menu[0]?.items || [];
+  const firstCatItems = vMenu[0]?.items || [];
   const itemOptions = firstCatItems.flatMap(i => stockNamesFor(i.name)).map(k =>
     `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
   ).join('');
@@ -3116,7 +3156,7 @@ function openMermaModal() {
 
 function onMermaCatChange() {
   const cat = document.getElementById('merma-cat')?.value;
-  const catData = menu.find(c => c.category === cat);
+  const catData = visibleMenu().find(c => c.category === cat);
   const itemSel = document.getElementById('merma-item');
   if (!catData || !itemSel) return;
   itemSel.innerHTML = catData.items.flatMap(i => stockNamesFor(i.name)).map(k =>
