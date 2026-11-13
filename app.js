@@ -1437,6 +1437,22 @@ function showPage(page) {
     editModeActive = false;
   }
   document.getElementById("sideMenu").classList.remove("open");
+
+  const pageEl = document.getElementById(
+    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage" }[page]
+  );
+  if (pageEl) {
+    pageEl.classList.remove("page-enter");
+    void pageEl.offsetWidth; // restart the animation
+    pageEl.classList.add("page-enter");
+  }
+}
+
+function logoClick(el) {
+  el.classList.remove("logo-pop");
+  void el.offsetWidth;
+  el.classList.add("logo-pop");
+  showPage('pos');
 }
 
 // Hold-to-repeat state

@@ -1146,3 +1146,23 @@ button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* ── PAGE / LOGO ANIMATIONS ────────────── */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes logoPop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.88) rotate(-3deg); }
+  70%  { transform: scale(1.1) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.page-enter { animation: pageEnter 0.25s ease-out; }
+.header img.logo-pop { animation: logoPop 0.4s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter, .header img.logo-pop { animation: none; }
+}
