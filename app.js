@@ -507,8 +507,12 @@ const defaultInventory = {
   "Besos de nuez": 0,
   "Mini pastel maceta": 0,
   "Carlota de limón": 0,
-  "Pastel Red Velvet": 0,
-  "Pan de muerto": 0
+  "Rebanada Red Velvet": 0,
+  "Pan de muerto": 0,
+  "Pan de zanahoria": 0,
+  "Pay de elote": 0,
+  "Rebanada de tres leches": 0,
+  "Cheesecake": 0
 };
 
 // Old product names mapped to their current names, for migrating existing Firestore data
@@ -516,7 +520,9 @@ const PRODUCT_RENAMES = {
   "Canela": "Cinnamon Roll",
   "Rol": "Cinnamon Roll",
   "Fresa": "Fresa Pink Sugar",
-  "Pastel red velvet": "Pastel Red Velvet",
+  "Pastel red velvet": "Rebanada Red Velvet",
+  "Pastel Red Velvet": "Rebanada Red Velvet",
+  "Pastel de tres leches": "Rebanada de tres leches",
   "Mini pastel zanahoria": "Mini pastel maceta",
   "Mini pastel red velvet": "Mini pastel maceta",
   "Mini pastel Nutella": "Mini pastel maceta",
@@ -576,11 +582,21 @@ const menu = [
     ]
   },
   {
-    category: "🍰 Postres",
+    category: "🎂 Pasteles",
     items: [
       { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
+      { name: "Rebanada Red Velvet", price: 80.00, img: "pastel_rv.jpg" },
+      // TODO: replace placeholder images (mini_cake.jpg) once photos are available
+      { name: "Rebanada de tres leches", price: 95.00, img: "mini_cake.jpg" },
+      { name: "Cheesecake", price: 0, img: "mini_cake.jpg", noBasePrice: true }
+    ]
+  },
+  {
+    category: "🍰 Postres",
+    items: [
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
-      { name: "Pastel Red Velvet", price: 80.00, img: "pastel_rv.jpg" }
+      { name: "Pan de zanahoria", price: 50.00, img: "mini_cake.jpg" },
+      { name: "Pay de elote", price: 40.00, img: "mini_cake.jpg" }
     ]
   }
 ];
@@ -644,6 +660,11 @@ let ITEM_EXTRAS = {
     { name: "Lotus biscoff",                    price: 95 },
     { name: "Betún de queso crema y fresas",    price: 95 },
   ],
+  // Cheesecake has no base price — each option carries its own full price.
+  "Cheesecake": [
+    { name: "Mermelada de fresa", price: 80 },
+    { name: "Nutella",            price: 80 },
+  ],
   // Mini pastel maceta: flavor choice only, no price difference between them.
   "Mini pastel maceta": [
     { name: "Zanahoria",      price: 0 },
@@ -671,6 +692,7 @@ const ITEM_EXTRAS_LABEL = {
   "Rol de canela": "Elige el betún:",
   "Pan de muerto": "Elige el relleno:",
   "Mini pastel maceta": "Elige el sabor:",
+  "Cheesecake": "Elige el sabor:",
 };
 
 const ITEM_EXTRAS_STEP2_LABEL = {
@@ -681,6 +703,7 @@ const ITEM_EXTRAS_EMOJI = {
   "Rol de canela": "🥐",
   "Pan de muerto": "🍞",
   "Mini pastel maceta": "🍰",
+  "Cheesecake": "🍰",
 };
 
 // Carrito
@@ -1715,8 +1738,10 @@ function openPricesModal() {
     categoryRows(cats["✨ Especiales"]) +
     extrasSection("Rol de canela", "+ Extras: Rol de canela") +
     extrasSection("Pan de muerto", "Pan de muerto") +
-    categoryRows(cats["🍰 Postres"]) +
-    extrasSection("Mini pastel maceta", "Mini pastel maceta");
+    categoryRows(cats["🎂 Pasteles"]) +
+    extrasSection("Cheesecake", "Cheesecake") +
+    extrasSection("Mini pastel maceta", "Mini pastel maceta") +
+    categoryRows(cats["🍰 Postres"]);
 
   openPopupModal(`
     <h3 style="margin-top:0;">💲 Precios</h3>
