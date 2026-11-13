@@ -309,7 +309,7 @@ const DataStore = {
 
   // ── Restock Log ──
   async getRestockLog() {
-    const snap = await storeRef("restockLog").orderBy("date", "desc").get();
+    const snap = await fastGet(storeRef("restockLog").orderBy("date", "desc").limit(RESTOCK_LOG_LIMIT));
     return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
   },
 
@@ -468,12 +468,10 @@ function startListeners() {
     })
   );
 
-  // Restock log — re-render if visible
+  // Restock log — only the latest entries, rendered straight from the snapshot
   _unsubscribers.push(
-    storeRef("restockLog").onSnapshot(() => {
-      if (document.getElementById("inventoryPage").style.display !== "none") {
-        renderRestockLogFromFirestore();
-      }
+    storeRef("restockLog").orderBy("date", "desc").limit(RESTOCK_LOG_LIMIT).onSnapshot(snap => {
+      renderRestockLogWithData(snap.docs.map(doc => ({ _id: doc.id, ...doc.data() })));
     })
   );
 }
@@ -564,6 +562,8 @@ function parentProduct(key) { return key.split(" · ")[0]; }
 let lowStockThreshold = 3;
 
 // Editable in Ajustes; stored in config/settings (missing fields use these defaults)
+const RESTOCK_LOG_LIMIT = 50;
+
 const DEFAULT_SETTINGS = {
   ticketThanks: "¡Gracias por su compra! ❤️",
   ticketFooter: "Tel. 229 157 4962\n@postremio.mx",
@@ -1455,7 +1455,6 @@ function showPage(page) {
     updatedFrozenItems.clear();
     renderProducts();
     renderInventory();
-    renderRestockLogFromFirestore();
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
@@ -1969,7 +1968,6 @@ async function confirmBakeAll() {
 
   renderInventory();
   renderProducts();
-  await renderRestockLogFromFirestore();
   const summary = changes.map(([name, qty]) => `${qty} ${name}`).join(', ');
   showToast(`${summary} pasados al inventario`);
 }
@@ -2125,7 +2123,6 @@ async function saveInventoryChanges() {
 
     saveInventory();
     renderInventory();
-    await renderRestockLogFromFirestore();
     return true;
   } catch (e) {
     console.error("saveInventoryChanges failed:", e);
@@ -2975,12 +2972,6 @@ function savePromo() {
 //  RESTOCK LOG ENGINE
 // ─────────────────────────────────────────────
 
-async function renderRestockLogFromFirestore() {
-  showSpinner();
-  const log = await DataStore.getRestockLog().finally(hideSpinner);
-  renderRestockLogWithData(log);
-}
-
 function renderRestockLogWithData(log) {
   const section = document.getElementById("restockSection");
   const container = document.getElementById("restockList");
@@ -3009,7 +3000,6 @@ function renderRestockLogWithData(log) {
 
 async function deleteRestockEntry(id) {
   await DataStore.deleteRestock(id);
-  await renderRestockLogFromFirestore();
 }
 
 function clearRestockLog() {
