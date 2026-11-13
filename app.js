@@ -32,7 +32,14 @@ async function fastGet(ref, requireData = false) {
   try {
     return await withTimeout(ref.get(), 8000);
   } catch (e) {
-    const snap = await ref.get({ source: "cache" });
+    let snap;
+    try {
+      snap = await withTimeout(ref.get({ source: "cache" }), 4000);
+    } catch (e2) {
+      // The offline cache itself can hang (e.g. blocked/private-mode storage)
+      if (requireData) throw e;
+      return { exists: false, empty: true, docs: [], data: () => ({}), forEach() {} };
+    }
     const empty = snap.exists === undefined ? snap.empty : !snap.exists;
     if (requireData && empty) throw e;
     return snap;
@@ -119,11 +126,20 @@ async function submitPin() {
   document.getElementById("authGate").style.display = "none";
   document.getElementById("loadingScreen").style.display = "flex";
 
+  let step = "inicio de sesión";
+  const setStep = (name, label) => {
+    step = name;
+    const el = document.getElementById("loadingStatus");
+    if (el) el.textContent = label;
+  };
+
   try {
+    setStep("inicio de sesión", "Iniciando sesión…");
     if (!auth.currentUser) {
       await withTimeout(auth.signInAnonymously(), 15000);
     }
 
+    setStep("verificación del PIN", "Verificando PIN…");
     const authDoc = await fastGet(configRef("auth"), true);
 
     if (!authDoc.exists || !authDoc.data().pinHash) {
@@ -138,13 +154,15 @@ async function submitPin() {
       const hash = await hashPin(pin);
       await configRef("auth").set({ pinHash: hash });
       _isSettingUp = false;
-      await initApp();
+      setStep("carga de datos", "Cargando datos…");
+      await withTimeout(initApp(), 40000);
       document.getElementById("loadingScreen").style.display = "none";
       document.getElementById("appShell").style.display = "block";
     } else {
       const hash = await hashPin(pin);
       if (hash === authDoc.data().pinHash) {
-        await initApp();
+        setStep("carga de datos", "Cargando datos…");
+        await withTimeout(initApp(), 40000);
         document.getElementById("loadingScreen").style.display = "none";
         document.getElementById("appShell").style.display = "block";
       } else {
@@ -160,7 +178,8 @@ async function submitPin() {
     document.getElementById("authGate").style.display = "flex";
     document.getElementById("authSubtitle").textContent = "Ingresa el PIN para continuar";
     _isSettingUp = false;
-    errEl.textContent = "Error de conexión. Intenta de nuevo.";
+    errEl.textContent = `Error de conexión (${step}). Intenta de nuevo.`;
+    console.error("Login failed at", step, e);
     clearPin();
   } finally {
     _submitting = false;
@@ -397,6 +416,7 @@ const DataStore = {
 let _unsubscribers = [];
 
 function startListeners() {
+  stopListeners();
   // Inventory
   _unsubscribers.push(
     storeRef("inventory").onSnapshot(snap => {
