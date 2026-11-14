@@ -1366,19 +1366,21 @@ button:active { opacity: 0.75; }
 
 .low-stock-badge .icon { width: 1em; height: 1em; vertical-align: -0.15em; }
 
-/* inventory list: the stock number itself sits in the colored pill, warning icon on its left */
+/* inventory list: every stock number lives in the same pill box (colored when low/out,
+   invisible when fine) so the digits always line up in one column */
 .stock-pill {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 0;
   padding: 4px 10px 2px; /* digits sit a touch high in the line box; this re-centers them */
   font-size: 14px;
   font-weight: 700;
   border-radius: 12px;
   font-variant-numeric: tabular-nums;
 }
-.stock-pill.out { background: var(--red); }
+.stock-pill.ok  { color: var(--text-muted); font-weight: 600; }
+.stock-pill.low { background: var(--orange); color: #fff; }
+.stock-pill.out { background: var(--red); color: #fff; }
 .stock-pill .icon { width: 14px; height: 14px; vertical-align: baseline; transform: translateY(-1.15px); }
 
 /* ── INVENTORY CATEGORIES / DISABLED BUTTONS ── */
