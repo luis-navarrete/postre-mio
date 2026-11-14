@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.4";
-const APP_UPDATED = "2026-11-14T02:17Z";
+const APP_VERSION = "1.4.5";
+const APP_UPDATED = "2026-11-14T04:22Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3692,7 +3692,7 @@ async function renderPending() {
 }
 
 // Width (in characters) of the shared order text; fits most phones in WhatsApp's monospaced block
-const SHARE_WIDTH = 30;
+const SHARE_WIDTH = 28;
 
 // Word-wrap text to `width`, indenting continuation lines by `indent` spaces
 function wrapText(text, width, indent = 0) {
