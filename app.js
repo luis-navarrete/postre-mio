@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.0";
-const APP_UPDATED = "2026-11-14T04:43Z";
+const APP_VERSION = "1.9.0";
+const APP_UPDATED = "2026-11-14T05:11Z";
 
 const STORE_ID = "postremio_main";
 
@@ -270,20 +270,6 @@ const DataStore = {
 
   async deleteSale(id) {
     await storeRef("sales").doc(id).delete();
-  },
-
-  // ── Folio Counter (atomic) ──
-  async getNextFolio(dateStr) {
-    const ref = storeRef("counters").doc(dateStr);
-    // A transaction reads and increments in one atomic step, so two devices
-    // can never get the same number (needs a connection; the caller falls back).
-    const value = await withTimeout(db.runTransaction(async tx => {
-      const doc = await tx.get(ref);
-      const next = (doc.exists ? doc.data().value : 0) + 1;
-      tx.set(ref, { value: next });
-      return next;
-    }), 4000);
-    return dateStr + String(value).padStart(3, "0");
   },
 
   // ── Promotions ──
@@ -559,6 +545,10 @@ const _ICON_PATHS = {
   card:     '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
   transfer: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   percent:  '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+  refresh:  '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+  eye:      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff:   '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
+  chevronsDown: '<polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>',
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
@@ -1302,40 +1292,33 @@ function showFinalStep(total, method, change, amount) {
   `);
 }
 
-// Folio = YYMMDD + 3-digit daily counter. If the counter can't be reached
-// (offline or slow), use YYMMDD-HHMMSS so the sale still gets a unique folio.
-async function getFolioSafe() {
-  const now = new Date();
+// Folio = the sale's date and time, e.g. 261114-203045 (YYMMDD-HHMMSS). It's made on the
+// device itself, so it works offline, never waits on the network and never changes.
+function formatFolio(date) {
   const pad = n => String(n).padStart(2, "0");
-  const dateStr = now.getFullYear().toString().slice(2) + pad(now.getMonth() + 1) + pad(now.getDate());
-  if (navigator.onLine) {
-    try {
-      return await DataStore.getNextFolio(dateStr);
-    } catch (e) {
-      console.error("Folio counter unavailable, using fallback:", e);
-    }
-  }
-  return `${dateStr}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return date.getFullYear().toString().slice(2) + pad(date.getMonth() + 1) + pad(date.getDate()) +
+    "-" + pad(date.getHours()) + pad(date.getMinutes()) + pad(date.getSeconds());
 }
 
-let _finalizing = false;
+let _lastFolioTime = 0;
+function makeFolio() {
+  // Never reuse a second on this device: if sales land in the same second, the later
+  // ones move to the following seconds.
+  _lastFolioTime = Math.max(Date.now(), _lastFolioTime + 1000);
+  return formatFolio(new Date(_lastFolioTime));
+}
+
+let _lastFinalizedAt = 0;
 
 async function finalizeSale() {
   if (!currentSale) {
-    showToast("Error en la venta");
+    // a quick second tap on "Finalizar" arrives after the sale was already saved
+    if (Date.now() - _lastFinalizedAt > 2000) showToast("Error en la venta");
     return;
   }
-  if (_finalizing) return;
-  _finalizing = true;
+  _lastFinalizedAt = Date.now();
   vibrate(20);
-
-  showSpinner();
-  try {
-    currentSale.folio = await getFolioSafe();
-  } finally {
-    hideSpinner();
-    _finalizing = false;
-  }
+  currentSale.folio = makeFolio();
 
   const itemCounts = {};
   currentSale.items.forEach(item => {
@@ -1604,16 +1587,45 @@ function toggleMenu() {
   document.getElementById("sideMenu").classList.toggle("open");
 }
 
-document.addEventListener("click", function(e) {
+// Swipe from the far left edge to the right opens the menu; swiping left closes it.
+const SWIPE_EDGE = 30;      // px from the left edge where an opening swipe must start
+const SWIPE_DISTANCE = 70;  // px of horizontal travel needed
+let _swipe = null;
+
+function menuSwipeAllowed() {
+  return document.getElementById("appShell").style.display !== "none"
+    && !document.body.classList.contains("modal-open");
+}
+
+document.addEventListener("touchstart", e => {
+  _swipe = null;
+  if (e.touches.length !== 1 || !menuSwipeAllowed()) return;
+  const t = e.touches[0];
+  const open = document.getElementById("sideMenu").classList.contains("open");
+  if (!open && t.clientX <= SWIPE_EDGE) _swipe = { x: t.clientX, y: t.clientY, mode: "open" };
+  else if (open) _swipe = { x: t.clientX, y: t.clientY, mode: "close" };
+}, { passive: true });
+
+document.addEventListener("touchmove", e => {
+  if (!_swipe) return;
+  const t = e.touches[0];
+  const dx = t.clientX - _swipe.x;
+  const dy = t.clientY - _swipe.y;
+  if (Math.abs(dy) > Math.abs(dx) * 0.7 && Math.abs(dy) > 20) { _swipe = null; return; } // vertical scroll
   const menu = document.getElementById("sideMenu");
-  const btn = document.querySelector(".menu-btn");
-
-  if (!menu || !btn) return;
-
-  if (!menu.contains(e.target) && !btn.contains(e.target)) {
+  if (_swipe.mode === "open" && dx >= SWIPE_DISTANCE) {
+    syncMenuTop();
+    menu.classList.add("open");
+    vibrate(8);
+    _swipe = null;
+  } else if (_swipe.mode === "close" && dx <= -SWIPE_DISTANCE) {
     menu.classList.remove("open");
+    _swipe = null;
   }
-});
+}, { passive: true });
+
+document.addEventListener("touchend", () => { _swipe = null; }, { passive: true });
+document.addEventListener("touchcancel", () => { _swipe = null; }, { passive: true });
 
 function showPage(page) {
   if (page !== 'settings' && !guardSettingsLeave(() => showPage(page))) return;
@@ -1645,7 +1657,7 @@ function showPage(page) {
 
   ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage","settingsPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
-  ["promoFab","mermaFab"]
+  ["promoFab","mermaFab","editFab","priceFab","hideFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
 
   if (page === "pos") {
@@ -1653,6 +1665,8 @@ function showPage(page) {
   }
   if (page === "inventory") {
     document.getElementById("inventoryPage").style.display = "block";
+    document.getElementById("priceFab").style.display = "flex";
+    document.getElementById("hideFab").style.display = "flex";
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
     _pendingRestockByName = {};
@@ -1663,6 +1677,7 @@ function showPage(page) {
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
+    document.getElementById("editFab").style.display = "flex";
     renderHistory();
   }
   if (page === "promos") {
@@ -1695,6 +1710,8 @@ function showPage(page) {
   }
   document.getElementById("sideMenu").classList.remove("open");
   updateSettingsDirty();
+  updateStatsJump();
+  syncModeFabs();
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
@@ -1713,20 +1730,17 @@ function showPage(page) {
 function renderSettings() {
   document.getElementById("settingsContent").innerHTML = `
     <div class="settings-card">
-      <h3>${icon('note')} Acerca de</h3>
+      <div class="settings-card-head">
+        <h3>${icon('note')} Acerca de</h3>
+        <button class="settings-mini-btn" onclick="if (guardSettingsLeave(refreshApp)) refreshApp()" title="Borra la copia guardada y vuelve a cargar la app">${icon('refresh')} Actualizar</button>
+      </div>
       <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
       <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
     </div>
 
     <div class="settings-card">
-      <h3>${icon('save')} Actualizar app</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="if (guardSettingsLeave(refreshApp)) refreshApp()">Actualizar app</button>
-    </div>
-
-    <div class="settings-card">
       <h3>${icon('note')} Folios</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Asigna un folio a las ventas del historial que no tienen. Úsalo una sola vez y sin ventas en curso.</p>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Asigna un folio (fecha y hora de la venta) a las ventas del historial que no tienen.</p>
       <button class="btn-secondary" style="width:100%;" onclick="assignMissingFolios()">Asignar folios faltantes</button>
     </div>
 
@@ -1764,6 +1778,7 @@ function renderSettings() {
       <div id="denomList" class="denom-list">
         ${appSettings.cashDenominations.map(denomRowHTML).join('')}
       </div>
+      <div id="denomDupMsg" class="field-error" style="display:none;">Hay cantidades repetidas. Cada botón debe tener un monto distinto.</div>
       <button id="denomAddBtn" class="btn-secondary" style="width:100%;" onclick="addDenomRow()">${icon('plus')} Agregar cantidad</button>
     </div>
 
@@ -1815,30 +1830,16 @@ async function assignMissingFolios() {
   confirmModal(`¿Asignar folio a ${missing.length} venta${missing.length === 1 ? "" : "s"}?`, async () => {
     showSpinner();
     try {
-      const pad = n => String(n).padStart(2, "0");
-      const dayOf = iso => {
-        const d = new Date(iso);
-        return d.getFullYear().toString().slice(2) + pad(d.getMonth() + 1) + pad(d.getDate());
-      };
-
-      const byDay = {};
-      missing.forEach(s => { (byDay[dayOf(s.isoDate)] = byDay[dayOf(s.isoDate)] || []).push(s); });
-
+      // Each sale gets a folio from its own date and time (same format as new sales).
+      const taken = new Set(sales.map(x => x.folio).filter(Boolean));
       const batch = db.batch();
-      for (const [day, list] of Object.entries(byDay)) {
-        const counterRef = storeRef("counters").doc(day);
-        const counterDoc = await counterRef.get();
-        let base = counterDoc.exists ? counterDoc.data().value : 0;
-        sales.forEach(s => {
-          const m = s.folio && String(s.folio).match(new RegExp("^" + day + "(\\d{3})$"));
-          if (m) base = Math.max(base, parseInt(m[1], 10));
-        });
-
-        list.forEach((sale, i) => {
-          batch.update(storeRef("sales").doc(sale._id), { folio: day + String(base + i + 1).padStart(3, "0") });
-        });
-        batch.set(counterRef, { value: base + list.length });
-      }
+      missing.forEach(sale => {
+        let when = new Date(sale.isoDate);
+        while (taken.has(formatFolio(when))) when = new Date(when.getTime() + 1000);
+        const folio = formatFolio(when);
+        taken.add(folio);
+        batch.update(storeRef("sales").doc(sale._id), { folio });
+      });
       await batch.commit();
 
       showToast(`${missing.length} folios asignados`, "check");
@@ -1855,9 +1856,10 @@ async function assignMissingFolios() {
 // ── Settings: unsaved-changes tracking and floating save button ──
 // Each tracked field compares the control's current value with the saved one.
 const _byId = id => document.getElementById(id);
-const _normDenoms = () => [...new Set(
-  [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
-)].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+// Positive whole amounts typed in the cash rows, sorted (repeats are kept so they can be flagged).
+const _normDenoms = () => [...document.querySelectorAll("#denomList .denom-input")]
+  .map(i => Number(i.value)).filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+const _hasRepeats = arr => new Set(arr).size !== arr.length;
 
 const SETTINGS_FIELDS = {
   lowStockThreshold: {
@@ -1900,8 +1902,8 @@ const SETTINGS_FIELDS = {
     read: _normDenoms,
     saved: () => appSettings.cashDenominations,
     same: (a, b) => JSON.stringify(a) === JSON.stringify(b),
-    valid: v => v.length > 0,
-    error: "Agrega al menos una cantidad en Efectivo",
+    valid: v => v.length > 0 && !_hasRepeats(v),
+    error: "Efectivo: agrega al menos una cantidad y sin repetir",
     marks: () => [_byId("denomList")],
   },
 };
@@ -1928,11 +1930,22 @@ function updateSettingsDirty() {
     if (changed) count++;
   }
 
-  // New cash amounts get their own highlight
+  // New cash amounts get their own highlight; repeated amounts are flagged and block saving
   const savedDenoms = new Set(appSettings.cashDenominations);
-  document.querySelectorAll("#denomList .denom-input").forEach(i =>
-    i.classList.toggle("changed", i.value !== "" && !savedDenoms.has(Number(i.value)))
-  );
+  const denomInputs = [...document.querySelectorAll("#denomList .denom-input")];
+  const counts = {};
+  denomInputs.forEach(i => { const n = Number(i.value); if (i.value !== "" && n > 0) counts[n] = (counts[n] || 0) + 1; });
+  let hasRepeats = false;
+  denomInputs.forEach(i => {
+    const n = Number(i.value);
+    const dup = i.value !== "" && counts[n] > 1;
+    if (dup) hasRepeats = true;
+    i.classList.toggle("dup", dup);
+    i.classList.toggle("changed", !dup && i.value !== "" && !savedDenoms.has(n));
+  });
+  const dupMsg = _byId("denomDupMsg");
+  if (dupMsg) dupMsg.style.display = hasRepeats ? "block" : "none";
+  _byId("settingsSaveBtn").disabled = hasRepeats;
 
   _byId("settingsSaveLabel").textContent = count > 1 ? `Guardar cambios (${count})` : "Guardar cambios";
   bar.classList.toggle("show", count > 0);
@@ -2594,17 +2607,21 @@ function saveHiddenItems(list) {
   DataStore.saveHiddenItems(list);
 }
 
-const _SVG_EYE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-const _SVG_EYE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-
 function toggleHideMode() {
   hideModeActive = !hideModeActive;
-  const btn = document.getElementById("hideModeBtn");
-  if (btn) {
-    btn.innerHTML = hideModeActive ? _SVG_EYE_OFF : _SVG_EYE;
-    btn.classList.toggle("active", hideModeActive);
-  }
+  syncModeFabs();
   renderInventory();
+}
+
+// Keeps the floating mode buttons (eye / pencil) in line with their mode state
+function syncModeFabs() {
+  const hide = document.getElementById("hideFab");
+  if (hide) {
+    hide.innerHTML = icon(hideModeActive ? "eyeOff" : "eye");
+    hide.classList.toggle("active", hideModeActive);
+  }
+  const edit = document.getElementById("editFab");
+  if (edit) edit.classList.toggle("active", editModeActive);
 }
 
 function toggleItemHidden(name) {
@@ -2631,8 +2648,7 @@ let editModeActive = false;
 
 function toggleEditMode() {
   editModeActive = !editModeActive;
-  const btn = document.getElementById("editModeBtn");
-  if (btn) btn.classList.toggle("active", editModeActive);
+  syncModeFabs();
   renderHistory();
 }
 
@@ -2795,7 +2811,7 @@ function renderHistoryWithData(data) {
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <div class="inv-name">${esc(sale.date || "")}</div>
-        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">Folio: ${esc(sale.folio)}</div>` : ''}
+        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">${esc(sale.folio)}</div>` : ''}
       </div>
 
       <div class="history-items">
@@ -2805,9 +2821,10 @@ function renderHistoryWithData(data) {
       <div class="history-footer">
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;align-items:center;">
-          ${editModeActive ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>` : ''}
-          <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>
-          <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>
+          ${editModeActive
+            ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>
+               <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>`
+            : `<button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
         </div>
       </div>
     `;
@@ -2842,8 +2859,28 @@ function renderHistoryStats(data) {
       <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip"><b>${n}×</b><span>${esc(name)}</span></span>`).join("")}</div>
     </div>`).join("");
 
-  el.innerHTML = `<div class="stats-title">Vendidos</div>${rows}`;
+  el.innerHTML = `<div class="stats-title"><span>Ventas</span><strong>${data.length}</strong></div>${rows}`;
   el.style.display = "block";
+  updateStatsJump();
+}
+
+// Small floating button on History that jumps to the stats when they're below the fold.
+function updateStatsJump() {
+  const btn = document.getElementById("statsJumpBtn");
+  const stats = document.getElementById("historyStats");
+  if (!btn || !stats) return;
+  let show = false;
+  if (document.getElementById("historyPage").style.display !== "none" && stats.style.display !== "none") {
+    show = stats.getBoundingClientRect().top > window.innerHeight - 8;
+  }
+  btn.classList.toggle("show", show);
+}
+
+function scrollToStats() {
+  const stats = document.getElementById("historyStats");
+  const header = document.querySelector(".header");
+  const top = stats.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10;
+  window.scrollTo({ top, behavior: "smooth" });
 }
 
 function updateCutBtnWithData(data) {
@@ -3306,9 +3343,8 @@ function deletePromo(idx) {
 // ── promo creation modal ──────────────────────
 
 function openPromoModal() {
-  const productOptions = visibleMenu().flatMap(c => c.items.map(i =>
-    `<option value="${esc(i.name)}" data-icon="${CATEGORY_ICONS[c.category] || ''}">${esc(i.name)}</option>`
-  )).join("");
+  const productOptions = allMenuItems()
+    .map(i => `<option value="${esc(i.name)}">${esc(i.name)}</option>`).join("");
   const categoryOptions = allCategories()
     .map(c => `<option value="${esc(c)}" data-icon="${CATEGORY_ICONS[c] || ''}">${esc(catName(c))}</option>`).join("");
 
@@ -4063,6 +4099,11 @@ function sharePending(id) {
     navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
   }
 }
+
+// History: show/hide the "go to stats" button as the page scrolls or changes size
+window.addEventListener("scroll", updateStatsJump, { passive: true });
+window.addEventListener("resize", updateStatsJump);
+if (window.ResizeObserver) new ResizeObserver(updateStatsJump).observe(document.getElementById("historyList"));
 
 // Settings: re-check for unsaved changes whenever a control is edited
 ["input", "change"].forEach(ev => document.getElementById("settingsContent").addEventListener(ev, updateSettingsDirty));

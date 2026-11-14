@@ -147,6 +147,26 @@ button:active { opacity: 0.75; }
 
 .side-menu.open { left: 0; }
 
+/* Dims the page behind the open menu and swallows taps so they only close it */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2999;
+  background: rgba(0,0,0,0.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.side-menu.open + .menu-backdrop {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.28s ease;
+}
+
 .menu-content { padding: 16px; height: 100%; overflow-y: auto; box-sizing: border-box; }
 .menu-content h3 {
   margin: 0 0 16px 4px;
@@ -537,6 +557,16 @@ button:active { opacity: 0.75; }
 }
 
 .fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
+
+/* Icon floaters (History edit, Inventory prices / hide) */
+.fab-icon { padding: 0; }
+.fab-icon .icon { width: 26px; height: 26px; vertical-align: middle; }
+.fab-upper { bottom: 96px; }
+.fab-edit.active { background: #1565c0; box-shadow: 0 4px 14px rgba(21,101,192,0.45); }
+.fab-hide.active { background: #e65100; box-shadow: 0 4px 14px rgba(230,81,0,0.45); }
+
+/* room so the two inventory floaters never cover the last buttons */
+#inventoryPage .page-content { padding-bottom: 190px; }
 
 .promo-list {
   display: flex;
@@ -978,49 +1008,6 @@ button:active { opacity: 0.75; }
 }
 
 /* ── HIDING MODE ── */
-.hide-mode-btn {
-  padding: 7px;
-  margin: 0;
-  border-radius: var(--radius-sm);
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hide-mode-btn:active { opacity: 0.7; }
-
-.hide-mode-btn.active {
-  background: #fff3e0;
-  color: #e65100;
-  font-weight: 700;
-}
-
-/* ── HISTORY EDIT MODE ── */
-.edit-mode-btn {
-  padding: 7px;
-  margin: 0;
-  border-radius: var(--radius-sm);
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.edit-mode-btn:active { opacity: 0.7; }
-
-.edit-mode-btn.active {
-  background: #e3f2fd;
-  color: #1565c0;
-  font-weight: 700;
-}
-
 .restock-section {
   margin-top: 24px;
   padding-top: 16px;
@@ -1384,6 +1371,28 @@ button:disabled {
 
 .settings-card > button { margin-top: 8px; }
 
+.settings-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.settings-mini-btn .icon { width: 14px; height: 14px; }
+
 .switch-row {
   display: flex;
   align-items: center;
@@ -1461,9 +1470,9 @@ button:disabled {
 .settings-savebar button {
   pointer-events: auto;
   width: 100%;
-  max-width: 420px;
+  max-width: 290px;
   margin: 0;
-  padding: 15px;
+  padding: 14px;
   font-size: 15px;
   font-weight: 700;
   border-radius: 14px;
@@ -1476,6 +1485,18 @@ body.has-savebar .toast { bottom: 96px; }
 .settings-card textarea,
 .switch-row,
 .denom-list { transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+
+.settings-card input.dup {
+  border-color: var(--red) !important;
+  background: #fff0f0 !important;
+}
+
+.field-error {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  margin: -2px 0 8px;
+}
 
 .settings-card input.changed,
 .settings-card textarea.changed {
@@ -1525,15 +1546,63 @@ body.has-savebar .toast { bottom: 96px; }
 
 /* ── HISTORY STATS ─────────────────────── */
 .history-stats {
+  position: relative;
   background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 10px 12px;
-  margin-top: 12px;
+  margin-top: 32px;
   font-size: 12px;
 }
 
+/* floating shortcut to the stats */
+.stats-jump {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 14px;
+  width: auto;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s, visibility 0s linear 0.2s;
+}
+
+.stats-jump.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.stats-jump .icon { width: 16px; height: 16px; color: var(--brand-dark); }
+
+/* divider between the sales list and the stats */
+.history-stats::before {
+  content: "";
+  position: absolute;
+  top: -17px;
+  left: 4px;
+  right: 4px;
+  border-top: 1.5px dashed #cfcfcf;
+}
+
 .stats-title {
+  display: flex;
+  justify-content: space-between;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
