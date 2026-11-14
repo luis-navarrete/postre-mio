@@ -558,6 +558,16 @@ button:active { opacity: 0.75; }
 
 .fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
 
+/* Icon floaters (History edit, Inventory prices / hide) */
+.fab-icon { padding: 0; }
+.fab-icon .icon { width: 26px; height: 26px; vertical-align: middle; }
+.fab-upper { bottom: 96px; }
+.fab-edit.active { background: #1565c0; box-shadow: 0 4px 14px rgba(21,101,192,0.45); }
+.fab-hide.active { background: #e65100; box-shadow: 0 4px 14px rgba(230,81,0,0.45); }
+
+/* room so the two inventory floaters never cover the last buttons */
+#inventoryPage .page-content { padding-bottom: 190px; }
+
 .promo-list {
   display: flex;
   flex-direction: column;
@@ -998,49 +1008,6 @@ button:active { opacity: 0.75; }
 }
 
 /* ── HIDING MODE ── */
-.hide-mode-btn {
-  padding: 7px;
-  margin: 0;
-  border-radius: var(--radius-sm);
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.hide-mode-btn:active { opacity: 0.7; }
-
-.hide-mode-btn.active {
-  background: #fff3e0;
-  color: #e65100;
-  font-weight: 700;
-}
-
-/* ── HISTORY EDIT MODE ── */
-.edit-mode-btn {
-  padding: 7px;
-  margin: 0;
-  border-radius: var(--radius-sm);
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.edit-mode-btn:active { opacity: 0.7; }
-
-.edit-mode-btn.active {
-  background: #e3f2fd;
-  color: #1565c0;
-  font-weight: 700;
-}
-
 .restock-section {
   margin-top: 24px;
   padding-top: 16px;

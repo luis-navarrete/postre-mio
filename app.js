@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.7.2";
-const APP_UPDATED = "2026-11-14T04:57Z";
+const APP_VERSION = "1.8.0";
+const APP_UPDATED = "2026-11-14T04:58Z";
 
 const STORE_ID = "postremio_main";
 
@@ -560,6 +560,8 @@ const _ICON_PATHS = {
   transfer: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   percent:  '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
   refresh:  '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+  eye:      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  eyeOff:   '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
   chevronsDown: '<polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>',
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   tick:     '<polyline points="20 6 9 17 4 12"/>',
@@ -1676,7 +1678,7 @@ function showPage(page) {
 
   ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage","settingsPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
-  ["promoFab","mermaFab"]
+  ["promoFab","mermaFab","editFab","priceFab","hideFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
 
   if (page === "pos") {
@@ -1684,6 +1686,8 @@ function showPage(page) {
   }
   if (page === "inventory") {
     document.getElementById("inventoryPage").style.display = "block";
+    document.getElementById("priceFab").style.display = "flex";
+    document.getElementById("hideFab").style.display = "flex";
     originalInventory = JSON.parse(JSON.stringify(inventory));
     updatedItems.clear();
     _pendingRestockByName = {};
@@ -1694,6 +1698,7 @@ function showPage(page) {
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
+    document.getElementById("editFab").style.display = "flex";
     renderHistory();
   }
   if (page === "promos") {
@@ -1727,6 +1732,7 @@ function showPage(page) {
   document.getElementById("sideMenu").classList.remove("open");
   updateSettingsDirty();
   updateStatsJump();
+  syncModeFabs();
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
@@ -2636,17 +2642,21 @@ function saveHiddenItems(list) {
   DataStore.saveHiddenItems(list);
 }
 
-const _SVG_EYE = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-const _SVG_EYE_OFF = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-
 function toggleHideMode() {
   hideModeActive = !hideModeActive;
-  const btn = document.getElementById("hideModeBtn");
-  if (btn) {
-    btn.innerHTML = hideModeActive ? _SVG_EYE_OFF : _SVG_EYE;
-    btn.classList.toggle("active", hideModeActive);
-  }
+  syncModeFabs();
   renderInventory();
+}
+
+// Keeps the floating mode buttons (eye / pencil) in line with their mode state
+function syncModeFabs() {
+  const hide = document.getElementById("hideFab");
+  if (hide) {
+    hide.innerHTML = icon(hideModeActive ? "eyeOff" : "eye");
+    hide.classList.toggle("active", hideModeActive);
+  }
+  const edit = document.getElementById("editFab");
+  if (edit) edit.classList.toggle("active", editModeActive);
 }
 
 function toggleItemHidden(name) {
@@ -2673,8 +2683,7 @@ let editModeActive = false;
 
 function toggleEditMode() {
   editModeActive = !editModeActive;
-  const btn = document.getElementById("editModeBtn");
-  if (btn) btn.classList.toggle("active", editModeActive);
+  syncModeFabs();
   renderHistory();
 }
 

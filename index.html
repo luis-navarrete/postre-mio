@@ -111,13 +111,7 @@
 <!-- INVENTARIO -->
 <div id="inventoryPage" class="page page-flow" style="display:none;">
   <div class="page-content">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;">
-      <h2 style="margin:0;">Inventario</h2>
-      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
-        <button class="hide-mode-btn" onclick="openPricesModal()" title="Precios"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></button>
-        <button id="hideModeBtn" class="hide-mode-btn" onclick="toggleHideMode()" title="Ocultar productos"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-      </div>
-    </div>
+    <h2 style="margin:0 0 4px;">Inventario</h2>
     <div id="inventoryList"></div>
     <button class="btn-brand" style="width:100%;margin-top:16px;font-size:14px;" onclick="openEditInventoryModal()"><span data-icon="pencil"></span> Editar inventario</button>
     <button id="bakeBtn" class="btn-brand" style="width:100%;margin-top:10px;font-size:14px;" onclick="openBakeModal()"><span data-icon="flame"></span> Hornear</button>
@@ -133,10 +127,7 @@
 <!-- HISTORIAL -->
 <div id="historyPage" class="page page-flow" style="display:none;">
   <div class="page-content">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <h2 style="margin:0;">Historial</h2>
-      <button id="editModeBtn" class="edit-mode-btn" onclick="toggleEditMode()" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-    </div>
+    <h2 style="margin:0 0 4px;">Historial</h2>
     <div id="historyList"></div>
     <div id="historyStats" class="history-stats" style="display:none;"></div>
     <div id="cutBtn" style="display:none; text-align: center;">
@@ -176,6 +167,11 @@
     <div id="mermaList"></div>
   </div>
 </div>
+
+<!-- Floating action buttons (bottom right), shown per page from showPage() -->
+<button id="editFab" class="fab fab-icon fab-edit" onclick="toggleEditMode()" title="Editar ventas" style="display:none;"><span data-icon="pencil"></span></button>
+<button id="priceFab" class="fab fab-icon fab-upper" onclick="openPricesModal()" title="Precios" style="display:none;"><span data-icon="tag"></span></button>
+<button id="hideFab" class="fab fab-icon fab-hide" onclick="toggleHideMode()" title="Ocultar productos" style="display:none;"><span data-icon="eye"></span></button>
 
 <button id="mermaFab" class="fab" onclick="openMermaModal()" title="Registrar merma" style="display:none;">+</button>
 
