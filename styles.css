@@ -1854,8 +1854,9 @@ body.has-savebar .toast { bottom: 96px; }
 .arch-summary { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
 .arch-summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 .arch-summary span { font-size: 13px; color: var(--text-muted); }
-.arch-methods { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-muted); margin-bottom: 12px; font-variant-numeric: tabular-nums; }
-.arch-methods em { font-style: normal; font-weight: 600; color: var(--text); }
+.arch-methods { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); }
+.arch-method { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.arch-method em { font-style: normal; font-weight: 600; color: var(--text); }
 
 .history-stats.flat { margin: 0 0 14px; padding: 12px 14px; box-shadow: none; background: var(--bg); }
 .history-stats.flat::before { display: none; }
@@ -1903,3 +1904,40 @@ body.has-savebar .toast { bottom: 96px; }
 .time12-row { display: flex; gap: 8px; }
 .time12-row .cselect { flex: 1; min-width: 0; }
 .time12-row .cselect:last-child { flex: 1.25; }
+
+/* modal header with a borderless close cross in the top right corner (stays visible while scrolling) */
+.modal-head {
+  position: sticky;
+  top: -22px;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin: -22px -22px 10px;
+  padding: 14px 14px 10px 22px;
+  background: var(--card-bg);
+  border-bottom: 1px solid transparent;
+}
+
+/* "Día n" and the date on one line; the date always starts at the same x, however wide the day number is */
+.modal-head-main { display: flex; align-items: baseline; min-width: 0; }
+.modal-head-main h3 { margin: 0; width: 64px; flex-shrink: 0; white-space: nowrap; }
+.modal-head-main .arch-day-date { display: inline-block; font-size: 13px; }
+
+.modal-content .icon-close {
+  width: auto;
+  margin: 0;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  line-height: 0;
+  cursor: pointer;
+}
+
+.icon-close .icon { width: 22px; height: 22px; }
+.icon-close:active { opacity: 0.5; }
+
+/* empty space at the end of a scrolling modal so the last line never touches the rounded border */
+.modal-spacer { height: 28px; flex-shrink: 0; }
