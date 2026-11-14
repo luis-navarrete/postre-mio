@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.7";
-const APP_UPDATED = "2026-11-14T22:56Z";
+const APP_VERSION = "1.17.8";
+const APP_UPDATED = "2026-11-14T23:30Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3200,6 +3200,7 @@ function openArchiveDay(dayNo) {
       </div>
       <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
     </div>
+    <div class="modal-scroll">
     <div class="arch-summary"><strong>${money(day.total)}</strong><span>${day.sales.length} ${day.sales.length === 1 ? "venta" : "ventas"}</span></div>
     <div class="arch-methods">${methods}</div>
     <div class="history-stats flat">${statsHTML(day.sales)}</div>
@@ -3207,7 +3208,9 @@ function openArchiveDay(dayNo) {
     ${day.sales.map(archiveSaleHTML).join("")}
     ${mermas}
     <div class="modal-spacer"></div>
+    </div>
   `);
+  document.getElementById("modalContent").classList.add("modal-split");
 }
 
 // ── Export (xlsx, one sheet per day) ──

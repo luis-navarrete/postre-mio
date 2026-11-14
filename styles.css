@@ -1931,3 +1931,23 @@ body.has-savebar .toast { bottom: 96px; }
 
 /* empty space at the end of a scrolling modal so the last line never touches the rounded border */
 .modal-spacer { height: 28px; flex-shrink: 0; }
+
+/* split modal: the header never scrolls (nor bounces); only .modal-scroll scrolls and carries its own bottom padding */
+.modal-content.modal-split {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.modal-split .modal-head { position: static; flex-shrink: 0; margin: 0 -22px; padding-top: 22px; }
+.modal-split .modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  margin: 0 -22px;
+  padding: 0 22px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.modal-split .modal-spacer { height: 16px; }
