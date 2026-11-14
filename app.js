@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.5.1";
-const APP_UPDATED = "2026-11-14T04:40Z";
+const APP_VERSION = "1.6.0";
+const APP_UPDATED = "2026-11-14T04:43Z";
 
 const STORE_ID = "postremio_main";
 
@@ -194,6 +194,7 @@ async function submitPin() {
 
 
 function logout() {
+  if (!guardSettingsLeave(logout)) return;
   stopListeners();
   auth.signOut();
   document.getElementById("loadingScreen").style.display = "none";
@@ -1615,6 +1616,7 @@ document.addEventListener("click", function(e) {
 });
 
 function showPage(page) {
+  if (page !== 'settings' && !guardSettingsLeave(() => showPage(page))) return;
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
   if (page !== 'inventory' && inventoryVisible && (updatedItems.size > 0 || updatedFrozenItems.size > 0)) {
     document.getElementById('sideMenu').classList.remove('open');
@@ -1692,6 +1694,7 @@ function showPage(page) {
     editModeActive = false;
   }
   document.getElementById("sideMenu").classList.remove("open");
+  updateSettingsDirty();
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
@@ -1718,7 +1721,7 @@ function renderSettings() {
     <div class="settings-card">
       <h3>${icon('save')} Actualizar app</h3>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
+      <button class="btn-secondary" style="width:100%;" onclick="if (guardSettingsLeave(refreshApp)) refreshApp()">Actualizar app</button>
     </div>
 
     <div class="settings-card">
@@ -1734,7 +1737,6 @@ function renderSettings() {
         <span>Avisar con stock de</span>
         <input id="lowStockInput" type="number" inputmode="numeric" min="0" max="99" value="${lowStockThreshold}" onfocus="this.select()">
       </div>
-      <button class="btn-brand" style="width:100%;" onclick="saveLowStockThreshold()">${icon('save')} Guardar</button>
     </div>
 
     <div class="settings-card">
@@ -1742,7 +1744,7 @@ function renderSettings() {
       <label class="switch-row">
         <span>Enviar ticket después de venta</span>
         <span class="toggle">
-          <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''} onchange="toggleAskSendTicket(this.checked)">
+          <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''}>
           <span class="toggle-slider"></span>
         </span>
       </label>
@@ -1754,7 +1756,6 @@ function renderSettings() {
         <label>Mensaje al compartir el ticket</label>
         <input id="shareMessageInput" type="text" value="${esc(appSettings.shareMessage)}">
       </div>
-      <button class="btn-brand" style="width:100%;" onclick="saveTicketSettings()">${icon('save')} Guardar</button>
     </div>
 
     <div class="settings-card">
@@ -1764,7 +1765,6 @@ function renderSettings() {
         ${appSettings.cashDenominations.map(denomRowHTML).join('')}
       </div>
       <button id="denomAddBtn" class="btn-secondary" style="width:100%;" onclick="addDenomRow()">${icon('plus')} Agregar cantidad</button>
-      <button class="btn-brand" style="width:100%;" onclick="saveCashSettings()">${icon('save')} Guardar</button>
     </div>
 
     <div class="settings-card">
@@ -1773,6 +1773,7 @@ function renderSettings() {
       <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
     </div>
   `;
+  updateSettingsDirty();
 }
 
 async function refreshApp() {
@@ -1789,21 +1790,6 @@ async function refreshApp() {
     console.error("refreshApp failed:", e);
   }
   location.reload();
-}
-
-async function saveLowStockThreshold() {
-  const value = parseInt(document.getElementById("lowStockInput").value, 10);
-  if (isNaN(value) || value < 0 || value > 99) { showToast("Número inválido"); return; }
-  lowStockThreshold = value;
-  try {
-    await withTimeout(DataStore.saveSettings({ lowStockThreshold: value }), 10000);
-    showToast("Guardado", "check");
-  } catch (e) {
-    showToast("Error al guardar. Intenta de nuevo.");
-  }
-  renderProducts();
-  renderCart();
-  renderInventory();
 }
 
 // One-time repair: give sales saved without a folio the next numbers of their day,
@@ -1866,26 +1852,158 @@ async function assignMissingFolios() {
   });
 }
 
-async function saveAppSettings(fields) {
-  Object.assign(appSettings, fields);
-  try {
-    await withTimeout(DataStore.saveSettings(fields), 10000);
-    showToast("Guardado", "check");
-  } catch (e) {
-    showToast("Error al guardar. Intenta de nuevo.");
+// ── Settings: unsaved-changes tracking and floating save button ──
+// Each tracked field compares the control's current value with the saved one.
+const _byId = id => document.getElementById(id);
+const _normDenoms = () => [...new Set(
+  [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
+)].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+
+const SETTINGS_FIELDS = {
+  lowStockThreshold: {
+    read: () => { const v = _byId("lowStockInput").value.trim(); return v === "" ? NaN : Number(v); },
+    saved: () => lowStockThreshold,
+    same: (a, b) => a === b,
+    valid: v => Number.isInteger(v) && v >= 0 && v <= 99,
+    error: "Stock bajo: escribe un número de 0 a 99",
+    marks: () => [_byId("lowStockInput")],
+  },
+  askSendTicket: {
+    read: () => _byId("askTicketInput").checked,
+    saved: () => !!appSettings.askSendTicket,
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("askTicketInput").closest(".switch-row")],
+  },
+  ticketThanks: {
+    read: () => _byId("ticketThanksInput").value.trim(),
+    saved: () => String(appSettings.ticketThanks ?? "").trim(),
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("ticketThanksInput")],
+  },
+  ticketFooter: {
+    read: () => _byId("ticketFooterInput").value.trim(),
+    saved: () => String(appSettings.ticketFooter ?? "").trim(),
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("ticketFooterInput")],
+  },
+  shareMessage: {
+    read: () => _byId("shareMessageInput").value.trim(),
+    saved: () => String(appSettings.shareMessage ?? "").trim(),
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("shareMessageInput")],
+  },
+  cashDenominations: {
+    read: _normDenoms,
+    saved: () => appSettings.cashDenominations,
+    same: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+    valid: v => v.length > 0,
+    error: "Agrega al menos una cantidad en Efectivo",
+    marks: () => [_byId("denomList")],
+  },
+};
+
+function settingsPageVisible() {
+  const el = _byId("settingsPage");
+  return !!el && el.style.display !== "none";
+}
+
+// Recomputes which fields differ from what's saved, highlights them (and removes the
+// highlight when reverted), and shows or hides the floating save button.
+function updateSettingsDirty() {
+  const bar = _byId("settingsSaveBar");
+  if (!settingsPageVisible() || !_byId("lowStockInput")) {
+    if (bar) bar.classList.remove("show");
+    document.body.classList.remove("has-savebar");
+    return 0;
   }
+
+  let count = 0;
+  for (const f of Object.values(SETTINGS_FIELDS)) {
+    const changed = !f.same(f.read(), f.saved());
+    f.marks().forEach(el => el && el.classList.toggle("changed", changed));
+    if (changed) count++;
+  }
+
+  // New cash amounts get their own highlight
+  const savedDenoms = new Set(appSettings.cashDenominations);
+  document.querySelectorAll("#denomList .denom-input").forEach(i =>
+    i.classList.toggle("changed", i.value !== "" && !savedDenoms.has(Number(i.value)))
+  );
+
+  _byId("settingsSaveLabel").textContent = count > 1 ? `Guardar cambios (${count})` : "Guardar cambios";
+  bar.classList.toggle("show", count > 0);
+  document.body.classList.toggle("has-savebar", count > 0);
+  return count;
 }
 
-function toggleAskSendTicket(checked) {
-  saveAppSettings({ askSendTicket: checked });
+async function saveSettingsChanges() {
+  const fields = {};
+  for (const [key, f] of Object.entries(SETTINGS_FIELDS)) {
+    const v = f.read();
+    if (f.same(v, f.saved())) continue;
+    if (!f.valid(v)) { showToast(f.error); return false; }
+    fields[key] = v;
+  }
+  if (!Object.keys(fields).length) return true;
+
+  const btn = _byId("settingsSaveBtn");
+  btn.disabled = true;
+
+  // Apply locally first (the app keeps working offline); roll back if the save fails.
+  const prevLow = lowStockThreshold;
+  const prevSettings = { ...appSettings };
+  const { lowStockThreshold: newLow, ...rest } = fields;
+  if (newLow !== undefined) lowStockThreshold = newLow;
+  Object.assign(appSettings, rest);
+
+  const write = DataStore.saveSettings(fields);
+  let ok = true;
+  if (!navigator.onLine) {
+    write.catch(() => {});
+    showToast("Guardado. Se sincronizará al conectar", "check");
+  } else {
+    try {
+      await withTimeout(write, 10000);
+      showToast("Guardado", "check");
+    } catch (e) {
+      ok = false;
+      lowStockThreshold = prevLow;
+      Object.keys(appSettings).forEach(k => delete appSettings[k]);
+      Object.assign(appSettings, prevSettings);
+      showToast("Error al guardar. Intenta de nuevo.");
+    }
+  }
+
+  btn.disabled = false;
+  if (ok) {
+    if (newLow !== undefined) { renderProducts(); renderCart(); renderInventory(); }
+    renderSettings();
+  }
+  return ok;
 }
 
-function saveTicketSettings() {
-  saveAppSettings({
-    ticketThanks: document.getElementById("ticketThanksInput").value.trim(),
-    ticketFooter: document.getElementById("ticketFooterInput").value.trim(),
-    shareMessage: document.getElementById("shareMessageInput").value.trim(),
-  });
+// Returns true when it's fine to leave the settings page right now. Otherwise shows the
+// unsaved-changes dialog and calls `proceed` later if the user saves or discards.
+function guardSettingsLeave(proceed) {
+  if (!settingsPageVisible() || updateSettingsDirty() === 0) return true;
+  _byId("sideMenu").classList.remove("open");
+  openPopupModal(`
+    <h3 style="margin-top:0;">Cambios sin guardar</h3>
+    <p style="color:var(--text-muted);font-size:14px;">Tienes cambios en Ajustes sin guardar.</p>
+    <button class="btn-brand" id="_navSave">${icon('save')} Guardar y salir</button>
+    <button class="btn-danger" id="_navDiscard">Descartar cambios</button>
+    <button class="btn-secondary" id="_navCancel">Seguir editando</button>
+  `);
+  _byId("_navSave").onclick = async () => {
+    if (await saveSettingsChanges()) { closeModal(); proceed(); }
+  };
+  _byId("_navDiscard").onclick = () => { renderSettings(); closeModal(); proceed(); };
+  _byId("_navCancel").onclick = () => closeModal();
+  return false;
 }
 
 const MAX_CASH_BUTTONS = 8;
@@ -1910,21 +2028,13 @@ function addDenomRow() {
   list.insertAdjacentHTML("beforeend", denomRowHTML(""));
   list.lastElementChild.querySelector("input").focus();
   updateDenomAddBtn();
+  updateSettingsDirty();
 }
 
 function removeDenomRow(btn) {
   btn.closest(".denom-row").remove();
   updateDenomAddBtn();
-}
-
-function saveCashSettings() {
-  const nums = [...new Set(
-    [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
-  )].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
-  if (nums.length === 0) { showToast("Agrega al menos una cantidad"); return; }
-  saveAppSettings({ cashDenominations: nums });
-  document.getElementById("denomList").innerHTML = nums.map(denomRowHTML).join("");
-  updateDenomAddBtn();
+  updateSettingsDirty();
 }
 
 function openChangePinModal() {
@@ -3953,6 +4063,12 @@ function sharePending(id) {
     navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
   }
 }
+
+// Settings: re-check for unsaved changes whenever a control is edited
+["input", "change"].forEach(ev => document.getElementById("settingsContent").addEventListener(ev, updateSettingsDirty));
+window.addEventListener("beforeunload", e => {
+  if (settingsPageVisible() && updateSettingsDirty() > 0) { e.preventDefault(); e.returnValue = ""; }
+});
 
 // Fill static icon placeholders in index.html
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });

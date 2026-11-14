@@ -1436,6 +1436,60 @@ button:disabled {
 .toggle input:checked + .toggle-slider { background: var(--brand-dark); }
 .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
 
+/* ── SETTINGS: unsaved changes ─────────── */
+.settings-savebar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1500;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px calc(14px + env(safe-area-inset-bottom));
+  pointer-events: none;
+  transform: translateY(140%);
+  visibility: hidden;
+  transition: transform 0.25s ease, visibility 0s linear 0.25s;
+}
+
+.settings-savebar.show {
+  transform: none;
+  visibility: visible;
+  transition: transform 0.25s ease;
+}
+
+.settings-savebar button {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 420px;
+  margin: 0;
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+}
+
+body.has-savebar .toast { bottom: 96px; }
+
+.settings-card input,
+.settings-card textarea,
+.switch-row,
+.denom-list { transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+
+.settings-card input.changed,
+.settings-card textarea.changed {
+  border-color: var(--brand) !important;
+  background: var(--brand-light) !important;
+}
+
+.switch-row.changed,
+.denom-list.changed {
+  background: var(--brand-light);
+  box-shadow: 0 0 0 6px var(--brand-light);
+  border-radius: 8px;
+}
+
 .promo-form textarea {
   width: 100%;
   box-sizing: border-box;
