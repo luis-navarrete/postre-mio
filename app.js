@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.7";
-const APP_UPDATED = "2026-11-14T04:52Z";
+const APP_VERSION = "1.6.8";
+const APP_UPDATED = "2026-11-14T04:53Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2853,7 +2853,7 @@ function renderHistoryStats(data) {
       <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip"><b>${n}×</b><span>${esc(name)}</span></span>`).join("")}</div>
     </div>`).join("");
 
-  el.innerHTML = `<div class="stats-title">Vendidos</div>${rows}`;
+  el.innerHTML = `<div class="stats-title"><span>Ventas</span><strong>${data.length}</strong></div>${rows}`;
   el.style.display = "block";
 }
 
