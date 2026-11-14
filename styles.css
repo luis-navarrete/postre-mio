@@ -569,7 +569,8 @@ button:active { opacity: 0.75; }
 
 /* Icon floaters (History edit, Inventory prices / hide) */
 .fab-icon { padding: 0; }
-.fab-icon .icon { width: 26px; height: 26px; vertical-align: middle; }
+.fab-icon > span { display: flex; align-items: center; justify-content: center; }
+.fab-icon .icon { display: block; width: 26px; height: 26px; }
 .fab-upper { bottom: 96px; }
 .fab-edit.active { background: #1565c0; }
 .fab-hide.active { background: #e65100; }
