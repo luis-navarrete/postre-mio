@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.3.1";
-const APP_UPDATED = "2026-11-14T01:48Z";
+const APP_VERSION = "1.3.2";
+const APP_UPDATED = "2026-11-14T01:49Z";
 
 const STORE_ID = "postremio_main";
 
@@ -272,9 +272,15 @@ const DataStore = {
   // ── Folio Counter (atomic) ──
   async getNextFolio(dateStr) {
     const ref = storeRef("counters").doc(dateStr);
-    await ref.set({ value: firebase.firestore.FieldValue.increment(1) }, { merge: true });
-    const doc = await ref.get();
-    return dateStr + String(doc.data().value).padStart(3, "0");
+    // A transaction reads and increments in one atomic step, so two devices
+    // can never get the same number (needs a connection; the caller falls back).
+    const value = await withTimeout(db.runTransaction(async tx => {
+      const doc = await tx.get(ref);
+      const next = (doc.exists ? doc.data().value : 0) + 1;
+      tx.set(ref, { value: next });
+      return next;
+    }), 4000);
+    return dateStr + String(value).padStart(3, "0");
   },
 
   // ── Promotions ──
@@ -1138,15 +1144,6 @@ function showFinalStep(total, method, change, amount) {
     }))
   };
 
-  // Fetch folio in background while user sees the confirmation
-  const now = new Date();
-  const dateStr = now.getFullYear().toString().slice(2)
-    + String(now.getMonth() + 1).padStart(2, '0')
-    + String(now.getDate()).padStart(2, '0');
-  DataStore.getNextFolio(dateStr).then(folio => {
-    if (currentSale) currentSale.folio = folio;
-  });
-
   openPopupModal(`
     <h3>Total: $${total}</h3>
 
@@ -1159,12 +1156,40 @@ function showFinalStep(total, method, change, amount) {
   `);
 }
 
+// Folio = YYMMDD + 3-digit daily counter. If the counter can't be reached
+// (offline or slow), use YYMMDD-HHMMSS so the sale still gets a unique folio.
+async function getFolioSafe() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const dateStr = now.getFullYear().toString().slice(2) + pad(now.getMonth() + 1) + pad(now.getDate());
+  if (navigator.onLine) {
+    try {
+      return await DataStore.getNextFolio(dateStr);
+    } catch (e) {
+      console.error("Folio counter unavailable, using fallback:", e);
+    }
+  }
+  return `${dateStr}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+let _finalizing = false;
+
 async function finalizeSale() {
   if (!currentSale) {
     showToast("Error en la venta");
     return;
   }
+  if (_finalizing) return;
+  _finalizing = true;
   vibrate(20);
+
+  showSpinner();
+  try {
+    currentSale.folio = await getFolioSafe();
+  } finally {
+    hideSpinner();
+    _finalizing = false;
+  }
 
   const itemCounts = {};
   currentSale.items.forEach(item => {
