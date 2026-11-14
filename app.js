@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.2.0";
-const APP_UPDATED = "2026-11-14T00:12Z";
+const APP_VERSION = "1.2.1";
+const APP_UPDATED = "2026-11-14T00:26Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3482,6 +3482,7 @@ async function renderPending() {
 
   showSpinner();
   const list = await DataStore.getPending().finally(hideSpinner);
+  _pendingCache = list;
 
   if (!list.length) {
     container.innerHTML = `
@@ -3528,9 +3529,34 @@ async function renderPending() {
   });
 }
 
-async function sharePending(id) {
-  const list = await DataStore.getPending();
-  const order = list.find(o => o._id === id);
+// Width (in characters) of the shared order text; fits most phones in WhatsApp's monospaced block
+const SHARE_WIDTH = 30;
+
+// Word-wrap text to `width`, indenting continuation lines by `indent` spaces
+function wrapText(text, width, indent = 0) {
+  const lines = [];
+  let line = "";
+  const limit = () => lines.length ? width - indent : width;
+  for (let word of String(text).split(" ")) {
+    if (!word) continue;
+    if (line && (line + " " + word).length > limit()) { lines.push(line); line = ""; }
+    while (word.length > limit()) {
+      if (line) { lines.push(line); line = ""; }
+      lines.push(word.slice(0, limit()));
+      word = word.slice(limit());
+    }
+    line = line ? line + " " + word : word;
+  }
+  if (line) lines.push(line);
+  return lines.map((l, i) => i ? " ".repeat(indent) + l : l);
+}
+
+// Kept from the last render so sharing starts synchronously from the tap
+// (iOS rejects navigator.share after an await).
+let _pendingCache = [];
+
+function sharePending(id) {
+  const order = _pendingCache.find(o => o._id === id);
   if (!order) return;
 
   const grouped = {};
@@ -3549,21 +3575,23 @@ async function sharePending(id) {
   }
   const totalEntry = { left: 'Total', right: `$${parseFloat(order.total).toFixed(2)}` };
 
-  const maxLeft  = Math.max(...[...entries, totalEntry].map(e => e.left.length));
-  const maxRight = Math.max(...[...entries, totalEntry].map(e => e.right.length));
-  const colWidth = maxLeft + 2 + maxRight;
+  const maxRight  = Math.max(...[...entries, totalEntry].map(e => e.right.length));
+  const leftWidth = Math.max(12, SHARE_WIDTH - 2 - maxRight);
+  const sep = '─'.repeat(leftWidth + 2 + maxRight);
 
-  const fmt = ({ left, right }) => left.padEnd(maxLeft) + '  ' + right.padStart(maxRight);
-  const sep = '─'.repeat(colWidth);
+  const fmt = ({ left, right }) => {
+    const [first, ...rest] = wrapText(left, leftWidth, 3);
+    return [first.padEnd(leftWidth) + '  ' + right.padStart(maxRight), ...rest].join('\n');
+  };
 
   const body = [
-    `Postre Mío — Pedido de ${order.name}`,
-    order.note ? `📝 ${order.note}` : null,
+    ...wrapText(`Postre Mío — Pedido de ${order.name}`, SHARE_WIDTH),
+    ...(order.note ? wrapText(`📝 ${order.note}`, SHARE_WIDTH, 3) : []),
     sep,
     ...entries.map(fmt),
     sep,
     fmt(totalEntry),
-  ].filter(Boolean).join('\n');
+  ].join('\n');
 
   const text = `\`\`\`\n${body}\n\`\`\``;
 
