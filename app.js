@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.12.9";
-const APP_UPDATED = "2026-11-14T08:56Z";
+const APP_VERSION = "1.13.1";
+const APP_UPDATED = "2026-11-14T08:59Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2199,10 +2199,10 @@ function renderInventory() {
         <div class="inv-list-main">
           <span class="inv-list-name">${esc(name)}</span>
           <span class="inv-list-nums">
-            <span class="inv-list-qty"><span class="stock-pill ${isOut ? 'out' : isLow ? 'low' : 'ok'}">${isLow || isOut ? icon('alert') : ''}${qty}</span></span>
             ${isFreezable
-              ? `<span class="inv-frozen${frozenQty === 0 ? ' zero' : ''}" title="Congelados">${icon('snowflake')}${frozenQty}</span>`
+              ? `<span class="inv-frozen${frozenQty === 0 ? ' zero' : ''}" title="Congelados">${frozenQty}${icon('snowflake')}</span>`
               : `<span class="inv-frozen empty"></span>`}
+            <span class="inv-list-qty"><span class="stock-pill ${isOut ? 'out' : isLow ? 'low' : 'ok'}">${isLow || isOut ? icon('alert') : ''}${qty}</span></span>
           </span>
         </div>
       `;
