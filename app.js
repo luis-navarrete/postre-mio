@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.4";
-const APP_UPDATED = "2026-11-14T09:49Z";
+const APP_VERSION = "1.16.5";
+const APP_UPDATED = "2026-11-14T09:53Z";
 
 const STORE_ID = "postremio_main";
 
@@ -810,7 +810,7 @@ function renderProducts() {
         <img src="${item.img}">
         <h3>${esc(item.name)}</h3>
         ${item.noBasePrice ? '' : `<p>$${parseFloat(item.price).toFixed(2)}</p>`}
-        <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
+        <p id="stock-${safeId}" class="stock-line">STOCK: ${stock}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
       grid.appendChild(div);
@@ -3626,7 +3626,7 @@ function renderCart() {
     const remaining = productStock(item.name) - inCart;
     const isLow = remaining > 0 && remaining <= lowStockThreshold;
     const isOut = remaining <= 0;
-    el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
+    el.innerHTML = `STOCK: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
 
     const card = el.closest('.product');
