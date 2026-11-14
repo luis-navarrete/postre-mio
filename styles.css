@@ -660,6 +660,19 @@ button:active { opacity: 0.75; }
 .promo-form input:focus,
 .promo-form select:focus { border-color: var(--brand); }
 
+/* iOS renders date/time inputs taller and centered; match the text inputs */
+.promo-form input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  height: 38px;
+  min-height: 38px;
+  line-height: 18px;
+  text-align: left;
+}
+
+.promo-form input[type="time"]::-webkit-date-and-time-value { text-align: left; min-height: 0; }
+
 .promo-form .row2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
