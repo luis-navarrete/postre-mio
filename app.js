@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.3";
-const APP_UPDATED = "2026-11-14T02:16Z";
+const APP_VERSION = "1.4.4";
+const APP_UPDATED = "2026-11-14T02:17Z";
 
 const STORE_ID = "postremio_main";
 
@@ -551,6 +551,7 @@ const _ICON_PATHS = {
   alert:    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
   note:     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
   trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
@@ -1614,10 +1615,11 @@ function renderSettings() {
 
     <div class="settings-card">
       <h3>${icon('banknote')} Efectivo</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Botones rápidos del pago en efectivo (separados por comas, hasta 8).</p>
-      <div class="promo-form">
-        <input id="denomInput" type="text" inputmode="numeric" value="${esc(appSettings.cashDenominations.join(', '))}">
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Botones rápidos del pago en efectivo (hasta ${MAX_CASH_BUTTONS}).</p>
+      <div id="denomList" class="denom-list">
+        ${appSettings.cashDenominations.map(denomRowHTML).join('')}
       </div>
+      <button id="denomAddBtn" class="btn-secondary" style="width:100%;" onclick="addDenomRow()">${icon('plus')} Agregar cantidad</button>
       <button class="btn-brand" style="width:100%;" onclick="saveCashSettings()">${icon('save')} Guardar</button>
     </div>
 
@@ -1742,13 +1744,43 @@ function saveTicketSettings() {
   });
 }
 
+const MAX_CASH_BUTTONS = 8;
+
+function denomRowHTML(value) {
+  return `<div class="denom-row">
+    <span class="denom-prefix">$</span>
+    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" class="denom-input" value="${esc(String(value ?? ''))}" placeholder="0" oninput="this.value=this.value.replace(/\\D/g,'')">
+    <button class="history-action-btn danger" onclick="removeDenomRow(this)" title="Quitar">${icon('trash')}</button>
+  </div>`;
+}
+
+function updateDenomAddBtn() {
+  const n = document.querySelectorAll("#denomList .denom-row").length;
+  const btn = document.getElementById("denomAddBtn");
+  if (btn) btn.disabled = n >= MAX_CASH_BUTTONS;
+}
+
+function addDenomRow() {
+  const list = document.getElementById("denomList");
+  if (list.children.length >= MAX_CASH_BUTTONS) return;
+  list.insertAdjacentHTML("beforeend", denomRowHTML(""));
+  list.lastElementChild.querySelector("input").focus();
+  updateDenomAddBtn();
+}
+
+function removeDenomRow(btn) {
+  btn.closest(".denom-row").remove();
+  updateDenomAddBtn();
+}
+
 function saveCashSettings() {
   const nums = [...new Set(
-    document.getElementById("denomInput").value.split(/[,\s]+/).map(Number)
+    [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
   )].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
-  if (nums.length === 0 || nums.length > 8) { showToast("Escribe entre 1 y 8 cantidades"); return; }
+  if (nums.length === 0) { showToast("Agrega al menos una cantidad"); return; }
   saveAppSettings({ cashDenominations: nums });
-  document.getElementById("denomInput").value = nums.join(", ");
+  document.getElementById("denomList").innerHTML = nums.map(denomRowHTML).join("");
+  updateDenomAddBtn();
 }
 
 function openChangePinModal() {
