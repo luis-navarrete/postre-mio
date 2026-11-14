@@ -402,6 +402,7 @@ button:active { opacity: 0.75; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-height: 26px; /* rows with a stock pill are no taller than the rest */
 }
 
 .inv-name, .inv-list-name { font-weight: 700; font-size: 14px; }
@@ -1364,6 +1365,21 @@ button:active { opacity: 0.75; }
 .history-empty .icon { color: var(--text-muted); }
 
 .low-stock-badge .icon { width: 1em; height: 1em; vertical-align: -0.15em; }
+
+/* inventory list: the stock number itself sits in the colored pill, warning icon on its left */
+.stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 0;
+  padding: 3px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.stock-pill.out { background: var(--red); }
+.stock-pill .icon { width: 14px; height: 14px; vertical-align: baseline; }
 
 /* ── INVENTORY CATEGORIES / DISABLED BUTTONS ── */
 .inv-list-cat,
