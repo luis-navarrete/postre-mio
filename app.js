@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.13";
-const APP_UPDATED = "2026-11-15T01:30Z";
+const APP_VERSION = "1.17.14";
+const APP_UPDATED = "2026-11-15T02:10Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1877,20 +1877,8 @@ function renderSettings() {
 
     <div class="settings-card">
       <h3>${icon('clock')} Formato de hora</h3>
-      <label class="switch-row">
-        <span>24 horas en tarjetas de historial</span>
-        <span class="toggle">
-          <input type="checkbox" id="use24hCardsInput" ${appSettings.use24hCards ? 'checked' : ''}>
-          <span class="toggle-slider"></span>
-        </span>
-      </label>
-      <label class="switch-row">
-        <span>24 horas al editar la hora</span>
-        <span class="toggle">
-          <input type="checkbox" id="use24hEditorInput" ${appSettings.use24hEditor ? 'checked' : ''}>
-          <span class="toggle-slider"></span>
-        </span>
-      </label>
+      ${segmentHTML("use24hCards", "Tarjetas de historial", !!appSettings.use24hCards)}
+      ${segmentHTML("use24hEditor", "Editor de historial", !!appSettings.use24hEditor)}
     </div>
 
     <div class="settings-card">
@@ -1929,6 +1917,20 @@ function renderSettings() {
     </div>
   `;
   updateSettingsDirty();
+}
+
+// Two-option slider ("12 horas" / "24 horas"): grey track with a teal thumb that slides under the chosen label.
+// Two radios per group; the "24" one being checked means 24-hour.
+function segmentHTML(id, label, is24) {
+  return `
+    <div class="seg-row" id="${id}Row">
+      <div class="seg-label">${label}</div>
+      <div class="seg ${is24 ? "right" : ""}">
+        <span class="seg-thumb"></span>
+        <label><input type="radio" name="${id}" id="${id}12" ${is24 ? "" : "checked"} onchange="this.closest('.seg').classList.remove('right')"><span>12 horas</span></label>
+        <label><input type="radio" name="${id}" id="${id}24" ${is24 ? "checked" : ""} onchange="this.closest('.seg').classList.add('right')"><span>24 horas</span></label>
+      </div>
+    </div>`;
 }
 
 async function refreshApp() {
@@ -1972,18 +1974,18 @@ const SETTINGS_FIELDS = {
     marks: () => [_byId("askTicketInput").closest(".switch-row")],
   },
   use24hCards: {
-    read: () => _byId("use24hCardsInput").checked,
+    read: () => _byId("use24hCards24").checked,
     saved: () => !!appSettings.use24hCards,
     same: (a, b) => a === b,
     valid: () => true,
-    marks: () => [_byId("use24hCardsInput").closest(".switch-row")],
+    marks: () => [_byId("use24hCardsRow")],
   },
   use24hEditor: {
-    read: () => _byId("use24hEditorInput").checked,
+    read: () => _byId("use24hEditor24").checked,
     saved: () => !!appSettings.use24hEditor,
     same: (a, b) => a === b,
     valid: () => true,
-    marks: () => [_byId("use24hEditorInput").closest(".switch-row")],
+    marks: () => [_byId("use24hEditorRow")],
   },
   ticketThanks: {
     read: () => _byId("ticketThanksInput").value.trim(),
