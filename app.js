@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.9.0";
-const APP_UPDATED = "2026-11-14T05:11Z";
+const APP_VERSION = "1.9.1";
+const APP_UPDATED = "2026-11-14T05:13Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1740,8 +1740,8 @@ function renderSettings() {
 
     <div class="settings-card">
       <h3>${icon('note')} Folios</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Asigna un folio (fecha y hora de la venta) a las ventas del historial que no tienen.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="assignMissingFolios()">Asignar folios faltantes</button>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Cambia los folios del historial al formato nuevo (fecha y hora de la venta). Los que ya lo tienen no se tocan.</p>
+      <button class="btn-secondary" style="width:100%;" onclick="convertFolios()">Convertir folios</button>
     </div>
 
     <div class="settings-card">
@@ -1807,9 +1807,10 @@ async function refreshApp() {
   location.reload();
 }
 
-// One-time repair: give sales saved without a folio the next numbers of their day,
-// in time order, continuing after the folios already used that day.
-async function assignMissingFolios() {
+// Converts every sale's folio to the time format (YYMMDD-HHMMSS, from the sale's own date
+// and time). Sales already in that format keep theirs; old numbered folios and sales
+// without a folio get a new one. Safe to run again: it only touches what isn't converted yet.
+async function convertFolios() {
   let sales;
   try {
     sales = await DataStore.getSales();
@@ -1818,35 +1819,44 @@ async function assignMissingFolios() {
     return;
   }
 
-  const missing = sales.filter(s => !s.folio && s.isoDate)
+  const isNewFormat = f => /^\d{6}-\d{6}$/.test(String(f || ""));
+  const todo = sales.filter(s => s.isoDate && !isNewFormat(s.folio))
     .sort((a, b) => a.isoDate.localeCompare(b.isoDate));
-  const withoutDate = sales.filter(s => !s.folio && !s.isoDate).length;
+  const withoutDate = sales.filter(s => !s.isoDate && !isNewFormat(s.folio)).length;
 
-  if (!missing.length) {
-    showToast(withoutDate ? "Hay ventas sin fecha que no se pueden numerar" : "Todas las ventas ya tienen folio");
+  if (!todo.length) {
+    showToast(withoutDate ? "Hay ventas sin fecha que no se pueden convertir" : "Todos los folios ya están en el formato nuevo");
     return;
   }
 
-  confirmModal(`¿Asignar folio a ${missing.length} venta${missing.length === 1 ? "" : "s"}?`, async () => {
+  const hadOld = todo.filter(s => s.folio).length;
+  const msg = `¿Cambiar el folio de ${todo.length} venta${todo.length === 1 ? "" : "s"} al formato nuevo?` +
+    (hadOld ? " Los folios anteriores dejarán de existir." : "");
+
+  confirmModal(msg, async () => {
     showSpinner();
     try {
-      // Each sale gets a folio from its own date and time (same format as new sales).
-      const taken = new Set(sales.map(x => x.folio).filter(Boolean));
-      const batch = db.batch();
-      missing.forEach(sale => {
+      const taken = new Set(sales.filter(s => isNewFormat(s.folio)).map(s => s.folio));
+      const updates = todo.map(sale => {
         let when = new Date(sale.isoDate);
         while (taken.has(formatFolio(when))) when = new Date(when.getTime() + 1000);
         const folio = formatFolio(when);
         taken.add(folio);
-        batch.update(storeRef("sales").doc(sale._id), { folio });
+        return { id: sale._id, folio };
       });
-      await batch.commit();
 
-      showToast(`${missing.length} folios asignados`, "check");
+      // Firestore batches hold up to 500 writes
+      for (let i = 0; i < updates.length; i += 400) {
+        const batch = db.batch();
+        updates.slice(i, i + 400).forEach(u => batch.update(storeRef("sales").doc(u.id), { folio: u.folio }));
+        await batch.commit();
+      }
+
+      showToast(`${updates.length} folios convertidos`, "check");
       renderHistoryFromFirestore();
     } catch (e) {
-      console.error("assignMissingFolios failed:", e);
-      showToast("Error al asignar folios. Intenta de nuevo.");
+      console.error("convertFolios failed:", e);
+      showToast("Error al convertir los folios. Intenta de nuevo.");
     } finally {
       hideSpinner();
     }
