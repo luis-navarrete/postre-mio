@@ -1256,5 +1256,20 @@ button:disabled {
   font-weight: 600;
 }
 
-.stats-items { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; color: var(--text-muted); }
-.stats-chip b { color: var(--text); }
+.stats-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px 12px;
+  margin-top: 3px;
+  color: var(--text-muted);
+}
+
+.stats-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.25;
+}
+
+.stats-chip b { color: var(--text); flex-shrink: 0; }
