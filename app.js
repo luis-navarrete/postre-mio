@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.11.0";
-const APP_UPDATED = "2026-11-14T05:45Z";
+const APP_VERSION = "1.11.1";
+const APP_UPDATED = "2026-11-14T05:46Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1301,16 +1301,45 @@ function showFinalStep(total, method, change, amount) {
     }))
   };
 
+  renderFinalStep();
+}
+
+// Last step of a sale: total (and change), Finalizar, Añadir nota, Regresar
+function renderFinalStep() {
+  if (!currentSale) return;
+  const { total, method, change, note } = currentSale;
   openPopupModal(`
     <h3>Total: $${total}</h3>
 
     ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
+    ${note ? `<p class="final-note">${esc(note)}</p>` : ""}
 
     <button onclick="finalizeSale()">
       Finalizar
     </button>
+    <button class="btn-secondary" onclick="openFinalNote()">${icon('note')} ${note ? 'Editar nota' : 'Añadir nota'}</button>
     <button onclick="openPaymentOptions(${total})">Regresar</button>
   `);
+}
+
+function openFinalNote() {
+  if (!currentSale) return;
+  openPopupModal(`
+    <h3 style="margin-top:0;">${icon('note')} Nota de la venta</h3>
+    <div class="promo-form">
+      <textarea id="final-note" rows="3" maxlength="200" placeholder="Ej: cobro parcial, pedido especial...">${esc(currentSale.note || '')}</textarea>
+    </div>
+    <button class="btn-brand" onclick="saveFinalNote()" style="margin-top:14px;">Guardar</button>
+    <button class="btn-secondary" onclick="renderFinalStep()">Cancelar</button>
+  `);
+  document.getElementById("final-note").focus();
+}
+
+function saveFinalNote() {
+  if (!currentSale) return;
+  const note = document.getElementById("final-note").value.trim();
+  if (note) currentSale.note = note; else delete currentSale.note;
+  renderFinalStep();
 }
 
 // Folio = the sale's date and time, e.g. 261114-203045 (YYMMDD-HHMMSS). It's made on the
