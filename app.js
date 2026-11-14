@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.9.7";
-const APP_UPDATED = "2026-11-14T05:23Z";
+const APP_VERSION = "1.9.8";
+const APP_UPDATED = "2026-11-14T05:25Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3206,7 +3206,7 @@ function renderCart() {
 // ── render promo list ─────────────────────────
 
 function promoTypeLabel(type) {
-  return { free_item: `${icon('gift')} Gratis`, fixed_price: `${icon('coins')} Precio fijo`, pct_discount: "% Descuento", raffle: `${icon('ticket')} Rifa` }[type] || type;
+  return { free_item: `${icon('gift')} Gratis`, fixed_price: `${icon('coins')} Precio fijo`, pct_discount: `${icon('percent')} Descuento`, raffle: `${icon('ticket')} Rifa` }[type] || type;
 }
 
 function promoTypeClass(type) {
@@ -3309,7 +3309,7 @@ function openPromoModal() {
       <select id="pf-type" onchange="onPromoTypeChange()">
         <option value="free_item" data-icon="gift">Producto gratis</option>
         <option value="fixed_price" data-icon="tag">Precio fijo por grupo</option>
-        <option value="pct_discount" data-icon="percent">% Descuento</option>
+        <option value="pct_discount" data-icon="percent">Descuento</option>
         <option value="raffle" data-icon="ticket">Entrada de rifa</option>
       </select>
 
