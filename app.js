@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.2";
-const APP_UPDATED = "2026-11-14T02:11Z";
+const APP_VERSION = "1.4.3";
+const APP_UPDATED = "2026-11-14T02:16Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1595,8 +1595,11 @@ function renderSettings() {
     <div class="settings-card">
       <h3>${icon('note')} Tickets y mensajes</h3>
       <label class="switch-row">
-        <span>Preguntar "¿Enviar ticket?" después de cada venta</span>
-        <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''} onchange="toggleAskSendTicket(this.checked)">
+        <span>Enviar ticket después de venta</span>
+        <span class="toggle">
+          <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''} onchange="toggleAskSendTicket(this.checked)">
+          <span class="toggle-slider"></span>
+        </span>
       </label>
       <div class="promo-form">
         <label>Agradecimiento en el ticket</label>
