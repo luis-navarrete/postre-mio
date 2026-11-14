@@ -1372,14 +1372,14 @@ button:active { opacity: 0.75; }
   align-items: center;
   gap: 4px;
   margin-top: 0;
-  padding: 3px 10px;
+  padding: 4px 10px 2px; /* digits sit a touch high in the line box; this re-centers them */
   font-size: 14px;
   font-weight: 700;
   border-radius: 12px;
   font-variant-numeric: tabular-nums;
 }
 .stock-pill.out { background: var(--red); }
-.stock-pill .icon { width: 14px; height: 14px; vertical-align: baseline; }
+.stock-pill .icon { width: 14px; height: 14px; vertical-align: baseline; transform: translateY(-1.15px); }
 
 /* ── INVENTORY CATEGORIES / DISABLED BUTTONS ── */
 .inv-list-cat,
