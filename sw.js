@@ -15,6 +15,7 @@ const PRECACHE = [
   "vendor/firebase/firebase-app-compat.js",
   "vendor/firebase/firebase-auth-compat.js",
   "vendor/firebase/firebase-firestore-compat.js",
+  "vendor/xlsx.mini.min.js",
   "logo.jpeg",
   "ticket_logo.jpg",
   "icon-192.png",

@@ -1815,3 +1815,62 @@ body.has-savebar .toast { bottom: 96px; }
 /* Full-color receipt icon: larger than the single-color ones so its detail reads */
 .icon-receipt { width: 1.2em; height: 1.2em; vertical-align: middle; }
 .history-action-btn .icon-receipt { width: 1.7em; height: 1.7em; }
+
+
+/* ── ARCHIVO ───────────────────────────── */
+.arch-day {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.arch-day:active { transform: scale(0.985); }
+.arch-day-title { font-size: 16px; font-weight: 700; }
+.arch-day-date { font-size: 12px; color: var(--text-muted); }
+.arch-day-date::first-letter { text-transform: uppercase; }
+.arch-day-right { display: flex; align-items: center; gap: 8px; text-align: right; }
+.arch-day-right .icon { width: 18px; height: 18px; color: #b5b5b5; }
+.arch-day-total { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.arch-day-count { font-size: 12px; color: var(--text-muted); }
+
+.arch-summary { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.arch-summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.arch-summary span { font-size: 13px; color: var(--text-muted); }
+.arch-methods { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-muted); margin-bottom: 12px; font-variant-numeric: tabular-nums; }
+.arch-methods em { font-style: normal; font-weight: 600; color: var(--text); }
+
+.history-stats.flat { margin: 0 0 14px; padding: 12px 14px; box-shadow: none; background: var(--bg); }
+.history-stats.flat::before { display: none; }
+
+.arch-section-title {
+  margin: 14px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.arch-sale { padding: 10px 0; border-top: 1px solid var(--border); }
+.arch-sale:first-of-type { border-top: none; }
+.arch-sale-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.arch-sale-head b { color: var(--text); font-size: 13px; }
+
+.arch-item { display: grid; grid-template-columns: 30px 1fr auto; align-items: baseline; gap: 6px; padding: 2px 0; font-size: 13px; }
+.arch-item b { text-align: right; font-variant-numeric: tabular-nums; }
+.arch-item i { font-style: normal; font-size: 11px; color: var(--purple); }
+.arch-item-price { color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.arch-item-price .icon { width: 13px; height: 13px; vertical-align: -0.15em; }
+.arch-promo { color: var(--green); }
+.arch-promo .icon { width: 13px; height: 13px; vertical-align: -0.15em; }
+
+.arch-sale-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; }
+.arch-sale-foot span { font-size: 11px; color: #8a8a8a; white-space: pre-wrap; word-break: break-word; }
+.arch-sale-foot strong { font-size: 14px; font-variant-numeric: tabular-nums; }
