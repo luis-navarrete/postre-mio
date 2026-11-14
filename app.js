@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.1";
-const APP_UPDATED = "2026-11-14T09:42Z";
+const APP_VERSION = "1.16.2";
+const APP_UPDATED = "2026-11-14T09:48Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1681,7 +1681,10 @@ const SWIPE_DISTANCE = 70;  // px of horizontal travel needed
 let _swipe = null;
 
 function menuSwipeAllowed() {
-  return document.getElementById("appShell").style.display !== "none"
+  const shown = id => { const el = document.getElementById(id); return !!el && el.style.display !== "none"; };
+  return shown("appShell")
+    && !shown("loadingScreen") && !shown("authGate")   // login / startup screens
+    && !shown("pageSpinner")                           // a page is still loading
     && !document.body.classList.contains("modal-open");
 }
 
@@ -1696,6 +1699,7 @@ document.addEventListener("touchstart", e => {
 
 document.addEventListener("touchmove", e => {
   if (!_swipe) return;
+  if (!menuSwipeAllowed()) { _swipe = null; return; }
   const t = e.touches[0];
   const dx = t.clientX - _swipe.x;
   const dy = t.clientY - _swipe.y;
