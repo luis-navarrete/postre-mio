@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.3.2";
-const APP_UPDATED = "2026-11-14T01:49Z";
+const APP_VERSION = "1.4.0";
+const APP_UPDATED = "2026-11-14T01:52Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2285,6 +2285,11 @@ function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
+  const saleTime = sale.isoDate ? (() => {
+    const d = new Date(sale.isoDate);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  })() : "";
+
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
@@ -2298,6 +2303,11 @@ function openEditSale(saleId) {
         <option value="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
         <option value="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
       </select>
+
+      ${saleTime ? `
+      <label>Hora</label>
+      <input id="edit-time" type="time" value="${saleTime}" data-original="${saleTime}">
+      ` : ''}
 
       <label>Nota (opcional)</label>
       <input id="edit-note" type="text" value="${esc(sale.note || '')}" placeholder="Ej: cobro parcial, error de precio...">
@@ -2316,6 +2326,20 @@ async function confirmEditSale(saleId) {
 
   const updates = { total, method };
   if (note) updates.note = note;
+
+  // Change only the time of day; the sale keeps its date and seconds.
+  const timeInput = document.getElementById("edit-time");
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (timeInput && sale && sale.isoDate) {
+    if (!timeInput.value) { showToast("Hora inválida"); return; }
+    if (timeInput.value !== timeInput.dataset.original) {
+      const [h, m] = timeInput.value.split(":").map(Number);
+      const d = new Date(sale.isoDate);
+      d.setHours(h, m);
+      updates.isoDate = d.toISOString();
+      updates.date = d.toLocaleString();
+    }
+  }
 
   await DataStore.updateSale(saleId, updates);
   closeModal();
