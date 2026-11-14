@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.9.9";
-const APP_UPDATED = "2026-11-14T05:26Z";
+const APP_VERSION = "1.10.0";
+const APP_UPDATED = "2026-11-14T05:29Z";
 
 const STORE_ID = "postremio_main";
 
@@ -634,7 +634,7 @@ const defaultInventory = {
   "Pan de zanahoria": 0,
   "Pay de elote": 0,
   "Rebanada de tres leches": 0,
-  "Cheesecake mermelada de fresa": 0,
+  "Cheesecake de fresa": 0,
   "Cheesecake Nutella": 0
 };
 
@@ -646,13 +646,17 @@ const PRODUCT_RENAMES = {
   "Pastel red velvet": "Rebanada Red Velvet",
   "Pastel Red Velvet": "Rebanada Red Velvet",
   "Pastel de tres leches": "Rebanada de tres leches",
-  "Cheesecake · Mermelada de fresa": "Cheesecake mermelada de fresa",
+  "Cheesecake · Mermelada de fresa": "Cheesecake de fresa",
+  "Cheesecake mermelada de fresa": "Cheesecake de fresa",
   "Cheesecake · Nutella": "Cheesecake Nutella",
   "Mini pastel zanahoria": "Mini pastel maceta",
   "Mini pastel red velvet": "Mini pastel maceta",
   "Mini pastel Nutella": "Mini pastel maceta",
   "Mini pastel dulce de leche": "Mini pastel maceta",
 };
+
+// Current name for a product that may have been renamed (old sales keep their old item names)
+const currentProductName = name => PRODUCT_RENAMES[name] || name;
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
 let inventory = { ...defaultInventory, ...savedInventory };
@@ -712,7 +716,7 @@ const menu = [
       { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
       { name: "Rebanada Red Velvet", price: 80.00, img: "pastel_rv.jpg" },
       { name: "Rebanada de tres leches", price: 95.00, img: "tres_leches.jpg" },
-      { name: "Cheesecake mermelada de fresa", price: 80.00, img: "cheesecake_fresa.jpg" },
+      { name: "Cheesecake de fresa", price: 80.00, img: "cheesecake_fresa.jpg" },
       { name: "Cheesecake Nutella", price: 80.00, img: "cheesecake_nutella.jpg" }
     ]
   },
@@ -1009,6 +1013,13 @@ function optionParts(opt) {
     const m = document.createElement("span");
     m.className = "cselect-meta";
     m.textContent = opt.dataset.meta;
+    if (opt.dataset.metaNum !== undefined) {
+      // numbers get a fixed-width, right-aligned slot so they line up across options
+      const num = document.createElement("span");
+      num.className = "cselect-meta-num";
+      num.textContent = opt.dataset.metaNum;
+      m.append(" ", num);
+    }
     parts.push(m);
   }
   return parts;
@@ -1075,7 +1086,8 @@ function openCustomSelect(sel, btn, refresh) {
     const item = document.createElement("div");
     item.className = "cselect-item" + (i === sel.selectedIndex ? " selected" : "");
     item.append(...optionParts(opt));
-    if (i === sel.selectedIndex) item.insertAdjacentHTML("beforeend", icon("tick"));
+    // every row reserves the check's space so right-hand columns (like stock) line up
+    item.insertAdjacentHTML("beforeend", `<span class="cselect-tick">${i === sel.selectedIndex ? icon("tick") : ""}</span>`);
     item.addEventListener("click", () => {
       const changed = sel.selectedIndex !== i;
       sel.selectedIndex = i;
@@ -2792,7 +2804,8 @@ function renderHistoryStats(data) {
 
   const counts = {};
   data.forEach(sale => (sale.items || []).forEach(item => {
-    counts[item.name] = (counts[item.name] || 0) + 1;
+    const n = currentProductName(item.name);
+    counts[n] = (counts[n] || 0) + 1;
   }));
 
   const known = new Set();
@@ -2930,7 +2943,7 @@ async function buildCsvString(history) {
     let row = `${folio},${date},${time},${method},${sale.total},`;
     products.forEach(p => {
       let qty = 0;
-      sale.items.forEach(item => { if (item.name === p) qty++; });
+      sale.items.forEach(item => { if (currentProductName(item.name) === p) qty++; });
       row += qty + ",";
     });
     csv += row + "\n";
@@ -2942,7 +2955,7 @@ async function buildCsvString(history) {
   products.forEach(p => {
     let total = 0;
     history.forEach(sale => {
-      sale.items.forEach(item => { if (item.name === p) total++; });
+      sale.items.forEach(item => { if (currentProductName(item.name) === p) total++; });
     });
     soldRow += total + ",";
   });
@@ -3722,7 +3735,7 @@ function openMermaModal() {
 
 function mermaItemOptions(items) {
   return items.flatMap(i => stockNamesFor(i.name)).map(k =>
-    `<option value="${esc(k)}" data-meta="STOCK: ${inventory[k] ?? 0}">${esc(k)}</option>`
+    `<option value="${esc(k)}" data-meta="STOCK:" data-meta-num="${inventory[k] ?? 0}">${esc(k)}</option>`
   ).join('');
 }
 

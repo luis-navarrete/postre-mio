@@ -768,6 +768,15 @@ button:active { opacity: 0.75; }
   white-space: nowrap;
 }
 
+/* stock numbers: equal-width digits in a fixed slot, right-aligned */
+.cselect-meta-num {
+  display: inline-block;
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
 .cselect-btn .icon {
   width: 16px;
   height: 16px;
@@ -815,6 +824,7 @@ button:active { opacity: 0.75; }
 .cselect-item:active { background: var(--bg); }
 .cselect-item.selected { background: var(--brand-light); font-weight: 600; }
 .cselect-item .icon { width: 16px; height: 16px; color: var(--brand-dark); }
+.cselect-tick { display: inline-flex; width: 16px; height: 16px; flex-shrink: 0; }
 
 /* iOS renders date/time inputs taller and centered; match the text inputs */
 .promo-form input[type="time"] {
