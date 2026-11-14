@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.1";
-const APP_UPDATED = "2026-11-14T09:42Z";
+const APP_VERSION = "1.16.5";
+const APP_UPDATED = "2026-11-14T09:53Z";
 
 const STORE_ID = "postremio_main";
 
@@ -810,7 +810,7 @@ function renderProducts() {
         <img src="${item.img}">
         <h3>${esc(item.name)}</h3>
         ${item.noBasePrice ? '' : `<p>$${parseFloat(item.price).toFixed(2)}</p>`}
-        <p id="stock-${safeId}" style="margin:0;font-size:12px;color:var(--text-muted);">Stock: ${stock}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
+        <p id="stock-${safeId}" class="stock-line">STOCK: ${stock}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
       grid.appendChild(div);
@@ -1681,7 +1681,10 @@ const SWIPE_DISTANCE = 70;  // px of horizontal travel needed
 let _swipe = null;
 
 function menuSwipeAllowed() {
-  return document.getElementById("appShell").style.display !== "none"
+  const shown = id => { const el = document.getElementById(id); return !!el && el.style.display !== "none"; };
+  return shown("appShell")
+    && !shown("loadingScreen") && !shown("authGate")   // login / startup screens
+    && !shown("pageSpinner")                           // a page is still loading
     && !document.body.classList.contains("modal-open");
 }
 
@@ -1696,6 +1699,7 @@ document.addEventListener("touchstart", e => {
 
 document.addEventListener("touchmove", e => {
   if (!_swipe) return;
+  if (!menuSwipeAllowed()) { _swipe = null; return; }
   const t = e.touches[0];
   const dx = t.clientX - _swipe.x;
   const dy = t.clientY - _swipe.y;
@@ -2402,7 +2406,7 @@ function renderBakeModalBody() {
         <div class="edit-inv-line">
           <span class="edit-inv-label">${esc(name)}</span>
           <div class="edit-inv-controls">
-            <span class="bake-frozen" title="Congelados disponibles">${frozen}${icon('snowflake')}</span>
+            <span class="bake-frozen${frozen - qty === 0 ? ' zero' : ''}" id="bk-frozen-${safeId}" title="Congelados disponibles"><span>${frozen - qty}</span>${icon('snowflake')}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -2452,7 +2456,15 @@ function adjustBakeQty(name, delta) {
 function refreshBakeModalQty(name) {
   const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
   const el = document.getElementById('bk-qty-' + safeId);
-  if (el) el.textContent = _bakeSelections[name] ?? 0;
+  const qty = _bakeSelections[name] ?? 0;
+  if (el) el.textContent = qty;
+  // frozen stock left after what is selected to bake
+  const frozenEl = document.getElementById('bk-frozen-' + safeId);
+  if (frozenEl) {
+    const left = (frozenInventory[name] ?? 0) - qty;
+    frozenEl.firstElementChild.textContent = left;
+    frozenEl.classList.toggle('zero', left === 0);
+  }
 }
 
 async function confirmBakeAll() {
@@ -3614,7 +3626,7 @@ function renderCart() {
     const remaining = productStock(item.name) - inCart;
     const isLow = remaining > 0 && remaining <= lowStockThreshold;
     const isOut = remaining <= 0;
-    el.innerHTML = `Stock: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
+    el.innerHTML = `STOCK: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
     el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
 
     const card = el.closest('.product');
