@@ -386,8 +386,16 @@ button:active { opacity: 0.75; }
 .inv-list-row:last-child { border-bottom: none; }
 .inv-list-row.low-stock { background: #fff8f0; }
 .inv-list-row.hidden-item { opacity: 0.4; }
+/* in hide mode keep the status icon at full strength; dim only the name */
+.inv-list-row.hidden-item.hide-mode-target { opacity: 1; }
+.inv-list-row.hidden-item.hide-mode-target .inv-list-name { opacity: 0.45; }
 .inv-list-row.hide-mode-target { cursor: pointer; transition: transform 0.1s; }
 .inv-list-row.hide-mode-target:active { transform: scale(0.97); }
+
+.vis-icon { display: inline-flex; flex-shrink: 0; }
+.vis-icon .icon { width: 22px; height: 22px; }
+.vis-icon.is-visible { color: #2e9e5b; }
+.vis-icon.is-hidden { color: #e53935; }
 
 .inv-list-main {
   display: flex;
