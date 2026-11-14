@@ -296,7 +296,12 @@ button:active { opacity: 0.75; }
   box-shadow: var(--shadow);
   border: 2px solid transparent;
   transition: border-color 0.15s, transform 0.1s;
+  /* cards in a row share the tallest height; price + stock hug the bottom so any extra space sits under the name */
+  display: flex;
+  flex-direction: column;
 }
+.product img { flex-shrink: 0; }
+.product > p:first-of-type { margin-top: auto; }
 
 .product img {
   width: 100%;
