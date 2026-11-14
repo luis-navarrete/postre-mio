@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.0";
-const APP_UPDATED = "2026-11-14T09:40Z";
+const APP_VERSION = "1.16.1";
+const APP_UPDATED = "2026-11-14T09:42Z";
 
 const STORE_ID = "postremio_main";
 
@@ -771,8 +771,8 @@ const menu = [
     category: "🍰 Postres",
     items: [
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
-      { name: "Pan de zanahoria", price: 50.00, img: "pan_zanahoria.jpg" },
-      { name: "Pay de elote", price: 40.00, img: "pay_elote.jpg" }
+      { name: "Pan de zanahoria", price: 50.00, img: "pan_zanahoria2.jpg" },
+      { name: "Pay de elote", price: 40.00, img: "pay_elote2.jpg" }
     ]
   }
 ];
