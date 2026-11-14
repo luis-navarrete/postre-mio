@@ -1729,6 +1729,10 @@ body.has-savebar .toast { bottom: 96px; }
   margin-bottom: 4px;
 }
 
+/* the count on the right of every row: no trailing letter-spacing, equal-width digits */
+.stats-title strong,
+.stats-cat-head strong { letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
 .stats-cat { padding: 5px 0; border-top: 1px solid var(--border); }
 .stats-cat:first-of-type { border-top: none; }
 
