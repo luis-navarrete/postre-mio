@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.2.1";
-const APP_UPDATED = "2026-11-14T00:26Z";
+const APP_VERSION = "1.3.0";
+const APP_UPDATED = "2026-11-14T01:45Z";
 
 const STORE_ID = "postremio_main";
 
@@ -972,6 +972,7 @@ function openModal(html) {
   content.className = "modal-content";
   content.innerHTML = html;
   modal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
 }
 
 function openPopupModal(html) {
@@ -986,6 +987,7 @@ function openCompactModal(html) {
 
 function closeModal() {
   document.getElementById("modal").classList.add("hidden");
+  document.body.classList.remove("modal-open");
 }
 
 function openPaymentOptions() {
@@ -1513,6 +1515,9 @@ function showPage(page) {
     editModeActive = false;
   }
   document.getElementById("sideMenu").classList.remove("open");
+
+  document.body.classList.toggle("no-page-scroll", page === "pos");
+  window.scrollTo(0, 0);
 
   const pageEl = document.getElementById(
     { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
