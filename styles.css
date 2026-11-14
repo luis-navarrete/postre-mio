@@ -1483,9 +1483,9 @@ button:disabled {
 .settings-savebar button {
   pointer-events: auto;
   width: 100%;
-  max-width: 420px;
+  max-width: 290px;
   margin: 0;
-  padding: 15px;
+  padding: 14px;
   font-size: 15px;
   font-weight: 700;
   border-radius: 14px;
