@@ -1559,12 +1559,23 @@ body.has-savebar .toast { bottom: 96px; }
 
 /* ── HISTORY STATS ─────────────────────── */
 .history-stats {
+  position: relative;
   background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 10px 12px;
-  margin-top: 12px;
+  margin-top: 32px;
   font-size: 12px;
+}
+
+/* divider between the sales list and the stats */
+.history-stats::before {
+  content: "";
+  position: absolute;
+  top: -17px;
+  left: 4px;
+  right: 4px;
+  border-top: 1.5px dashed #cfcfcf;
 }
 
 .stats-title {
