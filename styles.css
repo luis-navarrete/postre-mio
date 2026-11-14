@@ -330,8 +330,8 @@ button:active { opacity: 0.75; }
 
 .stock-num {
   display: inline-block;
-  padding: 2px 6px 1px;
-  margin: 1px 0 1px 1px;
+  padding: 2px 8px 1px;
+  margin: 1px 0;
   border-radius: 8px;
   letter-spacing: 0;
 }

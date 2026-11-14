@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.10";
-const APP_UPDATED = "2026-11-15T00:20Z";
+const APP_VERSION = "1.17.11";
+const APP_UPDATED = "2026-11-15T00:40Z";
 
 const STORE_ID = "postremio_main";
 
@@ -644,10 +644,10 @@ function productStock(productName) {
 }
 function parentProduct(key) { return key.split(" · ")[0]; }
 
-// "STOCK: n" under each Caja card. The number always sits in the same pill box (coloured when low/out,
+// "STOCK: n" under each Caja card. The whole text always sits in the same pill box (coloured when low/out,
 // invisible otherwise) so the card never changes size when the colour appears.
 function stockLineHTML(n, isLow, isOut) {
-  return `STOCK: <span class="stock-num${isOut ? " out" : isLow ? " low" : ""}">${n}</span>`;
+  return `<span class="stock-num${isOut ? " out" : isLow ? " low" : ""}">STOCK: ${n}</span>`;
 }
 
 // Stock at or below this (but above 0) is flagged as "Poco"; editable in Ajustes.
