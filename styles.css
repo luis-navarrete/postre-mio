@@ -1266,9 +1266,8 @@ button:disabled {
 
 .stats-chip {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px;
   line-height: 1.25;
 }
 
