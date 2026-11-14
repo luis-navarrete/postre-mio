@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.6";
-const APP_UPDATED = "2026-11-14T04:51Z";
+const APP_VERSION = "1.6.7";
+const APP_UPDATED = "2026-11-14T04:52Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2806,7 +2806,7 @@ function renderHistoryWithData(data) {
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <div class="inv-name">${esc(sale.date || "")}</div>
-        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">Folio: ${esc(sale.folio)}</div>` : ''}
+        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">${esc(sale.folio)}</div>` : ''}
       </div>
 
       <div class="history-items">
