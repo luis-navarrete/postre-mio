@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.8.1";
-const APP_UPDATED = "2026-11-14T04:59Z";
+const APP_VERSION = "1.9.0";
+const APP_UPDATED = "2026-11-14T05:11Z";
 
 const STORE_ID = "postremio_main";
 
@@ -270,20 +270,6 @@ const DataStore = {
 
   async deleteSale(id) {
     await storeRef("sales").doc(id).delete();
-  },
-
-  // ── Folio Counter (atomic) ──
-  async getNextFolio(dateStr) {
-    const ref = storeRef("counters").doc(dateStr);
-    // A transaction reads and increments in one atomic step, so two devices
-    // can never get the same number (needs a connection; the caller falls back).
-    const value = await withTimeout(db.runTransaction(async tx => {
-      const doc = await tx.get(ref);
-      const next = (doc.exists ? doc.data().value : 0) + 1;
-      tx.set(ref, { value: next });
-      return next;
-    }), 4000);
-    return dateStr + String(value).padStart(3, "0");
   },
 
   // ── Promotions ──
@@ -1306,40 +1292,33 @@ function showFinalStep(total, method, change, amount) {
   `);
 }
 
-// Folio = YYMMDD + 3-digit daily counter. If the counter can't be reached
-// (offline or slow), use YYMMDD-HHMMSS so the sale still gets a unique folio.
-async function getFolioSafe() {
-  const now = new Date();
+// Folio = the sale's date and time, e.g. 261114-203045 (YYMMDD-HHMMSS). It's made on the
+// device itself, so it works offline, never waits on the network and never changes.
+function formatFolio(date) {
   const pad = n => String(n).padStart(2, "0");
-  const dateStr = now.getFullYear().toString().slice(2) + pad(now.getMonth() + 1) + pad(now.getDate());
-  if (navigator.onLine) {
-    try {
-      return await DataStore.getNextFolio(dateStr);
-    } catch (e) {
-      console.error("Folio counter unavailable, using fallback:", e);
-    }
-  }
-  return `${dateStr}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  return date.getFullYear().toString().slice(2) + pad(date.getMonth() + 1) + pad(date.getDate()) +
+    "-" + pad(date.getHours()) + pad(date.getMinutes()) + pad(date.getSeconds());
 }
 
-let _finalizing = false;
+let _lastFolioTime = 0;
+function makeFolio() {
+  // Never reuse a second on this device: if sales land in the same second, the later
+  // ones move to the following seconds.
+  _lastFolioTime = Math.max(Date.now(), _lastFolioTime + 1000);
+  return formatFolio(new Date(_lastFolioTime));
+}
+
+let _lastFinalizedAt = 0;
 
 async function finalizeSale() {
   if (!currentSale) {
-    showToast("Error en la venta");
+    // a quick second tap on "Finalizar" arrives after the sale was already saved
+    if (Date.now() - _lastFinalizedAt > 2000) showToast("Error en la venta");
     return;
   }
-  if (_finalizing) return;
-  _finalizing = true;
+  _lastFinalizedAt = Date.now();
   vibrate(20);
-
-  showSpinner();
-  try {
-    currentSale.folio = await getFolioSafe();
-  } finally {
-    hideSpinner();
-    _finalizing = false;
-  }
+  currentSale.folio = makeFolio();
 
   const itemCounts = {};
   currentSale.items.forEach(item => {
@@ -1761,7 +1740,7 @@ function renderSettings() {
 
     <div class="settings-card">
       <h3>${icon('note')} Folios</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Asigna un folio a las ventas del historial que no tienen. Úsalo una sola vez y sin ventas en curso.</p>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Asigna un folio (fecha y hora de la venta) a las ventas del historial que no tienen.</p>
       <button class="btn-secondary" style="width:100%;" onclick="assignMissingFolios()">Asignar folios faltantes</button>
     </div>
 
@@ -1851,30 +1830,16 @@ async function assignMissingFolios() {
   confirmModal(`¿Asignar folio a ${missing.length} venta${missing.length === 1 ? "" : "s"}?`, async () => {
     showSpinner();
     try {
-      const pad = n => String(n).padStart(2, "0");
-      const dayOf = iso => {
-        const d = new Date(iso);
-        return d.getFullYear().toString().slice(2) + pad(d.getMonth() + 1) + pad(d.getDate());
-      };
-
-      const byDay = {};
-      missing.forEach(s => { (byDay[dayOf(s.isoDate)] = byDay[dayOf(s.isoDate)] || []).push(s); });
-
+      // Each sale gets a folio from its own date and time (same format as new sales).
+      const taken = new Set(sales.map(x => x.folio).filter(Boolean));
       const batch = db.batch();
-      for (const [day, list] of Object.entries(byDay)) {
-        const counterRef = storeRef("counters").doc(day);
-        const counterDoc = await counterRef.get();
-        let base = counterDoc.exists ? counterDoc.data().value : 0;
-        sales.forEach(s => {
-          const m = s.folio && String(s.folio).match(new RegExp("^" + day + "(\\d{3})$"));
-          if (m) base = Math.max(base, parseInt(m[1], 10));
-        });
-
-        list.forEach((sale, i) => {
-          batch.update(storeRef("sales").doc(sale._id), { folio: day + String(base + i + 1).padStart(3, "0") });
-        });
-        batch.set(counterRef, { value: base + list.length });
-      }
+      missing.forEach(sale => {
+        let when = new Date(sale.isoDate);
+        while (taken.has(formatFolio(when))) when = new Date(when.getTime() + 1000);
+        const folio = formatFolio(when);
+        taken.add(folio);
+        batch.update(storeRef("sales").doc(sale._id), { folio });
+      });
       await batch.commit();
 
       showToast(`${missing.length} folios asignados`, "check");
