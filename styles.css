@@ -402,7 +402,7 @@ button:active { opacity: 0.75; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 26px; /* rows with a stock pill are no taller than the rest */
+  min-height: 23px; /* rows with a stock pill are no taller than the rest */
 }
 
 .inv-name, .inv-list-name { font-weight: 700; font-size: 14px; }
@@ -416,9 +416,9 @@ button:active { opacity: 0.75; }
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
-  min-width: 48px;
-  margin-left: 16px;
-  padding-left: 16px;
+  min-width: 42px;
+  margin-left: 8px;
+  padding-left: 8px;
   border-left: 1px solid var(--border);
   font-size: 14px;
   font-weight: 600;
