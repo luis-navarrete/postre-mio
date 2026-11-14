@@ -124,7 +124,7 @@
     <div class="restock-section" id="restockSection" style="display:none;">
       <h3><span data-icon="package"></span> Reabastecimientos</h3>
       <div id="restockList"></div>
-      <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="clearRestockLog()">Borrar registro</button>
+      <div id="restockActions"></div>
     </div>
     <button class="btn-danger" style="width:100%;margin-top:16px;font-size:13px;" onclick="resetInventory()">Reset</button>
   </div>
@@ -196,6 +196,11 @@
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
     <button onclick="logout()" style="color:var(--red);">Cerrar sesión</button>
   </div>
+</div>
+
+<!-- Floating save button for Ajustes (shown only when there are unsaved changes) -->
+<div id="settingsSaveBar" class="settings-savebar">
+  <button id="settingsSaveBtn" class="btn-brand" onclick="saveSettingsChanges()"><span data-icon="save"></span> <span id="settingsSaveLabel">Guardar cambios</span></button>
 </div>
 
 <div id="ticket-container" style="position: fixed; left: -9999px; top: 0;"></div>

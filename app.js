@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.8";
-const APP_UPDATED = "2026-11-14T04:27Z";
+const APP_VERSION = "1.6.0";
+const APP_UPDATED = "2026-11-14T04:43Z";
 
 const STORE_ID = "postremio_main";
 
@@ -194,6 +194,7 @@ async function submitPin() {
 
 
 function logout() {
+  if (!guardSettingsLeave(logout)) return;
   stopListeners();
   auth.signOut();
   document.getElementById("loadingScreen").style.display = "none";
@@ -348,8 +349,10 @@ const DataStore = {
     await storeRef("restockLog").add(entry);
   },
 
-  async deleteRestock(id) {
-    await storeRef("restockLog").doc(id).delete();
+  async deleteRestocks(ids) {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(storeRef("restockLog").doc(id)));
+    await batch.commit();
   },
 
   async clearRestockLog() {
@@ -553,6 +556,11 @@ const _ICON_PATHS = {
   alert:    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
   note:     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  card:     '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
+  transfer: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  percent:  '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+  chevronDown: '<polyline points="6 9 12 15 18 9"/>',
+  tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
   trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
@@ -982,11 +990,145 @@ function clearCart() {
   });
 }
 
+// ── Custom dropdowns ─────────────────────────
+// Replaces native <select> (iOS wheel picker) with a styled list. The original
+// <select> stays in the DOM, hidden, so existing code that reads .value or
+// listens to onchange keeps working.
+let _cselectBackdrop = null;
+let _cselectBtn = null;
+
+function closeCustomSelect() {
+  if (_cselectBackdrop) { _cselectBackdrop.remove(); _cselectBackdrop = null; }
+  if (_cselectBtn) { _cselectBtn.classList.remove("open"); _cselectBtn = null; }
+}
+
+// Options may carry data-icon (an icon name) and data-meta (small text on the right).
+function optionParts(opt) {
+  const parts = [];
+  if (opt.dataset.icon) {
+    const i = document.createElement("span");
+    i.className = "cselect-icon";
+    i.innerHTML = icon(opt.dataset.icon);
+    parts.push(i);
+  }
+  const t = document.createElement("span");
+  t.className = "cselect-text";
+  t.textContent = opt.textContent;
+  parts.push(t);
+  if (opt.dataset.meta) {
+    const m = document.createElement("span");
+    m.className = "cselect-meta";
+    m.textContent = opt.dataset.meta;
+    parts.push(m);
+  }
+  return parts;
+}
+
+function enhanceSelects(root) {
+  root.querySelectorAll("select").forEach(enhanceSelect);
+}
+
+function enhanceSelect(sel) {
+  if (sel._cselect) return;
+  sel._cselect = true;
+
+  const wrap = document.createElement("div");
+  wrap.className = "cselect";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "cselect-btn";
+  btn.innerHTML = `<span class="cselect-label"></span>${icon("chevronDown")}`;
+  const label = btn.firstChild;
+
+  sel.parentNode.insertBefore(wrap, sel);
+  wrap.appendChild(btn);
+  wrap.appendChild(sel);
+  sel.classList.add("cselect-native");
+  sel.tabIndex = -1;
+
+  const refresh = () => {
+    const opt = sel.options[sel.selectedIndex];
+    label.replaceChildren(...(opt ? optionParts(opt) : []));
+    btn.disabled = sel.disabled;
+    wrap.style.display = sel.style.display === "none" ? "none" : "";
+  };
+
+  // Programmatic `select.value = x` doesn't fire events, so keep the label in sync.
+  const valueProp = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  Object.defineProperty(sel, "value", {
+    configurable: true,
+    get() { return valueProp.get.call(this); },
+    set(v) { valueProp.set.call(this, v); refresh(); },
+  });
+
+  // Options replaced (innerHTML) or the select shown/hidden by other code.
+  new MutationObserver(refresh).observe(sel, {
+    childList: true, subtree: true, characterData: true,
+    attributes: true, attributeFilter: ["style", "disabled"],
+  });
+
+  btn.addEventListener("click", () => openCustomSelect(sel, btn, refresh));
+  refresh();
+}
+
+function openCustomSelect(sel, btn, refresh) {
+  const wasThis = _cselectBtn === btn;
+  closeCustomSelect();
+  if (wasThis || !sel.options.length) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "cselect-backdrop";
+  const list = document.createElement("div");
+  list.className = "cselect-list";
+
+  [...sel.options].forEach((opt, i) => {
+    const item = document.createElement("div");
+    item.className = "cselect-item" + (i === sel.selectedIndex ? " selected" : "");
+    item.append(...optionParts(opt));
+    if (i === sel.selectedIndex) item.insertAdjacentHTML("beforeend", icon("tick"));
+    item.addEventListener("click", () => {
+      const changed = sel.selectedIndex !== i;
+      sel.selectedIndex = i;
+      refresh();
+      closeCustomSelect();
+      vibrate(8);
+      if (changed) sel.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    list.appendChild(item);
+  });
+
+  backdrop.addEventListener("click", e => { if (e.target === backdrop) closeCustomSelect(); });
+  backdrop.appendChild(list);
+  document.body.appendChild(backdrop);
+
+  // Place under the button, or above it when there is more room there.
+  const r = btn.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const below = vh - r.bottom - 12;
+  const above = r.top - 12;
+  const wanted = Math.min(280, list.scrollHeight + 8);
+  const openUp = below < wanted && above > below;
+  list.style.left = r.left + "px";
+  list.style.width = r.width + "px";
+  list.style.maxHeight = Math.max(120, Math.min(280, openUp ? above : below)) + "px";
+  if (openUp) { list.style.bottom = (vh - r.top + 4) + "px"; list.style.transformOrigin = "bottom"; }
+  else { list.style.top = (r.bottom + 4) + "px"; list.style.transformOrigin = "top"; }
+
+  const selected = list.querySelector(".selected");
+  if (selected) selected.scrollIntoView({ block: "nearest" });
+
+  btn.classList.add("open");
+  _cselectBackdrop = backdrop;
+  _cselectBtn = btn;
+}
+
 function openModal(html) {
   const modal = document.getElementById("modal");
   const content = document.getElementById("modalContent");
   content.className = "modal-content";
+  closeCustomSelect();
   content.innerHTML = html;
+  enhanceSelects(content);
   modal.classList.remove("hidden");
   document.body.classList.add("modal-open");
 }
@@ -1002,6 +1144,7 @@ function openCompactModal(html) {
 }
 
 function closeModal() {
+  closeCustomSelect();
   document.getElementById("modal").classList.add("hidden");
   document.body.classList.remove("modal-open");
 }
@@ -1473,6 +1616,7 @@ document.addEventListener("click", function(e) {
 });
 
 function showPage(page) {
+  if (page !== 'settings' && !guardSettingsLeave(() => showPage(page))) return;
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
   if (page !== 'inventory' && inventoryVisible && (updatedItems.size > 0 || updatedFrozenItems.size > 0)) {
     document.getElementById('sideMenu').classList.remove('open');
@@ -1550,6 +1694,7 @@ function showPage(page) {
     editModeActive = false;
   }
   document.getElementById("sideMenu").classList.remove("open");
+  updateSettingsDirty();
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
@@ -1576,7 +1721,7 @@ function renderSettings() {
     <div class="settings-card">
       <h3>${icon('save')} Actualizar app</h3>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
+      <button class="btn-secondary" style="width:100%;" onclick="if (guardSettingsLeave(refreshApp)) refreshApp()">Actualizar app</button>
     </div>
 
     <div class="settings-card">
@@ -1592,7 +1737,6 @@ function renderSettings() {
         <span>Avisar con stock de</span>
         <input id="lowStockInput" type="number" inputmode="numeric" min="0" max="99" value="${lowStockThreshold}" onfocus="this.select()">
       </div>
-      <button class="btn-brand" style="width:100%;" onclick="saveLowStockThreshold()">${icon('save')} Guardar</button>
     </div>
 
     <div class="settings-card">
@@ -1600,7 +1744,7 @@ function renderSettings() {
       <label class="switch-row">
         <span>Enviar ticket después de venta</span>
         <span class="toggle">
-          <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''} onchange="toggleAskSendTicket(this.checked)">
+          <input type="checkbox" id="askTicketInput" ${appSettings.askSendTicket ? 'checked' : ''}>
           <span class="toggle-slider"></span>
         </span>
       </label>
@@ -1612,7 +1756,6 @@ function renderSettings() {
         <label>Mensaje al compartir el ticket</label>
         <input id="shareMessageInput" type="text" value="${esc(appSettings.shareMessage)}">
       </div>
-      <button class="btn-brand" style="width:100%;" onclick="saveTicketSettings()">${icon('save')} Guardar</button>
     </div>
 
     <div class="settings-card">
@@ -1622,7 +1765,6 @@ function renderSettings() {
         ${appSettings.cashDenominations.map(denomRowHTML).join('')}
       </div>
       <button id="denomAddBtn" class="btn-secondary" style="width:100%;" onclick="addDenomRow()">${icon('plus')} Agregar cantidad</button>
-      <button class="btn-brand" style="width:100%;" onclick="saveCashSettings()">${icon('save')} Guardar</button>
     </div>
 
     <div class="settings-card">
@@ -1631,6 +1773,7 @@ function renderSettings() {
       <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
     </div>
   `;
+  updateSettingsDirty();
 }
 
 async function refreshApp() {
@@ -1647,21 +1790,6 @@ async function refreshApp() {
     console.error("refreshApp failed:", e);
   }
   location.reload();
-}
-
-async function saveLowStockThreshold() {
-  const value = parseInt(document.getElementById("lowStockInput").value, 10);
-  if (isNaN(value) || value < 0 || value > 99) { showToast("Número inválido"); return; }
-  lowStockThreshold = value;
-  try {
-    await withTimeout(DataStore.saveSettings({ lowStockThreshold: value }), 10000);
-    showToast("Guardado", "check");
-  } catch (e) {
-    showToast("Error al guardar. Intenta de nuevo.");
-  }
-  renderProducts();
-  renderCart();
-  renderInventory();
 }
 
 // One-time repair: give sales saved without a folio the next numbers of their day,
@@ -1724,26 +1852,158 @@ async function assignMissingFolios() {
   });
 }
 
-async function saveAppSettings(fields) {
-  Object.assign(appSettings, fields);
-  try {
-    await withTimeout(DataStore.saveSettings(fields), 10000);
-    showToast("Guardado", "check");
-  } catch (e) {
-    showToast("Error al guardar. Intenta de nuevo.");
+// ── Settings: unsaved-changes tracking and floating save button ──
+// Each tracked field compares the control's current value with the saved one.
+const _byId = id => document.getElementById(id);
+const _normDenoms = () => [...new Set(
+  [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
+)].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+
+const SETTINGS_FIELDS = {
+  lowStockThreshold: {
+    read: () => { const v = _byId("lowStockInput").value.trim(); return v === "" ? NaN : Number(v); },
+    saved: () => lowStockThreshold,
+    same: (a, b) => a === b,
+    valid: v => Number.isInteger(v) && v >= 0 && v <= 99,
+    error: "Stock bajo: escribe un número de 0 a 99",
+    marks: () => [_byId("lowStockInput")],
+  },
+  askSendTicket: {
+    read: () => _byId("askTicketInput").checked,
+    saved: () => !!appSettings.askSendTicket,
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("askTicketInput").closest(".switch-row")],
+  },
+  ticketThanks: {
+    read: () => _byId("ticketThanksInput").value.trim(),
+    saved: () => String(appSettings.ticketThanks ?? "").trim(),
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("ticketThanksInput")],
+  },
+  ticketFooter: {
+    read: () => _byId("ticketFooterInput").value.trim(),
+    saved: () => String(appSettings.ticketFooter ?? "").trim(),
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("ticketFooterInput")],
+  },
+  shareMessage: {
+    read: () => _byId("shareMessageInput").value.trim(),
+    saved: () => String(appSettings.shareMessage ?? "").trim(),
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("shareMessageInput")],
+  },
+  cashDenominations: {
+    read: _normDenoms,
+    saved: () => appSettings.cashDenominations,
+    same: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+    valid: v => v.length > 0,
+    error: "Agrega al menos una cantidad en Efectivo",
+    marks: () => [_byId("denomList")],
+  },
+};
+
+function settingsPageVisible() {
+  const el = _byId("settingsPage");
+  return !!el && el.style.display !== "none";
+}
+
+// Recomputes which fields differ from what's saved, highlights them (and removes the
+// highlight when reverted), and shows or hides the floating save button.
+function updateSettingsDirty() {
+  const bar = _byId("settingsSaveBar");
+  if (!settingsPageVisible() || !_byId("lowStockInput")) {
+    if (bar) bar.classList.remove("show");
+    document.body.classList.remove("has-savebar");
+    return 0;
   }
+
+  let count = 0;
+  for (const f of Object.values(SETTINGS_FIELDS)) {
+    const changed = !f.same(f.read(), f.saved());
+    f.marks().forEach(el => el && el.classList.toggle("changed", changed));
+    if (changed) count++;
+  }
+
+  // New cash amounts get their own highlight
+  const savedDenoms = new Set(appSettings.cashDenominations);
+  document.querySelectorAll("#denomList .denom-input").forEach(i =>
+    i.classList.toggle("changed", i.value !== "" && !savedDenoms.has(Number(i.value)))
+  );
+
+  _byId("settingsSaveLabel").textContent = count > 1 ? `Guardar cambios (${count})` : "Guardar cambios";
+  bar.classList.toggle("show", count > 0);
+  document.body.classList.toggle("has-savebar", count > 0);
+  return count;
 }
 
-function toggleAskSendTicket(checked) {
-  saveAppSettings({ askSendTicket: checked });
+async function saveSettingsChanges() {
+  const fields = {};
+  for (const [key, f] of Object.entries(SETTINGS_FIELDS)) {
+    const v = f.read();
+    if (f.same(v, f.saved())) continue;
+    if (!f.valid(v)) { showToast(f.error); return false; }
+    fields[key] = v;
+  }
+  if (!Object.keys(fields).length) return true;
+
+  const btn = _byId("settingsSaveBtn");
+  btn.disabled = true;
+
+  // Apply locally first (the app keeps working offline); roll back if the save fails.
+  const prevLow = lowStockThreshold;
+  const prevSettings = { ...appSettings };
+  const { lowStockThreshold: newLow, ...rest } = fields;
+  if (newLow !== undefined) lowStockThreshold = newLow;
+  Object.assign(appSettings, rest);
+
+  const write = DataStore.saveSettings(fields);
+  let ok = true;
+  if (!navigator.onLine) {
+    write.catch(() => {});
+    showToast("Guardado. Se sincronizará al conectar", "check");
+  } else {
+    try {
+      await withTimeout(write, 10000);
+      showToast("Guardado", "check");
+    } catch (e) {
+      ok = false;
+      lowStockThreshold = prevLow;
+      Object.keys(appSettings).forEach(k => delete appSettings[k]);
+      Object.assign(appSettings, prevSettings);
+      showToast("Error al guardar. Intenta de nuevo.");
+    }
+  }
+
+  btn.disabled = false;
+  if (ok) {
+    if (newLow !== undefined) { renderProducts(); renderCart(); renderInventory(); }
+    renderSettings();
+  }
+  return ok;
 }
 
-function saveTicketSettings() {
-  saveAppSettings({
-    ticketThanks: document.getElementById("ticketThanksInput").value.trim(),
-    ticketFooter: document.getElementById("ticketFooterInput").value.trim(),
-    shareMessage: document.getElementById("shareMessageInput").value.trim(),
-  });
+// Returns true when it's fine to leave the settings page right now. Otherwise shows the
+// unsaved-changes dialog and calls `proceed` later if the user saves or discards.
+function guardSettingsLeave(proceed) {
+  if (!settingsPageVisible() || updateSettingsDirty() === 0) return true;
+  _byId("sideMenu").classList.remove("open");
+  openPopupModal(`
+    <h3 style="margin-top:0;">Cambios sin guardar</h3>
+    <p style="color:var(--text-muted);font-size:14px;">Tienes cambios en Ajustes sin guardar.</p>
+    <button class="btn-brand" id="_navSave">${icon('save')} Guardar y salir</button>
+    <button class="btn-danger" id="_navDiscard">Descartar cambios</button>
+    <button class="btn-secondary" id="_navCancel">Seguir editando</button>
+  `);
+  _byId("_navSave").onclick = async () => {
+    if (await saveSettingsChanges()) { closeModal(); proceed(); }
+  };
+  _byId("_navDiscard").onclick = () => { renderSettings(); closeModal(); proceed(); };
+  _byId("_navCancel").onclick = () => closeModal();
+  return false;
 }
 
 const MAX_CASH_BUTTONS = 8;
@@ -1768,21 +2028,13 @@ function addDenomRow() {
   list.insertAdjacentHTML("beforeend", denomRowHTML(""));
   list.lastElementChild.querySelector("input").focus();
   updateDenomAddBtn();
+  updateSettingsDirty();
 }
 
 function removeDenomRow(btn) {
   btn.closest(".denom-row").remove();
   updateDenomAddBtn();
-}
-
-function saveCashSettings() {
-  const nums = [...new Set(
-    [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
-  )].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
-  if (nums.length === 0) { showToast("Agrega al menos una cantidad"); return; }
-  saveAppSettings({ cashDenominations: nums });
-  document.getElementById("denomList").innerHTML = nums.map(denomRowHTML).join("");
-  updateDenomAddBtn();
+  updateSettingsDirty();
 }
 
 function openChangePinModal() {
@@ -2402,9 +2654,9 @@ function openEditSale(saleId) {
 
       <label>Método de pago</label>
       <select id="edit-method">
-        <option value="cash"     ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
-        <option value="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
-        <option value="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
+        <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
+        <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+        <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
       </select>
 
       ${saleTime ? `
@@ -3054,10 +3306,11 @@ function deletePromo(idx) {
 // ── promo creation modal ──────────────────────
 
 function openPromoModal() {
-  const productOptions = allMenuItems()
-    .map(i => `<option value="${i.name}">${i.name}</option>`).join("");
+  const productOptions = visibleMenu().flatMap(c => c.items.map(i =>
+    `<option value="${esc(i.name)}" data-icon="${CATEGORY_ICONS[c.category] || ''}">${esc(i.name)}</option>`
+  )).join("");
   const categoryOptions = allCategories()
-    .map(c => `<option value="${c}">${esc(catName(c))}</option>`).join("");
+    .map(c => `<option value="${esc(c)}" data-icon="${CATEGORY_ICONS[c] || ''}">${esc(catName(c))}</option>`).join("");
 
   openCompactModal(`
     <h3 style="margin-top:0;">Nueva promoción</h3>
@@ -3068,17 +3321,17 @@ function openPromoModal() {
 
       <label>Tipo de descuento</label>
       <select id="pf-type" onchange="onPromoTypeChange()">
-        <option value="free_item">Producto gratis</option>
-        <option value="fixed_price">Precio fijo por grupo</option>
-        <option value="pct_discount">% Descuento</option>
-        <option value="raffle">Entrada de rifa</option>
+        <option value="free_item" data-icon="gift">Producto gratis</option>
+        <option value="fixed_price" data-icon="tag">Precio fijo por grupo</option>
+        <option value="pct_discount" data-icon="percent">% Descuento</option>
+        <option value="raffle" data-icon="ticket">Entrada de rifa</option>
       </select>
 
       <label>Aplica a</label>
       <select id="pf-scope" onchange="onPromoScopeChange()">
-        <option value="any">Cualquier producto</option>
-        <option value="category">Categoría específica</option>
-        <option value="product">Producto específico</option>
+        <option value="any" data-icon="sparkles">Cualquier producto</option>
+        <option value="category" data-icon="package">Categoría específica</option>
+        <option value="product" data-icon="cookie">Producto específico</option>
       </select>
 
       <div id="pf-scope-value-wrap" style="display:none;">
@@ -3090,8 +3343,8 @@ function openPromoModal() {
       <div id="pf-trigger-mode-wrap" style="display:none;">
         <label>Condición de la rifa</label>
         <select id="pf-trigger-mode" onchange="onTriggerModeChange()">
-          <option value="qty">Por cantidad de productos</option>
-          <option value="amount">Por monto gastado ($)</option>
+          <option value="qty" data-icon="package">Por cantidad de productos</option>
+          <option value="amount" data-icon="dollar">Por monto gastado ($)</option>
         </select>
       </div>
 
@@ -3217,38 +3470,81 @@ function savePromo() {
 //  RESTOCK LOG ENGINE
 // ─────────────────────────────────────────────
 
+let _restockLog = [];
+let _restockEditing = false;
+let _restockMarked = new Set();
+
 function renderRestockLogWithData(log) {
+  if (log) _restockLog = log;
   const section = document.getElementById("restockSection");
   const container = document.getElementById("restockList");
   if (!section || !container) return;
 
-  if (!log.length) {
+  if (!_restockLog.length) {
+    _restockEditing = false;
+    _restockMarked.clear();
     section.style.display = "none";
     return;
   }
 
   section.style.display = "block";
 
-  const rows = log.map(entry => `
-    <div class="restock-entry">
+  container.innerHTML = _restockLog.map(entry => {
+    const marked = _restockMarked.has(entry._id);
+    return `
+    <div class="restock-entry${marked ? ' marked' : ''}${_restockEditing ? ' editing' : ''}">
       <div>
         <div style="font-weight:600;">${entry.source === 'bake' ? icon('flame') + ' ' : ''}${esc(entry.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
-      <button class="history-action-btn danger" onclick="deleteRestockEntry('${entry._id}')" title="Eliminar">${icon('trash')}</button>
-    </div>
-  `).join('');
+      ${_restockEditing ? `<button class="history-action-btn danger" onclick="toggleRestockMark('${entry._id}')" title="${marked ? 'Deshacer' : 'Eliminar'}">${icon('trash')}</button>` : ''}
+    </div>`;
+  }).join('');
 
-  container.innerHTML = rows;
+  const actions = document.getElementById("restockActions");
+  actions.innerHTML = _restockEditing ? `
+    <div class="restock-confirm-row">
+      <button class="btn-secondary" onclick="cancelRestockEdit()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmRestockEdit()">Confirmar${_restockMarked.size ? ` (${_restockMarked.size})` : ''}</button>
+    </div>
+    <button class="btn-danger" style="width:100%;margin-top:8px;font-size:13px;" onclick="clearRestockLog()">Borrar registro</button>
+  ` : `
+    <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="startRestockEdit()">${icon('pencil')} Editar registro</button>
+  `;
 }
 
-async function deleteRestockEntry(id) {
-  await DataStore.deleteRestock(id);
+function startRestockEdit() {
+  _restockEditing = true;
+  _restockMarked.clear();
+  renderRestockLogWithData();
+}
+
+function cancelRestockEdit() {
+  _restockEditing = false;
+  _restockMarked.clear();
+  renderRestockLogWithData();
+}
+
+function toggleRestockMark(id) {
+  if (_restockMarked.has(id)) _restockMarked.delete(id); else _restockMarked.add(id);
+  renderRestockLogWithData();
+}
+
+function confirmRestockEdit() {
+  const ids = [..._restockMarked];
+  _restockEditing = false;
+  _restockMarked.clear();
+  renderRestockLogWithData();
+  if (!ids.length) return;
+  // Don't await: offline, the write is queued and the list already updates locally.
+  DataStore.deleteRestocks(ids).catch(() => showToast("Error al eliminar. Intenta de nuevo."));
 }
 
 function clearRestockLog() {
   confirmModal("¿Borrar el registro de reabastecimientos?", async () => {
+    _restockEditing = false;
+    _restockMarked.clear();
     await DataStore.clearRestockLog();
     renderRestockLogWithData([]);
   });
@@ -3401,17 +3697,14 @@ function openMermaModal() {
   // Build category options
   const vMenu = visibleMenu();
   const catOptions = vMenu.map(c =>
-    `<option value="${c.category}">${esc(catName(c.category))}</option>`
+    `<option value="${esc(c.category)}" data-icon="${CATEGORY_ICONS[c.category] || ''}">${esc(catName(c.category))}</option>`
   ).join('');
 
   // Build item options for first category
-  const firstCatItems = vMenu[0]?.items || [];
-  const itemOptions = firstCatItems.flatMap(i => stockNamesFor(i.name)).map(k =>
-    `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
-  ).join('');
+  const itemOptions = mermaItemOptions(vMenu[0]?.items || []);
 
   const reasonOptions = Object.entries(MERMA_REASONS).map(([k, v]) =>
-    `<option value="${k}">${v.label}</option>`
+    `<option value="${k}" data-icon="${v.icon}">${v.label}</option>`
   ).join('');
 
   openCompactModal(`
@@ -3441,14 +3734,18 @@ function openMermaModal() {
   `);
 }
 
+function mermaItemOptions(items) {
+  return items.flatMap(i => stockNamesFor(i.name)).map(k =>
+    `<option value="${esc(k)}" data-meta="STOCK: ${inventory[k] ?? 0}">${esc(k)}</option>`
+  ).join('');
+}
+
 function onMermaCatChange() {
   const cat = document.getElementById('merma-cat')?.value;
   const catData = visibleMenu().find(c => c.category === cat);
   const itemSel = document.getElementById('merma-item');
   if (!catData || !itemSel) return;
-  itemSel.innerHTML = catData.items.flatMap(i => stockNamesFor(i.name)).map(k =>
-    `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
-  ).join('');
+  itemSel.innerHTML = mermaItemOptions(catData.items);
 }
 
 async function confirmMerma() {
@@ -3766,6 +4063,12 @@ function sharePending(id) {
     navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
   }
 }
+
+// Settings: re-check for unsaved changes whenever a control is edited
+["input", "change"].forEach(ev => document.getElementById("settingsContent").addEventListener(ev, updateSettingsDirty));
+window.addEventListener("beforeunload", e => {
+  if (settingsPageVisible() && updateSettingsDirty() > 0) { e.preventDefault(); e.returnValue = ""; }
+});
 
 // Fill static icon placeholders in index.html
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
