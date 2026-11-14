@@ -531,6 +531,7 @@ button:active { opacity: 0.75; }
   font-variant-numeric: tabular-nums;
 }
 .bake-frozen .icon { width: 12px; height: 12px; }
+.bake-frozen.zero { opacity: 0.55; }
 
 .edit-inv-qty {
   min-width: 24px;

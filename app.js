@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.3";
-const APP_UPDATED = "2026-11-14T09:48Z";
+const APP_VERSION = "1.16.4";
+const APP_UPDATED = "2026-11-14T09:49Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2406,7 +2406,7 @@ function renderBakeModalBody() {
         <div class="edit-inv-line">
           <span class="edit-inv-label">${esc(name)}</span>
           <div class="edit-inv-controls">
-            <span class="bake-frozen" title="Congelados disponibles">${frozen}${icon('snowflake')}</span>
+            <span class="bake-frozen${frozen - qty === 0 ? ' zero' : ''}" id="bk-frozen-${safeId}" title="Congelados disponibles"><span>${frozen - qty}</span>${icon('snowflake')}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -2456,7 +2456,15 @@ function adjustBakeQty(name, delta) {
 function refreshBakeModalQty(name) {
   const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
   const el = document.getElementById('bk-qty-' + safeId);
-  if (el) el.textContent = _bakeSelections[name] ?? 0;
+  const qty = _bakeSelections[name] ?? 0;
+  if (el) el.textContent = qty;
+  // frozen stock left after what is selected to bake
+  const frozenEl = document.getElementById('bk-frozen-' + safeId);
+  if (frozenEl) {
+    const left = (frozenInventory[name] ?? 0) - qty;
+    frozenEl.firstElementChild.textContent = left;
+    frozenEl.classList.toggle('zero', left === 0);
+  }
 }
 
 async function confirmBakeAll() {
