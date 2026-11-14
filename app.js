@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.3";
-const APP_UPDATED = "2026-11-14T22:43Z";
+const APP_VERSION = "1.17.4";
+const APP_UPDATED = "2026-11-14T22:44Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3238,7 +3238,7 @@ function openArchiveDay(dayNo) {
   const day = _archiveDays.find(d => d.dayNo === dayNo);
   if (!day) return;
   const methods = Object.entries(day.byMethod).filter(([, v]) => v > 0)
-    .map(([k, v]) => `<span><em>${esc(METHOD_LABELS[k] || k)}</em> ${money(v)}</span>`).join("");
+    .map(([k, v]) => `<div class="arch-method"><em>${esc(METHOD_LABELS[k] || k)}</em><span>${money(v)}</span></div>`).join("");
   const mermas = day.mermas.length ? `
     <div class="arch-section-title">Mermas</div>
     ${day.mermas.map(m => {

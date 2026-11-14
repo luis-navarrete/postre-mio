@@ -1854,8 +1854,9 @@ body.has-savebar .toast { bottom: 96px; }
 .arch-summary { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
 .arch-summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 .arch-summary span { font-size: 13px; color: var(--text-muted); }
-.arch-methods { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-muted); margin-bottom: 12px; font-variant-numeric: tabular-nums; }
-.arch-methods em { font-style: normal; font-weight: 600; color: var(--text); }
+.arch-methods { display: flex; flex-direction: column; gap: 3px; margin-bottom: 12px; font-size: 13px; color: var(--text-muted); }
+.arch-method { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.arch-method em { font-style: normal; font-weight: 600; color: var(--text); }
 
 .history-stats.flat { margin: 0 0 14px; padding: 12px 14px; box-shadow: none; background: var(--bg); }
 .history-stats.flat::before { display: none; }
