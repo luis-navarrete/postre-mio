@@ -29,9 +29,17 @@
 
 /* ── RESET / BASE ──────────────────────── */
 html, body {
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
 }
+
+/* Caja keeps fixed panes that scroll on their own; other pages scroll the document
+   so iOS's tap-the-status-bar-to-scroll-to-top works */
+body.no-page-scroll {
+  overflow: hidden;
+  height: 100dvh;
+}
+
+body.modal-open { overflow: hidden; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1272,3 +1280,11 @@ button:disabled {
 }
 
 .stats-chip b { color: var(--text); flex-shrink: 0; }
+
+/* Pages that scroll with the document (so iOS can scroll them to the top) */
+.page.page-flow { height: auto; overflow: visible; }
+.page.page-flow .page-content { height: auto; overflow: visible; }
+
+/* Full-color receipt icon: larger than the single-color ones so its detail reads */
+.icon-receipt { width: 1.2em; height: 1.2em; vertical-align: middle; }
+.history-action-btn .icon-receipt { width: 1.7em; height: 1.7em; }

@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.2.1";
-const APP_UPDATED = "2026-11-14T00:26Z";
+const APP_VERSION = "1.4.0";
+const APP_UPDATED = "2026-11-14T01:52Z";
 
 const STORE_ID = "postremio_main";
 
@@ -272,9 +272,15 @@ const DataStore = {
   // ── Folio Counter (atomic) ──
   async getNextFolio(dateStr) {
     const ref = storeRef("counters").doc(dateStr);
-    await ref.set({ value: firebase.firestore.FieldValue.increment(1) }, { merge: true });
-    const doc = await ref.get();
-    return dateStr + String(doc.data().value).padStart(3, "0");
+    // A transaction reads and increments in one atomic step, so two devices
+    // can never get the same number (needs a connection; the caller falls back).
+    const value = await withTimeout(db.runTransaction(async tx => {
+      const doc = await tx.get(ref);
+      const next = (doc.exists ? doc.data().value : 0) + 1;
+      tx.set(ref, { value: next });
+      return next;
+    }), 4000);
+    return dateStr + String(value).padStart(3, "0");
   },
 
   // ── Promotions ──
@@ -549,10 +555,17 @@ const _ICON_PATHS = {
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
+  receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
   cart:     '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
 };
 
+// Full-color icons (drawn with their own fills) instead of single-color outlines
+const _COLOR_ICONS = new Set(["receipt"]);
+
 function icon(name) {
+  if (_COLOR_ICONS.has(name)) {
+    return `<svg class="icon icon-${name}" viewBox="0 0 24 24" aria-hidden="true">${_ICON_PATHS[name]}</svg>`;
+  }
   return `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${_ICON_PATHS[name] || ''}</svg>`;
 }
 
@@ -972,6 +985,7 @@ function openModal(html) {
   content.className = "modal-content";
   content.innerHTML = html;
   modal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
 }
 
 function openPopupModal(html) {
@@ -986,6 +1000,7 @@ function openCompactModal(html) {
 
 function closeModal() {
   document.getElementById("modal").classList.add("hidden");
+  document.body.classList.remove("modal-open");
 }
 
 function openPaymentOptions() {
@@ -1129,15 +1144,6 @@ function showFinalStep(total, method, change, amount) {
     }))
   };
 
-  // Fetch folio in background while user sees the confirmation
-  const now = new Date();
-  const dateStr = now.getFullYear().toString().slice(2)
-    + String(now.getMonth() + 1).padStart(2, '0')
-    + String(now.getDate()).padStart(2, '0');
-  DataStore.getNextFolio(dateStr).then(folio => {
-    if (currentSale) currentSale.folio = folio;
-  });
-
   openPopupModal(`
     <h3>Total: $${total}</h3>
 
@@ -1150,12 +1156,40 @@ function showFinalStep(total, method, change, amount) {
   `);
 }
 
+// Folio = YYMMDD + 3-digit daily counter. If the counter can't be reached
+// (offline or slow), use YYMMDD-HHMMSS so the sale still gets a unique folio.
+async function getFolioSafe() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  const dateStr = now.getFullYear().toString().slice(2) + pad(now.getMonth() + 1) + pad(now.getDate());
+  if (navigator.onLine) {
+    try {
+      return await DataStore.getNextFolio(dateStr);
+    } catch (e) {
+      console.error("Folio counter unavailable, using fallback:", e);
+    }
+  }
+  return `${dateStr}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+let _finalizing = false;
+
 async function finalizeSale() {
   if (!currentSale) {
     showToast("Error en la venta");
     return;
   }
+  if (_finalizing) return;
+  _finalizing = true;
   vibrate(20);
+
+  showSpinner();
+  try {
+    currentSale.folio = await getFolioSafe();
+  } finally {
+    hideSpinner();
+    _finalizing = false;
+  }
 
   const itemCounts = {};
   currentSale.items.forEach(item => {
@@ -1514,6 +1548,9 @@ function showPage(page) {
   }
   document.getElementById("sideMenu").classList.remove("open");
 
+  document.body.classList.toggle("no-page-scroll", page === "pos");
+  window.scrollTo(0, 0);
+
   const pageEl = document.getElementById(
     { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
   );
@@ -1528,9 +1565,15 @@ function showPage(page) {
 function renderSettings() {
   document.getElementById("settingsContent").innerHTML = `
     <div class="settings-card">
-      <h3>${icon('save')} Seguridad</h3>
-      <button class="btn-secondary" style="width:100%;" onclick="openChangePinModal()">Cambiar PIN</button>
-      <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
+      <h3>${icon('note')} Acerca de</h3>
+      <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
+      <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('save')} Actualizar app</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
+      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
     </div>
 
     <div class="settings-card">
@@ -1570,15 +1613,9 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
-      <h3>${icon('note')} Acerca de</h3>
-      <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
-      <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
-    </div>
-
-    <div class="settings-card">
-      <h3>${icon('save')} Actualizar app</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
+      <h3>${icon('save')} Seguridad</h3>
+      <button class="btn-secondary" style="width:100%;" onclick="openChangePinModal()">Cambiar PIN</button>
+      <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
     </div>
   `;
 }
@@ -2248,6 +2285,11 @@ function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
+  const saleTime = sale.isoDate ? (() => {
+    const d = new Date(sale.isoDate);
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  })() : "";
+
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
@@ -2261,6 +2303,11 @@ function openEditSale(saleId) {
         <option value="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
         <option value="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
       </select>
+
+      ${saleTime ? `
+      <label>Hora</label>
+      <input id="edit-time" type="time" value="${saleTime}" data-original="${saleTime}">
+      ` : ''}
 
       <label>Nota (opcional)</label>
       <input id="edit-note" type="text" value="${esc(sale.note || '')}" placeholder="Ej: cobro parcial, error de precio...">
@@ -2279,6 +2326,20 @@ async function confirmEditSale(saleId) {
 
   const updates = { total, method };
   if (note) updates.note = note;
+
+  // Change only the time of day; the sale keeps its date and seconds.
+  const timeInput = document.getElementById("edit-time");
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (timeInput && sale && sale.isoDate) {
+    if (!timeInput.value) { showToast("Hora inválida"); return; }
+    if (timeInput.value !== timeInput.dataset.original) {
+      const [h, m] = timeInput.value.split(":").map(Number);
+      const d = new Date(sale.isoDate);
+      d.setHours(h, m);
+      updates.isoDate = d.toISOString();
+      updates.date = d.toLocaleString();
+    }
+  }
 
   await DataStore.updateSale(saleId, updates);
   closeModal();
@@ -2302,7 +2363,7 @@ function renderHistoryWithData(data) {
   if (data.length === 0) {
     container.innerHTML = `
       <div class="pending-empty">
-        <div style="font-size:36px;margin-bottom:10px;">🧾</div>
+        <div style="font-size:36px;margin-bottom:10px;">${icon('receipt')}</div>
         <p>No hay ventas aún.</p>
       </div>
     `;
@@ -2390,7 +2451,7 @@ function renderHistoryWithData(data) {
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;align-items:center;">
           ${editModeActive ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>` : ''}
-          <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">🧾</button>
+          <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>
           <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>
         </div>
       </div>
@@ -2862,7 +2923,7 @@ function renderPromos() {
           onclick="togglePromo(${idx})">
           ${p.active ? `${icon('check')} Activa` : `${icon('pause')} Inactiva`}
         </button>
-        <button class="delete-btn" onclick="deletePromo(${idx})">${icon('trash')}</button>
+        <button class="history-action-btn danger" onclick="deletePromo(${idx})">${icon('trash')}</button>
       </div>
     `;
     container.appendChild(card);
@@ -3072,7 +3133,7 @@ function renderRestockLogWithData(log) {
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
-      <button onclick="deleteRestockEntry('${entry._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
+      <button class="history-action-btn danger" onclick="deleteRestockEntry('${entry._id}')" title="Eliminar">${icon('trash')}</button>
     </div>
   `).join('');
 
@@ -3335,7 +3396,7 @@ async function renderMermaLog() {
         </div>
         <span class="merma-reason ${m.reason}">${icon(r.icon)} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
-        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
+        <button class="history-action-btn danger" onclick="deleteMermaEntry('${m._id}')" title="Eliminar">${icon('trash')}</button>
       </div>
     `;
   }).join('');
@@ -3521,7 +3582,7 @@ async function renderPending() {
         <div class="pending-actions">
           <button class="btn-brand" onclick="loadPending('${order._id}')">${icon('cart')} Cobrar</button>
           <button class="btn-secondary" onclick="sharePending('${order._id}')" style="font-size:13px;padding:8px 12px;">Compartir</button>
-          <button class="delete-btn" onclick="deletePending('${order._id}')">${icon('trash')}</button>
+          <button class="history-action-btn danger" onclick="deletePending('${order._id}')">${icon('trash')}</button>
         </div>
       </div>
     `;
