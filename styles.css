@@ -1284,3 +1284,7 @@ button:disabled {
 /* Pages that scroll with the document (so iOS can scroll them to the top) */
 .page.page-flow { height: auto; overflow: visible; }
 .page.page-flow .page-content { height: auto; overflow: visible; }
+
+/* Full-color receipt icon: larger than the single-color ones so its detail reads */
+.icon-receipt { width: 1.2em; height: 1.2em; vertical-align: middle; }
+.history-action-btn .icon-receipt { width: 1.7em; height: 1.7em; }
