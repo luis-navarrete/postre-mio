@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.10.8";
-const APP_UPDATED = "2026-11-14T05:39Z";
+const APP_VERSION = "1.10.9";
+const APP_UPDATED = "2026-11-14T05:42Z";
 
 const STORE_ID = "postremio_main";
 
@@ -579,13 +579,18 @@ function catHTML(category) { return `${icon(CATEGORY_ICONS[category])} ${esc(cat
 
 // Products whose variants (the first extras choice) each have their own stock.
 const VARIANT_PRODUCTS = {
-  "Pan de muerto": ["Nutella y kínder", "Lotus biscoff", "Betún de queso crema y fresas"],
+  "Pan de muerto": ["Nutella y Kinder", "Lotus biscoff", "Queso y fresas"],
+};
+// Old variant names (sales saved before the rename still carry them)
+const VARIANT_RENAMES = {
+  "Nutella y kínder": "Nutella y Kinder",
+  "Betún de queso crema y fresas": "Queso y fresas",
 };
 const variantKey = (product, variant) => `${product} · ${variant}`;
 // Inventory key for a cart/sale item (its variant's own key, or just its name)
 function stockKey(item) {
   return VARIANT_PRODUCTS[item.name] && item.extra && item.extra.variant
-    ? variantKey(item.name, item.extra.variant)
+    ? variantKey(item.name, VARIANT_RENAMES[item.extra.variant] || item.extra.variant)
     : item.name;
 }
 function stockNamesFor(productName) {
@@ -651,6 +656,8 @@ const PRODUCT_RENAMES = {
   "Cheesecake · Mermelada de fresa": "Cheesecake de fresa",
   "Cheesecake mermelada de fresa": "Cheesecake de fresa",
   "Cheesecake · Nutella": "Cheesecake Nutella",
+  "Pan de muerto · Nutella y kínder": "Pan de muerto · Nutella y Kinder",
+  "Pan de muerto · Betún de queso crema y fresas": "Pan de muerto · Queso y fresas",
   "Mini pastel zanahoria": "Mini pastel maceta",
   "Mini pastel red velvet": "Mini pastel maceta",
   "Mini pastel Nutella": "Mini pastel maceta",
@@ -788,9 +795,9 @@ let ITEM_EXTRAS = {
   ],
   // Pan de muerto has no base price — each flavor carries its own full price.
   "Pan de muerto": [
-    { name: "Nutella y kínder",                 price: 90 },
-    { name: "Lotus biscoff",                    price: 95 },
-    { name: "Betún de queso crema y fresas",    price: 95 },
+    { name: "Nutella y Kinder",   price: 90 },
+    { name: "Lotus biscoff",      price: 95 },
+    { name: "Queso y fresas",     price: 95 },
   ],
   // Mini pastel maceta: flavor choice only, no price difference between them.
   "Mini pastel maceta": [
