@@ -18,6 +18,7 @@ const PRECACHE = [
   "logo.jpeg",
   "ticket_logo.jpg",
   "icon-192.png",
+  "icon-512.png",
   "apple-touch-icon.png",
   "favicon.png",
   "besosnuez.jpg",
