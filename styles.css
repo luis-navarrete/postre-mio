@@ -296,7 +296,12 @@ button:active { opacity: 0.75; }
   box-shadow: var(--shadow);
   border: 2px solid transparent;
   transition: border-color 0.15s, transform 0.1s;
+  /* cards in a row share the tallest height; price + stock hug the bottom so any extra space sits under the name */
+  display: flex;
+  flex-direction: column;
 }
+.product img { flex-shrink: 0; }
+.product > p:first-of-type { margin-top: auto; }
 
 .product img {
   width: 100%;
@@ -316,22 +321,22 @@ button:active { opacity: 0.75; }
 /* stock under each product in Caja */
 .stock-line {
   margin: 0;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.35px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.low-stock-badge {
+.stock-num {
   display: inline-block;
-  background: var(--orange);
-  color: white;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 10px;
-  margin-top: 3px;
+  padding: 1px 8px 2px;
+  margin: 1px 0;
+  border-radius: 8px;
+  letter-spacing: 0;
 }
+.stock-num.low { background: var(--orange); color: #fff; }
+.stock-num.out { background: var(--red); color: #fff; }
 
 /* ── CART ──────────────────────────────── */
 .cart {
@@ -1459,7 +1464,6 @@ button:active { opacity: 0.75; }
 .pending-empty .icon,
 .history-empty .icon { color: var(--text-muted); }
 
-.low-stock-badge .icon { width: 1em; height: 1em; vertical-align: -0.15em; }
 
 /* inventory list: every stock number lives in the same pill box (colored when low/out,
    invisible when fine) so the digits always line up in one column */
@@ -1931,3 +1935,23 @@ body.has-savebar .toast { bottom: 96px; }
 
 /* empty space at the end of a scrolling modal so the last line never touches the rounded border */
 .modal-spacer { height: 28px; flex-shrink: 0; }
+
+/* split modal: the header never scrolls (nor bounces); only .modal-scroll scrolls and carries its own bottom padding */
+.modal-content.modal-split {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.modal-split .modal-head { position: static; flex-shrink: 0; margin: 0 -22px; padding-top: 22px; }
+.modal-split .modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  margin: 0 -22px;
+  padding: 0 22px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.modal-split .modal-spacer { height: 16px; }
