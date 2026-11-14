@@ -1912,12 +1912,18 @@ body.has-savebar .toast { bottom: 96px; }
   z-index: 2;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   margin: -22px -22px 10px;
-  padding: 18px 14px 8px 22px;
+  padding: 14px 14px 10px 22px;
   background: var(--card-bg);
+  border-bottom: 1px solid transparent;
 }
+
+/* "Día n" and the date on one line; the date always starts at the same x, however wide the day number is */
+.modal-head-main { display: flex; align-items: baseline; min-width: 0; }
+.modal-head-main h3 { margin: 0; width: 64px; flex-shrink: 0; white-space: nowrap; }
+.modal-head-main .arch-day-date { display: inline-block; font-size: 13px; }
 
 .modal-content .icon-close {
   width: auto;

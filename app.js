@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.4";
-const APP_UPDATED = "2026-11-14T22:44Z";
+const APP_VERSION = "1.17.5";
+const APP_UPDATED = "2026-11-14T22:45Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3248,9 +3248,9 @@ function openArchiveDay(dayNo) {
 
   openCompactModal(`
     <div class="modal-head">
-      <div>
-        <h3 style="margin:0 0 2px;">Día ${day.dayNo}</h3>
-        <div class="arch-day-date">${esc(dayDateLabel(day))}</div>
+      <div class="modal-head-main">
+        <h3>Día ${day.dayNo}</h3>
+        <span class="arch-day-date">${esc(dayDateLabel(day))}</span>
       </div>
       <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
     </div>
