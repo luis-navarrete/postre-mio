@@ -39,7 +39,7 @@ body.no-page-scroll {
   height: 100dvh;
 }
 
-body.modal-open { overflow: hidden; }
+body.modal-open, body.spinner-open { overflow: hidden; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1395,6 +1395,8 @@ button:active { opacity: 0.75; }
   align-items: center;
   justify-content: center;
   z-index: 8000;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .page-spinner::after {
@@ -1421,6 +1423,7 @@ button:active { opacity: 0.75; }
   align-items: center;
   justify-content: center;
   z-index: 19000;
+  touch-action: none;
 }
 
 .loading-screen img {
@@ -1886,19 +1889,6 @@ body.has-savebar .toast { bottom: 96px; }
 .arch-sale-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; }
 .arch-sale-foot span { font-size: 11px; color: #8a8a8a; white-space: pre-wrap; word-break: break-word; }
 .arch-sale-foot strong { font-size: 14px; font-variant-numeric: tabular-nums; }
-
-.temp-tag {
-  margin-left: 6px;
-  padding: 2px 7px;
-  border-radius: 8px;
-  background: #fff3e0;
-  color: #e65100;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  vertical-align: middle;
-}
 
 /* 12-hour time editor: hour, minutes, a.m./p.m. */
 .time12-row { display: flex; gap: 8px; }
