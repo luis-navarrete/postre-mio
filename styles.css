@@ -1938,3 +1938,6 @@ body.has-savebar .toast { bottom: 96px; }
 
 .icon-close .icon { width: 22px; height: 22px; }
 .icon-close:active { opacity: 0.5; }
+
+/* empty space at the end of a scrolling modal so the last line never touches the rounded border */
+.modal-spacer { height: 28px; flex-shrink: 0; }

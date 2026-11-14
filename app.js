@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.5";
-const APP_UPDATED = "2026-11-14T22:45Z";
+const APP_VERSION = "1.17.6";
+const APP_UPDATED = "2026-11-14T22:46Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3260,6 +3260,7 @@ function openArchiveDay(dayNo) {
     <div class="arch-section-title">Ventas</div>
     ${day.sales.map(archiveSaleHTML).join("")}
     ${mermas}
+    <div class="modal-spacer"></div>
   `);
 }
 
