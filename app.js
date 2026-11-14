@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.5.0";
-const APP_UPDATED = "2026-11-14T04:32Z";
+const APP_VERSION = "1.5.1";
+const APP_UPDATED = "2026-11-14T04:40Z";
 
 const STORE_ID = "postremio_main";
 
@@ -348,8 +348,10 @@ const DataStore = {
     await storeRef("restockLog").add(entry);
   },
 
-  async deleteRestock(id) {
-    await storeRef("restockLog").doc(id).delete();
+  async deleteRestocks(ids) {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(storeRef("restockLog").doc(id)));
+    await batch.commit();
   },
 
   async clearRestockLog() {
@@ -553,6 +555,9 @@ const _ICON_PATHS = {
   alert:    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
   note:     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  card:     '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
+  transfer: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  percent:  '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
@@ -996,6 +1001,28 @@ function closeCustomSelect() {
   if (_cselectBtn) { _cselectBtn.classList.remove("open"); _cselectBtn = null; }
 }
 
+// Options may carry data-icon (an icon name) and data-meta (small text on the right).
+function optionParts(opt) {
+  const parts = [];
+  if (opt.dataset.icon) {
+    const i = document.createElement("span");
+    i.className = "cselect-icon";
+    i.innerHTML = icon(opt.dataset.icon);
+    parts.push(i);
+  }
+  const t = document.createElement("span");
+  t.className = "cselect-text";
+  t.textContent = opt.textContent;
+  parts.push(t);
+  if (opt.dataset.meta) {
+    const m = document.createElement("span");
+    m.className = "cselect-meta";
+    m.textContent = opt.dataset.meta;
+    parts.push(m);
+  }
+  return parts;
+}
+
 function enhanceSelects(root) {
   root.querySelectorAll("select").forEach(enhanceSelect);
 }
@@ -1020,7 +1047,7 @@ function enhanceSelect(sel) {
 
   const refresh = () => {
     const opt = sel.options[sel.selectedIndex];
-    label.textContent = opt ? opt.textContent : "";
+    label.replaceChildren(...(opt ? optionParts(opt) : []));
     btn.disabled = sel.disabled;
     wrap.style.display = sel.style.display === "none" ? "none" : "";
   };
@@ -1056,8 +1083,8 @@ function openCustomSelect(sel, btn, refresh) {
   [...sel.options].forEach((opt, i) => {
     const item = document.createElement("div");
     item.className = "cselect-item" + (i === sel.selectedIndex ? " selected" : "");
-    item.innerHTML = `<span></span>${i === sel.selectedIndex ? icon("tick") : ""}`;
-    item.firstChild.textContent = opt.textContent;
+    item.append(...optionParts(opt));
+    if (i === sel.selectedIndex) item.insertAdjacentHTML("beforeend", icon("tick"));
     item.addEventListener("click", () => {
       const changed = sel.selectedIndex !== i;
       sel.selectedIndex = i;
@@ -2517,9 +2544,9 @@ function openEditSale(saleId) {
 
       <label>Método de pago</label>
       <select id="edit-method">
-        <option value="cash"     ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
-        <option value="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
-        <option value="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
+        <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
+        <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+        <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
       </select>
 
       ${saleTime ? `
@@ -3169,10 +3196,11 @@ function deletePromo(idx) {
 // ── promo creation modal ──────────────────────
 
 function openPromoModal() {
-  const productOptions = allMenuItems()
-    .map(i => `<option value="${i.name}">${i.name}</option>`).join("");
+  const productOptions = visibleMenu().flatMap(c => c.items.map(i =>
+    `<option value="${esc(i.name)}" data-icon="${CATEGORY_ICONS[c.category] || ''}">${esc(i.name)}</option>`
+  )).join("");
   const categoryOptions = allCategories()
-    .map(c => `<option value="${c}">${esc(catName(c))}</option>`).join("");
+    .map(c => `<option value="${esc(c)}" data-icon="${CATEGORY_ICONS[c] || ''}">${esc(catName(c))}</option>`).join("");
 
   openCompactModal(`
     <h3 style="margin-top:0;">Nueva promoción</h3>
@@ -3183,17 +3211,17 @@ function openPromoModal() {
 
       <label>Tipo de descuento</label>
       <select id="pf-type" onchange="onPromoTypeChange()">
-        <option value="free_item">Producto gratis</option>
-        <option value="fixed_price">Precio fijo por grupo</option>
-        <option value="pct_discount">% Descuento</option>
-        <option value="raffle">Entrada de rifa</option>
+        <option value="free_item" data-icon="gift">Producto gratis</option>
+        <option value="fixed_price" data-icon="tag">Precio fijo por grupo</option>
+        <option value="pct_discount" data-icon="percent">% Descuento</option>
+        <option value="raffle" data-icon="ticket">Entrada de rifa</option>
       </select>
 
       <label>Aplica a</label>
       <select id="pf-scope" onchange="onPromoScopeChange()">
-        <option value="any">Cualquier producto</option>
-        <option value="category">Categoría específica</option>
-        <option value="product">Producto específico</option>
+        <option value="any" data-icon="sparkles">Cualquier producto</option>
+        <option value="category" data-icon="package">Categoría específica</option>
+        <option value="product" data-icon="cookie">Producto específico</option>
       </select>
 
       <div id="pf-scope-value-wrap" style="display:none;">
@@ -3205,8 +3233,8 @@ function openPromoModal() {
       <div id="pf-trigger-mode-wrap" style="display:none;">
         <label>Condición de la rifa</label>
         <select id="pf-trigger-mode" onchange="onTriggerModeChange()">
-          <option value="qty">Por cantidad de productos</option>
-          <option value="amount">Por monto gastado ($)</option>
+          <option value="qty" data-icon="package">Por cantidad de productos</option>
+          <option value="amount" data-icon="dollar">Por monto gastado ($)</option>
         </select>
       </div>
 
@@ -3332,38 +3360,81 @@ function savePromo() {
 //  RESTOCK LOG ENGINE
 // ─────────────────────────────────────────────
 
+let _restockLog = [];
+let _restockEditing = false;
+let _restockMarked = new Set();
+
 function renderRestockLogWithData(log) {
+  if (log) _restockLog = log;
   const section = document.getElementById("restockSection");
   const container = document.getElementById("restockList");
   if (!section || !container) return;
 
-  if (!log.length) {
+  if (!_restockLog.length) {
+    _restockEditing = false;
+    _restockMarked.clear();
     section.style.display = "none";
     return;
   }
 
   section.style.display = "block";
 
-  const rows = log.map(entry => `
-    <div class="restock-entry">
+  container.innerHTML = _restockLog.map(entry => {
+    const marked = _restockMarked.has(entry._id);
+    return `
+    <div class="restock-entry${marked ? ' marked' : ''}${_restockEditing ? ' editing' : ''}">
       <div>
         <div style="font-weight:600;">${entry.source === 'bake' ? icon('flame') + ' ' : ''}${esc(entry.name)}</div>
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
-      <button class="history-action-btn danger" onclick="deleteRestockEntry('${entry._id}')" title="Eliminar">${icon('trash')}</button>
-    </div>
-  `).join('');
+      ${_restockEditing ? `<button class="history-action-btn danger" onclick="toggleRestockMark('${entry._id}')" title="${marked ? 'Deshacer' : 'Eliminar'}">${icon('trash')}</button>` : ''}
+    </div>`;
+  }).join('');
 
-  container.innerHTML = rows;
+  const actions = document.getElementById("restockActions");
+  actions.innerHTML = _restockEditing ? `
+    <div class="restock-confirm-row">
+      <button class="btn-secondary" onclick="cancelRestockEdit()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmRestockEdit()">Confirmar${_restockMarked.size ? ` (${_restockMarked.size})` : ''}</button>
+    </div>
+    <button class="btn-danger" style="width:100%;margin-top:8px;font-size:13px;" onclick="clearRestockLog()">Borrar registro</button>
+  ` : `
+    <button class="btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="startRestockEdit()">${icon('pencil')} Editar registro</button>
+  `;
 }
 
-async function deleteRestockEntry(id) {
-  await DataStore.deleteRestock(id);
+function startRestockEdit() {
+  _restockEditing = true;
+  _restockMarked.clear();
+  renderRestockLogWithData();
+}
+
+function cancelRestockEdit() {
+  _restockEditing = false;
+  _restockMarked.clear();
+  renderRestockLogWithData();
+}
+
+function toggleRestockMark(id) {
+  if (_restockMarked.has(id)) _restockMarked.delete(id); else _restockMarked.add(id);
+  renderRestockLogWithData();
+}
+
+function confirmRestockEdit() {
+  const ids = [..._restockMarked];
+  _restockEditing = false;
+  _restockMarked.clear();
+  renderRestockLogWithData();
+  if (!ids.length) return;
+  // Don't await: offline, the write is queued and the list already updates locally.
+  DataStore.deleteRestocks(ids).catch(() => showToast("Error al eliminar. Intenta de nuevo."));
 }
 
 function clearRestockLog() {
   confirmModal("¿Borrar el registro de reabastecimientos?", async () => {
+    _restockEditing = false;
+    _restockMarked.clear();
     await DataStore.clearRestockLog();
     renderRestockLogWithData([]);
   });
@@ -3516,17 +3587,14 @@ function openMermaModal() {
   // Build category options
   const vMenu = visibleMenu();
   const catOptions = vMenu.map(c =>
-    `<option value="${c.category}">${esc(catName(c.category))}</option>`
+    `<option value="${esc(c.category)}" data-icon="${CATEGORY_ICONS[c.category] || ''}">${esc(catName(c.category))}</option>`
   ).join('');
 
   // Build item options for first category
-  const firstCatItems = vMenu[0]?.items || [];
-  const itemOptions = firstCatItems.flatMap(i => stockNamesFor(i.name)).map(k =>
-    `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
-  ).join('');
+  const itemOptions = mermaItemOptions(vMenu[0]?.items || []);
 
   const reasonOptions = Object.entries(MERMA_REASONS).map(([k, v]) =>
-    `<option value="${k}">${v.label}</option>`
+    `<option value="${k}" data-icon="${v.icon}">${v.label}</option>`
   ).join('');
 
   openCompactModal(`
@@ -3556,14 +3624,18 @@ function openMermaModal() {
   `);
 }
 
+function mermaItemOptions(items) {
+  return items.flatMap(i => stockNamesFor(i.name)).map(k =>
+    `<option value="${esc(k)}" data-meta="STOCK: ${inventory[k] ?? 0}">${esc(k)}</option>`
+  ).join('');
+}
+
 function onMermaCatChange() {
   const cat = document.getElementById('merma-cat')?.value;
   const catData = visibleMenu().find(c => c.category === cat);
   const itemSel = document.getElementById('merma-item');
   if (!catData || !itemSel) return;
-  itemSel.innerHTML = catData.items.flatMap(i => stockNamesFor(i.name)).map(k =>
-    `<option value="${k}">${k} (stock: ${inventory[k] ?? 0})</option>`
-  ).join('');
+  itemSel.innerHTML = mermaItemOptions(catData.items);
 }
 
 async function confirmMerma() {

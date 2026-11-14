@@ -698,8 +698,33 @@ button:active { opacity: 0.75; }
 .cselect-label {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.cselect-text { min-width: 0; }
+
+.cselect-label .cselect-text {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cselect-item .cselect-text { flex: 1; }
+
+.cselect-icon { display: inline-flex; flex-shrink: 0; color: var(--text-muted); }
+.cselect-btn .cselect-icon .icon,
+.cselect-item .cselect-icon .icon { width: 17px; height: 17px; color: var(--text-muted); }
+
+.cselect-meta {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #a0a0a0;
   white-space: nowrap;
 }
 
@@ -740,7 +765,6 @@ button:active { opacity: 0.75; }
 .cselect-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 11px 12px;
   border-radius: 8px;
@@ -1021,6 +1045,19 @@ button:active { opacity: 0.75; }
 }
 
 .restock-entry:last-child { border-bottom: none; }
+
+.restock-entry.marked > div:first-child,
+.restock-entry.marked .restock-qty { opacity: 0.45; }
+.restock-entry.marked > div:first-child { text-decoration: line-through; }
+
+.restock-confirm-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.restock-confirm-row button { margin: 0; font-size: 13px; }
 
 .restock-qty {
   font-weight: 700;
