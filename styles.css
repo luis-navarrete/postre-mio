@@ -1885,3 +1885,16 @@ body.has-savebar .toast { bottom: 96px; }
 .arch-sale-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; }
 .arch-sale-foot span { font-size: 11px; color: #8a8a8a; white-space: pre-wrap; word-break: break-word; }
 .arch-sale-foot strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.temp-tag {
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}

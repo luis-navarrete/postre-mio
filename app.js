@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.7";
-const APP_UPDATED = "2026-11-14T22:00Z";
+const APP_VERSION = "1.17.0";
+const APP_UPDATED = "2026-11-14T22:22Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1841,6 +1841,12 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
+      <h3>${icon('note')} Folios <span class="temp-tag">temporal</span></h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Cambia el folio de todas las ventas del historial para que coincida con su fecha y hora actuales (por ejemplo, después de corregir las horas).</p>
+      <button class="btn-secondary" style="width:100%;" onclick="refoliateHistory()">Actualizar folios del historial</button>
+    </div>
+
+    <div class="settings-card">
       <h3>${icon('alert')} Stock bajo</h3>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Se muestra "Poco" cuando el stock es esta cantidad o menos.</p>
       <div class="costs-row" style="border:none;">
@@ -1901,6 +1907,54 @@ async function refreshApp() {
     console.error("refreshApp failed:", e);
   }
   location.reload();
+}
+
+// TEMPORARY: sets every sale in Historial to the folio of its current date and time
+// (YYMMDD-HHMMSS). Used after correcting the times of many sales at once, since editing
+// a sale's time never changes its folio.
+async function refoliateHistory() {
+  let sales;
+  try {
+    sales = await DataStore.getSales();
+  } catch (e) {
+    showToast("No se pudieron cargar las ventas");
+    return;
+  }
+
+  const dated = sales.filter(s => s.isoDate).sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+  const withoutDate = sales.length - dated.length;
+  if (!dated.length) { showToast(sales.length ? "Las ventas no tienen fecha" : "No hay ventas en el historial"); return; }
+
+  // Folios from the sales' own date/time; same-second sales move to the next free second.
+  const taken = new Set(sales.filter(s => !s.isoDate && s.folio).map(s => s.folio));
+  const updates = [];
+  dated.forEach(sale => {
+    let when = new Date(sale.isoDate);
+    while (taken.has(formatFolio(when))) when = new Date(when.getTime() + 1000);
+    const folio = formatFolio(when);
+    taken.add(folio);
+    if (folio !== sale.folio) updates.push({ id: sale._id, folio });
+  });
+
+  if (!updates.length) { showToast("Los folios ya coinciden con las fechas", "check"); return; }
+
+  confirmModal(`¿Cambiar el folio de ${updates.length} venta${updates.length === 1 ? "" : "s"} para que coincida con su fecha y hora?${withoutDate ? ` (${withoutDate} sin fecha se quedan igual)` : ""}`, async () => {
+    showSpinner();
+    try {
+      for (let i = 0; i < updates.length; i += 400) {
+        const batch = db.batch();
+        updates.slice(i, i + 400).forEach(u => batch.update(storeRef("sales").doc(u.id), { folio: u.folio }));
+        await batch.commit();
+      }
+      showToast(`${updates.length} folios actualizados`, "check");
+      renderHistoryFromFirestore();
+    } catch (e) {
+      console.error("refoliateHistory failed:", e);
+      showToast("Error al actualizar los folios. Intenta de nuevo.");
+    } finally {
+      hideSpinner();
+    }
+  });
 }
 
 // ── Settings: unsaved-changes tracking and floating save button ──
