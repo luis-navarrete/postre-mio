@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.9.1";
-const APP_UPDATED = "2026-11-14T05:13Z";
+const APP_VERSION = "1.9.2";
+const APP_UPDATED = "2026-11-14T05:14Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1739,12 +1739,6 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
-      <h3>${icon('note')} Folios</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Cambia los folios del historial al formato nuevo (fecha y hora de la venta). Los que ya lo tienen no se tocan.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="convertFolios()">Convertir folios</button>
-    </div>
-
-    <div class="settings-card">
       <h3>${icon('alert')} Stock bajo</h3>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Se muestra "Poco" cuando el stock es esta cantidad o menos.</p>
       <div class="costs-row" style="border:none;">
@@ -1805,62 +1799,6 @@ async function refreshApp() {
     console.error("refreshApp failed:", e);
   }
   location.reload();
-}
-
-// Converts every sale's folio to the time format (YYMMDD-HHMMSS, from the sale's own date
-// and time). Sales already in that format keep theirs; old numbered folios and sales
-// without a folio get a new one. Safe to run again: it only touches what isn't converted yet.
-async function convertFolios() {
-  let sales;
-  try {
-    sales = await DataStore.getSales();
-  } catch (e) {
-    showToast("No se pudieron cargar las ventas");
-    return;
-  }
-
-  const isNewFormat = f => /^\d{6}-\d{6}$/.test(String(f || ""));
-  const todo = sales.filter(s => s.isoDate && !isNewFormat(s.folio))
-    .sort((a, b) => a.isoDate.localeCompare(b.isoDate));
-  const withoutDate = sales.filter(s => !s.isoDate && !isNewFormat(s.folio)).length;
-
-  if (!todo.length) {
-    showToast(withoutDate ? "Hay ventas sin fecha que no se pueden convertir" : "Todos los folios ya están en el formato nuevo");
-    return;
-  }
-
-  const hadOld = todo.filter(s => s.folio).length;
-  const msg = `¿Cambiar el folio de ${todo.length} venta${todo.length === 1 ? "" : "s"} al formato nuevo?` +
-    (hadOld ? " Los folios anteriores dejarán de existir." : "");
-
-  confirmModal(msg, async () => {
-    showSpinner();
-    try {
-      const taken = new Set(sales.filter(s => isNewFormat(s.folio)).map(s => s.folio));
-      const updates = todo.map(sale => {
-        let when = new Date(sale.isoDate);
-        while (taken.has(formatFolio(when))) when = new Date(when.getTime() + 1000);
-        const folio = formatFolio(when);
-        taken.add(folio);
-        return { id: sale._id, folio };
-      });
-
-      // Firestore batches hold up to 500 writes
-      for (let i = 0; i < updates.length; i += 400) {
-        const batch = db.batch();
-        updates.slice(i, i + 400).forEach(u => batch.update(storeRef("sales").doc(u.id), { folio: u.folio }));
-        await batch.commit();
-      }
-
-      showToast(`${updates.length} folios convertidos`, "check");
-      renderHistoryFromFirestore();
-    } catch (e) {
-      console.error("convertFolios failed:", e);
-      showToast("Error al convertir los folios. Intenta de nuevo.");
-    } finally {
-      hideSpinner();
-    }
-  });
 }
 
 // ── Settings: unsaved-changes tracking and floating save button ──
