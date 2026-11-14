@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.1";
-const APP_UPDATED = "2026-11-14T04:47Z";
+const APP_VERSION = "1.6.2";
+const APP_UPDATED = "2026-11-14T04:48Z";
 
 const STORE_ID = "postremio_main";
 
@@ -559,6 +559,7 @@ const _ICON_PATHS = {
   card:     '<rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/>',
   transfer: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   percent:  '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+  refresh:  '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
@@ -1713,15 +1714,12 @@ function showPage(page) {
 function renderSettings() {
   document.getElementById("settingsContent").innerHTML = `
     <div class="settings-card">
-      <h3>${icon('note')} Acerca de</h3>
+      <div class="settings-card-head">
+        <h3>${icon('note')} Acerca de</h3>
+        <button class="settings-mini-btn" onclick="if (guardSettingsLeave(refreshApp)) refreshApp()" title="Borra la copia guardada y vuelve a cargar la app">${icon('refresh')} Actualizar</button>
+      </div>
       <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
       <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
-    </div>
-
-    <div class="settings-card">
-      <h3>${icon('save')} Actualizar app</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="if (guardSettingsLeave(refreshApp)) refreshApp()">Actualizar app</button>
     </div>
 
     <div class="settings-card">

@@ -1384,6 +1384,28 @@ button:disabled {
 
 .settings-card > button { margin-top: 8px; }
 
+.settings-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.settings-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: auto;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.settings-mini-btn .icon { width: 14px; height: 14px; }
+
 .switch-row {
   display: flex;
   align-items: center;
