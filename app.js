@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.7.1";
-const APP_UPDATED = "2026-11-14T04:56Z";
+const APP_VERSION = "1.7.2";
+const APP_UPDATED = "2026-11-14T04:57Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1645,17 +1645,6 @@ document.addEventListener("touchmove", e => {
 
 document.addEventListener("touchend", () => { _swipe = null; }, { passive: true });
 document.addEventListener("touchcancel", () => { _swipe = null; }, { passive: true });
-
-document.addEventListener("click", function(e) {
-  const menu = document.getElementById("sideMenu");
-  const btn = document.querySelector(".menu-btn");
-
-  if (!menu || !btn) return;
-
-  if (!menu.contains(e.target) && !btn.contains(e.target)) {
-    menu.classList.remove("open");
-  }
-});
 
 function showPage(page) {
   if (page !== 'settings' && !guardSettingsLeave(() => showPage(page))) return;

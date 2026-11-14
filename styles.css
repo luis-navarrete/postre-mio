@@ -147,6 +147,26 @@ button:active { opacity: 0.75; }
 
 .side-menu.open { left: 0; }
 
+/* Dims the page behind the open menu and swallows taps so they only close it */
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2999;
+  background: rgba(0,0,0,0.25);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 0.28s ease, visibility 0s linear 0.28s;
+}
+
+.side-menu.open + .menu-backdrop {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.28s ease;
+}
+
 .menu-content { padding: 16px; height: 100%; overflow-y: auto; box-sizing: border-box; }
 .menu-content h3 {
   margin: 0 0 16px 4px;

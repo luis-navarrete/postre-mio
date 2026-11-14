@@ -196,6 +196,8 @@
     <button onclick="showPage('settings')">Ajustes</button>
   </div>
 </div>
+<!-- Catches taps outside the open menu so they only close it -->
+<div class="menu-backdrop" onclick="document.getElementById('sideMenu').classList.remove('open')"></div>
 
 <!-- Floating shortcut to the stats at the bottom of Historial -->
 <button id="statsJumpBtn" class="stats-jump" onclick="scrollToStats()"><span data-icon="chevronsDown"></span> Resumen</button>
