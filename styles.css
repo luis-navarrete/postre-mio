@@ -569,8 +569,16 @@ button:active { opacity: 0.75; }
 
 /* Icon floaters (History edit, Inventory prices / hide) */
 .fab-icon { padding: 0; }
-.fab-icon > span { display: flex; align-items: center; justify-content: center; }
-.fab-icon .icon { display: block; width: 26px; height: 26px; }
+/* icon pinned to the exact middle of the circle, independent of text/flex layout quirks */
+.fab-icon .icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+}
 .fab-upper { bottom: 96px; }
 .fab-edit.active { background: #1565c0; }
 .fab-hide.active { background: #e65100; }
