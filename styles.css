@@ -198,6 +198,25 @@ button:active { opacity: 0.75; }
   color: var(--brand-dark);
 }
 
+/* the page that is open */
+.menu-content button.active {
+  position: relative;
+  background: #daf1f2;
+  color: #2c8f92;
+  font-weight: 700;
+}
+
+.menu-content button.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--brand);
+}
+
 /* ── MODAL ─────────────────────────────── */
 .modal {
   position: fixed;
