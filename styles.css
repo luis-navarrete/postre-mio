@@ -316,6 +316,28 @@ button:active { opacity: 0.75; }
 }
 
 .cart h2 { margin: 0 0 6px; font-size: 17px; }
+.cart-title { display: flex; align-items: center; gap: 6px; }
+.cart-icon { display: inline-flex; transform-origin: 50% 70%; }
+.cart-icon .icon { width: 22px; height: 22px; vertical-align: baseline; }
+.cart-icon.grow   { animation: cartGrow 0.4s ease-out; }
+.cart-icon.shrink { animation: cartShrink 0.35s ease-out; }
+
+@keyframes cartGrow {
+  0%   { transform: scale(0.8); }
+  55%  { transform: scale(1.2) rotate(-6deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes cartShrink {
+  0%   { transform: scale(1.15) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* buttons with an icon: icon and label centered together */
+.btn-icon { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-icon .icon { width: 18px; height: 18px; vertical-align: baseline; }
+/* narrow column: icon on top, label centered below in balanced lines */
+.btn-pending { flex-direction: column; gap: 4px; font-size: 13px; padding: 10px 8px; font-weight: 600; line-height: 1.25; }
+.btn-pending .btn-label { text-align: center; text-wrap: balance; }
 
 .cart-items {
   overflow-y: auto;

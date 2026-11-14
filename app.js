@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.11.1";
-const APP_UPDATED = "2026-11-14T05:46Z";
+const APP_VERSION = "1.12.0";
+const APP_UPDATED = "2026-11-14T05:51Z";
 
 const STORE_ID = "postremio_main";
 
@@ -560,6 +560,10 @@ const _ICON_PATHS = {
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
   receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
   cart:     '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+  // Cart fill levels (used by the Orden header): a few items, full, overflowing
+  cartSome: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><rect x="10" y="9.2" width="3.6" height="3.6" rx="1" fill="currentColor" stroke="none"/><rect x="15.2" y="10.6" width="3.2" height="2.2" rx=".8" fill="currentColor" stroke="none"/>',
+  cartFull: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><path d="M6 6h17l-1.32 8.4a2 2 0 0 1-1.98 1.6H9.68a2 2 0 0 1-1.98-1.6z" fill="currentColor" stroke="none"/>',
+  cartOver: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><path d="M6 6h17l-1.32 8.4a2 2 0 0 1-1.98 1.6H9.68a2 2 0 0 1-1.98-1.6z" fill="currentColor" stroke="none"/><circle cx="11" cy="3.8" r="2.4" fill="currentColor" stroke="none"/><circle cx="16" cy="3" r="2.6" fill="currentColor" stroke="none"/><circle cx="20.4" cy="4.2" r="1.9" fill="currentColor" stroke="none"/>',
 };
 
 // Full-color icons (drawn with their own fills) instead of single-color outlines
@@ -3193,9 +3197,29 @@ function computeCartTotals() {
 }
 
 // ── renderCart — groups items, shows promos ──
+// Orden header icon: empty, a few items (1-2), full (3-5), overflowing (6+).
+const CART_LEVEL_ICONS = ["cart", "cartSome", "cartFull", "cartOver"];
+function updateCartIcon() {
+  const el = document.getElementById("cartIcon");
+  if (!el) return;
+  const n = cart.length;
+  const level = n === 0 ? 0 : n <= 2 ? 1 : n <= 5 ? 2 : 3;
+  const prev = el.dataset.level;
+  if (prev === String(level)) return;
+  el.dataset.level = level;
+  el.innerHTML = icon(CART_LEVEL_ICONS[level]);
+  if (prev !== undefined) {
+    // a small pop when it gets fuller, a small dip when it gets emptier
+    el.classList.remove("grow", "shrink");
+    void el.offsetWidth;
+    el.classList.add(level > Number(prev) ? "grow" : "shrink");
+  }
+}
+
 function renderCart() {
   const payBtn = document.getElementById("payBtn");
   payBtn.disabled = cart.length === 0;
+  updateCartIcon();
 
   const container = document.getElementById("cart");
   const frag = document.createDocumentFragment();
