@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.1.0";
-const APP_UPDATED = "2026-11-14T00:08Z";
+const APP_VERSION = "1.2.0";
+const APP_UPDATED = "2026-11-14T00:12Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2402,7 +2402,36 @@ function renderHistoryWithData(data) {
   updateCutBtnWithData(data);
 }
 
+function renderHistoryStats(data) {
+  const el = document.getElementById("historyStats");
+  if (!el) return;
+  if (!data.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+
+  const counts = {};
+  data.forEach(sale => (sale.items || []).forEach(item => {
+    counts[item.name] = (counts[item.name] || 0) + 1;
+  }));
+
+  const known = new Set();
+  const groups = menu.map(cat => {
+    const items = cat.items.filter(i => counts[i.name]).map(i => { known.add(i.name); return [i.name, counts[i.name]]; });
+    return { label: catHTML(cat.category), items };
+  });
+  const others = Object.entries(counts).filter(([name]) => !known.has(name));
+  if (others.length) groups.push({ label: "Otros", items: others });
+
+  const rows = groups.filter(g => g.items.length).map(g => `
+    <div class="stats-cat">
+      <div class="stats-cat-head"><span>${g.label}</span><strong>${g.items.reduce((sum, [, n]) => sum + n, 0)}</strong></div>
+      <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip">${esc(name)} <b>${n}</b></span>`).join("")}</div>
+    </div>`).join("");
+
+  el.innerHTML = `<div class="stats-title">Vendidos</div>${rows}`;
+  el.style.display = "block";
+}
+
 function updateCutBtnWithData(data) {
+  renderHistoryStats(data);
   const container = document.getElementById("cutBtn");
   if (data.length > 0) {
     container.style.display = "block";

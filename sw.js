@@ -8,6 +8,7 @@ const NETWORK_TIMEOUT_MS = 4000;
 const PRECACHE = [
   "./",
   "index.html",
+  "manifest.json",
   "app.js",
   "styles.css",
   "html2canvas.min.js",

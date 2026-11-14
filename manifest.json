@@ -1,0 +1,25 @@
+{
+  "name": "Postre Mío",
+  "short_name": "Postre Mío",
+  "description": "Punto de venta de Postre Mío",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#7ED0D2",
+  "theme_color": "#7ED0D2",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
