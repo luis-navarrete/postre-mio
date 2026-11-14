@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.16.5";
-const APP_UPDATED = "2026-11-14T09:53Z";
+const APP_VERSION = "1.16.6";
+const APP_UPDATED = "2026-11-14T10:03Z";
 
 const STORE_ID = "postremio_main";
 
@@ -582,6 +582,8 @@ const _ICON_PATHS = {
   refresh:  '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
   eye:      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff:   '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
+  // The cookie from the Postre Mío logo (stored for later use; not shown anywhere yet)
+  cookieLogo: '<path d="M11.43 2.42A9.8 9.8 0 1 0 21.76 11.3L21.14 11.04L20.46 10.79L19.78 10.45L19.1 9.68L18.42 9.09L17.74 8.83L17.06 8.83L16.39 8.75L15.71 8.41L14.52 6.88L14.43 6.2L13.67 5.52L12.65 4.84L11.8 4.16L11.54 3.48z" stroke-width="1.3"/><circle cx="10.98" cy="10.86" r="1.38" stroke-width="1.3"/><circle cx="8.75" cy="17.38" r="1.38" stroke-width="1.3"/><circle cx="16.08" cy="17.23" r="1.38" stroke-width="1.3"/><circle cx="5.58" cy="12.22" r="1.0" fill="currentColor" stroke="none"/><circle cx="17.37" cy="11.55" r="1.0" fill="currentColor" stroke="none"/><circle cx="13.35" cy="15.3" r="1.0" fill="currentColor" stroke="none"/><circle cx="7.94" cy="5.31" r="0.75" fill="currentColor" stroke="none"/><path d="M4.47 10.6A7.7 7.7 0 0 1 6.28 7.05" stroke-width="0.9"/>',
   chevronsDown: '<polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>',
   download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
   chevronRight: '<polyline points="9 18 15 12 9 6"/>',
