@@ -2423,7 +2423,7 @@ function renderHistoryStats(data) {
   const rows = groups.filter(g => g.items.length).map(g => `
     <div class="stats-cat">
       <div class="stats-cat-head"><span>${g.label}</span><strong>${g.items.reduce((sum, [, n]) => sum + n, 0)}</strong></div>
-      <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip">${esc(name)} <b>${n}</b></span>`).join("")}</div>
+      <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip"><b>${n}×</b><span>${esc(name)}</span></span>`).join("")}</div>
     </div>`).join("");
 
   el.innerHTML = `<div class="stats-title">Vendidos</div>${rows}`;
