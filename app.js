@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.15.0";
-const APP_UPDATED = "2026-11-14T09:12Z";
+const APP_VERSION = "1.15.1";
+const APP_UPDATED = "2026-11-14T09:16Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2362,8 +2362,9 @@ function renderBakeModalBody() {
     return `
       <div class="edit-inv-row">
         <div class="edit-inv-line">
-          <span class="edit-inv-label">${esc(name)} <span style="color:var(--text-muted);font-size:12px;">(${frozen} disp.)</span></span>
+          <span class="edit-inv-label">${esc(name)}</span>
           <div class="edit-inv-controls">
+            <span class="bake-frozen" title="Congelados disponibles">${frozen}${icon('snowflake')}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
