@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.0.0";
-const APP_UPDATED = "2026-11-13T19:50Z";
+const APP_VERSION = "1.1.0";
+const APP_UPDATED = "2026-11-14T00:08Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1574,7 +1574,29 @@ function renderSettings() {
       <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
       <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
     </div>
+
+    <div class="settings-card">
+      <h3>${icon('save')} Actualizar app</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
+      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
+    </div>
   `;
+}
+
+async function refreshApp() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r => r.unregister()));
+    }
+    if (window.caches) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+  } catch (e) {
+    console.error("refreshApp failed:", e);
+  }
+  location.reload();
 }
 
 async function saveLowStockThreshold() {
@@ -3525,3 +3547,10 @@ async function sharePending(id) {
 
 // Fill static icon placeholders in index.html
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
+
+// Offline support (see sw.js)
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(e => console.error("Service worker failed:", e));
+  });
+}
