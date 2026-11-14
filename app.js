@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.12";
-const APP_UPDATED = "2026-11-15T01:00Z";
+const APP_VERSION = "1.17.13";
+const APP_UPDATED = "2026-11-15T01:30Z";
 
 const STORE_ID = "postremio_main";
 
@@ -594,6 +594,7 @@ const _ICON_PATHS = {
   trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
+  clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
   receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
   cart:     '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
@@ -661,6 +662,8 @@ const DEFAULT_SETTINGS = {
   ticketFooter: "Tel. 229 157 4962\n@postremio.mx",
   shareMessage: "Gracias por tu compra en Postre Mío ❤️",
   askSendTicket: true,
+  use24hCards: false,   // 24-hour times on the Historial cards
+  use24hEditor: false,  // 24-hour hour picker in the edit-sale time editor
   cashDenominations: [50, 100, 200, 500],
 };
 let appSettings = { ...DEFAULT_SETTINGS };
@@ -1389,17 +1392,20 @@ function saveFinalNote() {
   renderFinalStep();
 }
 
-// Dates and times shown in the app are always 12-hour ("14/11/2026, 8:30:45 p.m."),
-// whatever the device's own settings are. (Folios stay 24-hour: see formatFolio.)
-function fmtDateTime12(d) {
-  return d.toLocaleString("es-MX", { day: "numeric", month: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+// Dates and times shown in the app are 12-hour ("14/11/2026, 8:30:45 p.m.") by default, whatever the
+// device's own settings are; two toggles in Ajustes switch the Historial cards / time editor to 24-hour.
+// (Folios are always 24-hour: see formatFolio.)
+function fmtDateTime12(d, use24 = false) {
+  return d.toLocaleString("es-MX", use24
+    ? { day: "numeric", month: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }
+    : { day: "numeric", month: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
 }
 function fmtTime12(d) {
   return d.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 // Text for a record's date: built from its ISO date when it has one, else the text saved with it
-function dateText(rec) {
-  return rec && rec.isoDate ? fmtDateTime12(new Date(rec.isoDate)) : ((rec && rec.date) || "");
+function dateText(rec, use24 = false) {
+  return rec && rec.isoDate ? fmtDateTime12(new Date(rec.isoDate), use24) : ((rec && rec.date) || "");
 }
 
 // Folio = the sale's date and time, e.g. 261114-203045 (YYMMDD-HHMMSS). It's made on the
@@ -1870,6 +1876,24 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
+      <h3>${icon('clock')} Formato de hora</h3>
+      <label class="switch-row">
+        <span>24 horas en tarjetas de historial</span>
+        <span class="toggle">
+          <input type="checkbox" id="use24hCardsInput" ${appSettings.use24hCards ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+      <label class="switch-row">
+        <span>24 horas al editar la hora</span>
+        <span class="toggle">
+          <input type="checkbox" id="use24hEditorInput" ${appSettings.use24hEditor ? 'checked' : ''}>
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+    </div>
+
+    <div class="settings-card">
       <h3>${icon('note')} Tickets y mensajes</h3>
       <label class="switch-row">
         <span>Enviar ticket después de venta</span>
@@ -1946,6 +1970,20 @@ const SETTINGS_FIELDS = {
     same: (a, b) => a === b,
     valid: () => true,
     marks: () => [_byId("askTicketInput").closest(".switch-row")],
+  },
+  use24hCards: {
+    read: () => _byId("use24hCardsInput").checked,
+    saved: () => !!appSettings.use24hCards,
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("use24hCardsInput").closest(".switch-row")],
+  },
+  use24hEditor: {
+    read: () => _byId("use24hEditorInput").checked,
+    saved: () => !!appSettings.use24hEditor,
+    same: (a, b) => a === b,
+    valid: () => true,
+    marks: () => [_byId("use24hEditorInput").closest(".switch-row")],
   },
   ticketThanks: {
     read: () => _byId("ticketThanksInput").value.trim(),
@@ -2748,12 +2786,15 @@ function openEditSale(saleId) {
   const saleTime = when ? pad2(when.getHours()) + ":" + pad2(when.getMinutes()) : "";
   const h12 = when ? (when.getHours() % 12 || 12) : 12;
   const isPm = when ? when.getHours() >= 12 : false;
-  const hourOpts = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === h12 ? "selected" : ""}>${i + 1}</option>`).join("");
+  const use24 = !!appSettings.use24hEditor;
+  const hourOpts = use24
+    ? Array.from({ length: 24 }, (_, i) => `<option value="${i}" ${when && i === when.getHours() ? "selected" : ""}>${pad2(i)}</option>`).join("")
+    : Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === h12 ? "selected" : ""}>${i + 1}</option>`).join("");
   const minOpts = Array.from({ length: 60 }, (_, i) => `<option value="${i}" ${when && i === when.getMinutes() ? "selected" : ""}>${pad2(i)}</option>`).join("");
 
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
-    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(dateText(sale))}</p>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(dateText(sale, use24))}</p>
     <div class="promo-form">
       <label>Total ($)</label>
       <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
@@ -2770,7 +2811,7 @@ function openEditSale(saleId) {
       <div class="time12-row" id="edit-time" data-original="${saleTime}">
         <select id="edit-hour">${hourOpts}</select>
         <select id="edit-min">${minOpts}</select>
-        <select id="edit-ampm"><option value="am" ${isPm ? "" : "selected"}>a.m.</option><option value="pm" ${isPm ? "selected" : ""}>p.m.</option></select>
+        ${use24 ? "" : `<select id="edit-ampm"><option value="am" ${isPm ? "" : "selected"}>a.m.</option><option value="pm" ${isPm ? "selected" : ""}>p.m.</option></select>`}
       </div>
       ` : ''}
     </div>
@@ -2817,7 +2858,9 @@ async function confirmEditSale(saleId) {
   const timeInput = document.getElementById("edit-time");
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (timeInput && sale && sale.isoDate) {
-    const h = (parseInt(document.getElementById("edit-hour").value, 10) % 12) + (document.getElementById("edit-ampm").value === "pm" ? 12 : 0);
+    const ampm = document.getElementById("edit-ampm");
+    const hv = parseInt(document.getElementById("edit-hour").value, 10);
+    const h = ampm ? (hv % 12) + (ampm.value === "pm" ? 12 : 0) : hv;
     const m = parseInt(document.getElementById("edit-min").value, 10);
     if (isNaN(h) || isNaN(m)) { showToast("Hora inválida"); return; }
     if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original) {
@@ -2926,7 +2969,7 @@ function renderHistoryWithData(data) {
 
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div class="inv-name">${esc(dateText(sale))}</div>
+        <div class="inv-name">${esc(dateText(sale, appSettings.use24hCards))}</div>
         ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">${esc(sale.folio)}</div>` : ''}
       </div>
 
