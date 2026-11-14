@@ -6,6 +6,11 @@
 <title>Postre Mío</title>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Postre Mío">
+<meta name="theme-color" content="#7ED0D2">
 <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -132,6 +137,7 @@
       <button id="editModeBtn" class="edit-mode-btn" onclick="toggleEditMode()" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
     </div>
     <div id="historyList"></div>
+    <div id="historyStats" class="history-stats" style="display:none;"></div>
     <div id="cutBtn" style="display:none; text-align: center;">
       <button onclick="generateCut()">Corte de caja</button>
     </div>

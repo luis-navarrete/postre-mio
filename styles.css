@@ -1226,3 +1226,35 @@ button:disabled {
 
 .history-action-btn.active { background: #e3f2fd; color: #1565c0; }
 .history-action-btn.danger { background: var(--btn-danger-bg); color: var(--btn-danger-color); }
+
+/* ── HISTORY STATS ─────────────────────── */
+.history-stats {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.stats-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.stats-cat { padding: 5px 0; border-top: 1px solid var(--border); }
+.stats-cat:first-of-type { border-top: none; }
+
+.stats-cat-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stats-items { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; color: var(--text-muted); }
+.stats-chip b { color: var(--text); }
