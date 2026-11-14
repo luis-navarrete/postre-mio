@@ -11,10 +11,12 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.5";
-const APP_UPDATED = "2026-11-14T04:22Z";
+const APP_VERSION = "1.4.6";
+const APP_UPDATED = "2026-11-14T04:24Z";
 
 const STORE_ID = "postremio_main";
+
+{ const v = document.getElementById("authVersion"); if (v) v.textContent = "v" + APP_VERSION; }
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
