@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.0";
-const APP_UPDATED = "2026-11-14T01:52Z";
+const APP_VERSION = "1.4.1";
+const APP_UPDATED = "2026-11-14T02:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1577,6 +1577,12 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
+      <h3>${icon('note')} Folios</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Asigna un folio a las ventas del historial que no tienen. Úsalo una sola vez y sin ventas en curso.</p>
+      <button class="btn-secondary" style="width:100%;" onclick="assignMissingFolios()">Asignar folios faltantes</button>
+    </div>
+
+    <div class="settings-card">
       <h3>${icon('alert')} Stock bajo</h3>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Se muestra "Poco" cuando el stock es esta cantidad o menos.</p>
       <div class="costs-row" style="border:none;">
@@ -1649,6 +1655,66 @@ async function saveLowStockThreshold() {
   renderProducts();
   renderCart();
   renderInventory();
+}
+
+// One-time repair: give sales saved without a folio the next numbers of their day,
+// in time order, continuing after the folios already used that day.
+async function assignMissingFolios() {
+  let sales;
+  try {
+    sales = await DataStore.getSales();
+  } catch (e) {
+    showToast("No se pudieron cargar las ventas");
+    return;
+  }
+
+  const missing = sales.filter(s => !s.folio && s.isoDate)
+    .sort((a, b) => a.isoDate.localeCompare(b.isoDate));
+  const withoutDate = sales.filter(s => !s.folio && !s.isoDate).length;
+
+  if (!missing.length) {
+    showToast(withoutDate ? "Hay ventas sin fecha que no se pueden numerar" : "Todas las ventas ya tienen folio");
+    return;
+  }
+
+  confirmModal(`¿Asignar folio a ${missing.length} venta${missing.length === 1 ? "" : "s"}?`, async () => {
+    showSpinner();
+    try {
+      const pad = n => String(n).padStart(2, "0");
+      const dayOf = iso => {
+        const d = new Date(iso);
+        return d.getFullYear().toString().slice(2) + pad(d.getMonth() + 1) + pad(d.getDate());
+      };
+
+      const byDay = {};
+      missing.forEach(s => { (byDay[dayOf(s.isoDate)] = byDay[dayOf(s.isoDate)] || []).push(s); });
+
+      const batch = db.batch();
+      for (const [day, list] of Object.entries(byDay)) {
+        const counterRef = storeRef("counters").doc(day);
+        const counterDoc = await counterRef.get();
+        let base = counterDoc.exists ? counterDoc.data().value : 0;
+        sales.forEach(s => {
+          const m = s.folio && String(s.folio).match(new RegExp("^" + day + "(\\d{3})$"));
+          if (m) base = Math.max(base, parseInt(m[1], 10));
+        });
+
+        list.forEach((sale, i) => {
+          batch.update(storeRef("sales").doc(sale._id), { folio: day + String(base + i + 1).padStart(3, "0") });
+        });
+        batch.set(counterRef, { value: base + list.length });
+      }
+      await batch.commit();
+
+      showToast(`${missing.length} folios asignados`, "check");
+      renderHistoryFromFirestore();
+    } catch (e) {
+      console.error("assignMissingFolios failed:", e);
+      showToast("Error al asignar folios. Intenta de nuevo.");
+    } finally {
+      hideSpinner();
+    }
+  });
 }
 
 async function saveAppSettings(fields) {
