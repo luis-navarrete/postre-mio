@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.6";
-const APP_UPDATED = "2026-11-14T04:24Z";
+const APP_VERSION = "1.4.7";
+const APP_UPDATED = "2026-11-14T04:26Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3749,7 +3749,8 @@ function sharePending(id) {
   };
 
   const body = [
-    ...wrapText(`Postre Mío — Pedido de ${order.name}`, SHARE_WIDTH),
+    'POSTRE MÍO',
+    ...wrapText(`Pedido de ${order.name}`, SHARE_WIDTH),
     ...(order.note ? wrapText(`📝 ${order.note}`, SHARE_WIDTH, 3) : []),
     sep,
     ...entries.map(fmt),
