@@ -1569,7 +1569,7 @@ body.has-savebar .toast { bottom: 96px; }
 .stats-jump {
   position: fixed;
   left: 50%;
-  bottom: calc(46px + env(safe-area-inset-bottom)); /* clear of the iOS home gesture area */
+  bottom: calc(36px + env(safe-area-inset-bottom)); /* clear of the iOS home gesture area */
   z-index: 900;
   display: inline-flex;
   align-items: center;
