@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.4.10";
-const APP_UPDATED = "2026-11-14T04:31Z";
+const APP_VERSION = "1.5.0";
+const APP_UPDATED = "2026-11-14T04:32Z";
 
 const STORE_ID = "postremio_main";
 
@@ -553,6 +553,8 @@ const _ICON_PATHS = {
   alert:    '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   clipboard:'<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>',
   note:     '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  chevronDown: '<polyline points="6 9 12 15 18 9"/>',
+  tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
   trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
@@ -982,11 +984,123 @@ function clearCart() {
   });
 }
 
+// ── Custom dropdowns ─────────────────────────
+// Replaces native <select> (iOS wheel picker) with a styled list. The original
+// <select> stays in the DOM, hidden, so existing code that reads .value or
+// listens to onchange keeps working.
+let _cselectBackdrop = null;
+let _cselectBtn = null;
+
+function closeCustomSelect() {
+  if (_cselectBackdrop) { _cselectBackdrop.remove(); _cselectBackdrop = null; }
+  if (_cselectBtn) { _cselectBtn.classList.remove("open"); _cselectBtn = null; }
+}
+
+function enhanceSelects(root) {
+  root.querySelectorAll("select").forEach(enhanceSelect);
+}
+
+function enhanceSelect(sel) {
+  if (sel._cselect) return;
+  sel._cselect = true;
+
+  const wrap = document.createElement("div");
+  wrap.className = "cselect";
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "cselect-btn";
+  btn.innerHTML = `<span class="cselect-label"></span>${icon("chevronDown")}`;
+  const label = btn.firstChild;
+
+  sel.parentNode.insertBefore(wrap, sel);
+  wrap.appendChild(btn);
+  wrap.appendChild(sel);
+  sel.classList.add("cselect-native");
+  sel.tabIndex = -1;
+
+  const refresh = () => {
+    const opt = sel.options[sel.selectedIndex];
+    label.textContent = opt ? opt.textContent : "";
+    btn.disabled = sel.disabled;
+    wrap.style.display = sel.style.display === "none" ? "none" : "";
+  };
+
+  // Programmatic `select.value = x` doesn't fire events, so keep the label in sync.
+  const valueProp = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  Object.defineProperty(sel, "value", {
+    configurable: true,
+    get() { return valueProp.get.call(this); },
+    set(v) { valueProp.set.call(this, v); refresh(); },
+  });
+
+  // Options replaced (innerHTML) or the select shown/hidden by other code.
+  new MutationObserver(refresh).observe(sel, {
+    childList: true, subtree: true, characterData: true,
+    attributes: true, attributeFilter: ["style", "disabled"],
+  });
+
+  btn.addEventListener("click", () => openCustomSelect(sel, btn, refresh));
+  refresh();
+}
+
+function openCustomSelect(sel, btn, refresh) {
+  const wasThis = _cselectBtn === btn;
+  closeCustomSelect();
+  if (wasThis || !sel.options.length) return;
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "cselect-backdrop";
+  const list = document.createElement("div");
+  list.className = "cselect-list";
+
+  [...sel.options].forEach((opt, i) => {
+    const item = document.createElement("div");
+    item.className = "cselect-item" + (i === sel.selectedIndex ? " selected" : "");
+    item.innerHTML = `<span></span>${i === sel.selectedIndex ? icon("tick") : ""}`;
+    item.firstChild.textContent = opt.textContent;
+    item.addEventListener("click", () => {
+      const changed = sel.selectedIndex !== i;
+      sel.selectedIndex = i;
+      refresh();
+      closeCustomSelect();
+      vibrate(8);
+      if (changed) sel.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    list.appendChild(item);
+  });
+
+  backdrop.addEventListener("click", e => { if (e.target === backdrop) closeCustomSelect(); });
+  backdrop.appendChild(list);
+  document.body.appendChild(backdrop);
+
+  // Place under the button, or above it when there is more room there.
+  const r = btn.getBoundingClientRect();
+  const vh = window.innerHeight;
+  const below = vh - r.bottom - 12;
+  const above = r.top - 12;
+  const wanted = Math.min(280, list.scrollHeight + 8);
+  const openUp = below < wanted && above > below;
+  list.style.left = r.left + "px";
+  list.style.width = r.width + "px";
+  list.style.maxHeight = Math.max(120, Math.min(280, openUp ? above : below)) + "px";
+  if (openUp) { list.style.bottom = (vh - r.top + 4) + "px"; list.style.transformOrigin = "bottom"; }
+  else { list.style.top = (r.bottom + 4) + "px"; list.style.transformOrigin = "top"; }
+
+  const selected = list.querySelector(".selected");
+  if (selected) selected.scrollIntoView({ block: "nearest" });
+
+  btn.classList.add("open");
+  _cselectBackdrop = backdrop;
+  _cselectBtn = btn;
+}
+
 function openModal(html) {
   const modal = document.getElementById("modal");
   const content = document.getElementById("modalContent");
   content.className = "modal-content";
+  closeCustomSelect();
   content.innerHTML = html;
+  enhanceSelects(content);
   modal.classList.remove("hidden");
   document.body.classList.add("modal-open");
 }
@@ -1002,6 +1116,7 @@ function openCompactModal(html) {
 }
 
 function closeModal() {
+  closeCustomSelect();
   document.getElementById("modal").classList.add("hidden");
   document.body.classList.remove("modal-open");
 }
