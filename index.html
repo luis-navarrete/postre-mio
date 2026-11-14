@@ -67,13 +67,13 @@
     <div class="products" id="products"></div>
 
     <div class="cart">
-      <h2><span data-icon="cart"></span> Orden</h2>
+      <h2 class="cart-title"><span id="cartIcon" class="cart-icon"></span> Orden</h2>
       <div class="cart-items" id="cart"></div>
       <div class="total">Total: $<span id="total">0</span></div>
 
       <button id="payBtn" class="pay" onclick="openPaymentOptions();">Cobrar</button>
-      <button class="clear" onclick="clearCart()">Limpiar</button>
-      <button class="btn-secondary" onclick="saveAsPending()" style="font-size:13px;padding:10px;"><span data-icon="clipboard"></span> Guardar como pendiente</button>
+      <button class="clear btn-icon" onclick="clearCart()"><span data-icon="cart"></span> Limpiar</button>
+      <button class="btn-secondary btn-icon btn-pending" onclick="saveAsPending()"><span data-icon="clipboard"></span><span class="btn-label">Guardar como pendiente</span></button>
     </div>
 
   </div>
@@ -183,10 +183,10 @@
   <div class="menu-content">
     <h3>Menú</h3>
     <button onclick="showPage('pos')">Caja</button>
-    <button onclick="showPage('inventory')">Inventario</button>
-    <button onclick="showPage('history')">Historial</button>
-    <button onclick="showPage('promos')">Promociones</button>
     <button onclick="showPage('pending')">Pedidos pendientes</button>
+    <button onclick="showPage('history')">Historial</button>
+    <button onclick="showPage('inventory')">Inventario</button>
+    <button onclick="showPage('promos')">Promociones</button>
     <button onclick="showPage('mermas')">Mermas</button>
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
     <button onclick="showPage('settings')">Ajustes</button>

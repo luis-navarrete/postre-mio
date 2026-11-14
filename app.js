@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.10.0";
-const APP_UPDATED = "2026-11-14T05:29Z";
+const APP_VERSION = "1.12.2";
+const APP_UPDATED = "2026-11-14T05:54Z";
 
 const STORE_ID = "postremio_main";
 
@@ -314,8 +314,10 @@ const DataStore = {
     await storeRef("mermas").add(merma);
   },
 
-  async deleteMerma(id) {
-    await storeRef("mermas").doc(id).delete();
+  async deleteMermas(ids) {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(storeRef("mermas").doc(id)));
+    await batch.commit();
   },
 
   async clearMermas() {
@@ -558,6 +560,10 @@ const _ICON_PATHS = {
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
   receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
   cart:     '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+  // Cart with 1, 2 and 3 cookies (the third sits on top of the cart); used by the Orden header
+  cart1:    '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><circle cx="14" cy="11.2" r="2.5" fill="currentColor" stroke="none"/><circle cx="13.10" cy="10.40" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="15.00" cy="11.10" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="13.80" cy="12.30" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/>',
+  cart2:    '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><circle cx="11.4" cy="11.2" r="2.5" fill="currentColor" stroke="none"/><circle cx="10.50" cy="10.40" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="12.40" cy="11.10" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="11.20" cy="12.30" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="16.6" cy="11.2" r="2.5" fill="currentColor" stroke="none"/><circle cx="15.70" cy="10.40" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="17.60" cy="11.10" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="16.40" cy="12.30" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/>',
+  cart3:    '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/><circle cx="11.4" cy="11.2" r="2.5" fill="currentColor" stroke="none"/><circle cx="10.50" cy="10.40" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="12.40" cy="11.10" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="11.20" cy="12.30" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="16.6" cy="11.2" r="2.5" fill="currentColor" stroke="none"/><circle cx="15.70" cy="10.40" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="17.60" cy="11.10" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="16.40" cy="12.30" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="14" cy="4.6" r="2.7" fill="currentColor" style="stroke:var(--card-bg,#fff)" stroke-width="1.2"/><circle cx="13.03" cy="3.74" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="15.08" cy="4.49" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/><circle cx="13.78" cy="5.79" r=".55" style="fill:var(--card-bg,#fff)" stroke="none"/>',
 };
 
 // Full-color icons (drawn with their own fills) instead of single-color outlines
@@ -577,13 +583,18 @@ function catHTML(category) { return `${icon(CATEGORY_ICONS[category])} ${esc(cat
 
 // Products whose variants (the first extras choice) each have their own stock.
 const VARIANT_PRODUCTS = {
-  "Pan de muerto": ["Nutella y kínder", "Lotus biscoff", "Betún de queso crema y fresas"],
+  "Pan de muerto": ["Nutella y Kinder", "Lotus biscoff", "Queso y fresas"],
+};
+// Old variant names (sales saved before the rename still carry them)
+const VARIANT_RENAMES = {
+  "Nutella y kínder": "Nutella y Kinder",
+  "Betún de queso crema y fresas": "Queso y fresas",
 };
 const variantKey = (product, variant) => `${product} · ${variant}`;
 // Inventory key for a cart/sale item (its variant's own key, or just its name)
 function stockKey(item) {
   return VARIANT_PRODUCTS[item.name] && item.extra && item.extra.variant
-    ? variantKey(item.name, item.extra.variant)
+    ? variantKey(item.name, VARIANT_RENAMES[item.extra.variant] || item.extra.variant)
     : item.name;
 }
 function stockNamesFor(productName) {
@@ -649,6 +660,8 @@ const PRODUCT_RENAMES = {
   "Cheesecake · Mermelada de fresa": "Cheesecake de fresa",
   "Cheesecake mermelada de fresa": "Cheesecake de fresa",
   "Cheesecake · Nutella": "Cheesecake Nutella",
+  "Pan de muerto · Nutella y kínder": "Pan de muerto · Nutella y Kinder",
+  "Pan de muerto · Betún de queso crema y fresas": "Pan de muerto · Queso y fresas",
   "Mini pastel zanahoria": "Mini pastel maceta",
   "Mini pastel red velvet": "Mini pastel maceta",
   "Mini pastel Nutella": "Mini pastel maceta",
@@ -786,9 +799,9 @@ let ITEM_EXTRAS = {
   ],
   // Pan de muerto has no base price — each flavor carries its own full price.
   "Pan de muerto": [
-    { name: "Nutella y kínder",                 price: 90 },
-    { name: "Lotus biscoff",                    price: 95 },
-    { name: "Betún de queso crema y fresas",    price: 95 },
+    { name: "Nutella y Kinder",   price: 90 },
+    { name: "Lotus biscoff",      price: 95 },
+    { name: "Queso y fresas",     price: 95 },
   ],
   // Mini pastel maceta: flavor choice only, no price difference between them.
   "Mini pastel maceta": [
@@ -1292,16 +1305,45 @@ function showFinalStep(total, method, change, amount) {
     }))
   };
 
+  renderFinalStep();
+}
+
+// Last step of a sale: total (and change), Finalizar, Añadir nota, Regresar
+function renderFinalStep() {
+  if (!currentSale) return;
+  const { total, method, change, note } = currentSale;
   openPopupModal(`
     <h3>Total: $${total}</h3>
 
     ${method === "cash" ? `<p>Cambio: $${change}</p>` : ""}
+    ${note ? `<p class="final-note">${esc(note)}</p>` : ""}
 
     <button onclick="finalizeSale()">
       Finalizar
     </button>
+    <button class="btn-secondary" onclick="openFinalNote()">${icon('note')} ${note ? 'Editar nota' : 'Añadir nota'}</button>
     <button onclick="openPaymentOptions(${total})">Regresar</button>
   `);
+}
+
+function openFinalNote() {
+  if (!currentSale) return;
+  openPopupModal(`
+    <h3 style="margin-top:0;">${icon('note')} Nota de la venta</h3>
+    <div class="promo-form">
+      <textarea id="final-note" rows="3" maxlength="200" placeholder="Ej: cobro parcial, pedido especial...">${esc(currentSale.note || '')}</textarea>
+    </div>
+    <button class="btn-brand" onclick="saveFinalNote()" style="margin-top:14px;">Guardar</button>
+    <button class="btn-secondary" onclick="renderFinalStep()">Cancelar</button>
+  `);
+  document.getElementById("final-note").focus();
+}
+
+function saveFinalNote() {
+  if (!currentSale) return;
+  const note = document.getElementById("final-note").value.trim();
+  if (note) currentSale.note = note; else delete currentSale.note;
+  renderFinalStep();
 }
 
 // Folio = the sale's date and time, e.g. 261114-203045 (YYMMDD-HHMMSS). It's made on the
@@ -1708,6 +1750,8 @@ function showPage(page) {
   if (page === "mermas") {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
+    _mermaEditing = false;
+    _mermaMarked.clear();
     renderMermaLog();
   }
 
@@ -2154,9 +2198,13 @@ function renderInventory() {
       row.innerHTML = `
         <div class="inv-list-main">
           <span class="inv-list-name">${esc(name)}</span>
-          <span class="inv-list-qty">${qty}${isLow && !isOut ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</span>
+          <span class="inv-list-nums">
+            <span class="inv-list-qty"><span class="stock-pill ${isOut ? 'out' : isLow ? 'low' : 'ok'}">${isLow || isOut ? icon('alert') : ''}${qty}</span></span>
+            ${isFreezable
+              ? `<span class="inv-frozen${frozenQty === 0 ? ' zero' : ''}" title="Congelados">${icon('snowflake')}${frozenQty}</span>`
+              : `<span class="inv-frozen empty"></span>`}
+          </span>
         </div>
-        ${isFreezable ? `<div class="inv-list-sub">${icon('snowflake')} Congelados: ${frozenQty}</div>` : ''}
       `;
     }
 
@@ -2641,24 +2689,45 @@ function openEditSale(saleId) {
       <label>Hora</label>
       <input id="edit-time" type="time" value="${saleTime}" data-original="${saleTime}">
       ` : ''}
-
-      <label>Nota (opcional)</label>
-      <input id="edit-note" type="text" value="${esc(sale.note || '')}" placeholder="Ej: cobro parcial, error de precio...">
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
 
+function openSaleNote(saleId) {
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (!sale) return;
+  openCompactModal(`
+    <h3 style="margin-top:0;">${icon('note')} Nota de la venta</h3>
+    <div class="promo-form">
+      <textarea id="sale-note" rows="3" maxlength="200" placeholder="Ej: cobro parcial, error de precio...">${esc(sale.note || '')}</textarea>
+    </div>
+    <button class="btn-brand" onclick="saveSaleNote('${saleId}')" style="margin-top:14px;">Guardar</button>
+    ${sale.note ? `<button class="btn-danger" onclick="saveSaleNote('${saleId}', true)">Quitar nota</button>` : ''}
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function saveSaleNote(saleId, remove = false) {
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (!sale) return;
+  const note = remove ? "" : document.getElementById("sale-note").value.trim();
+  if (note) sale.note = note; else delete sale.note;
+  closeModal();
+  renderHistoryWithData(_historyData);
+  // Don't await: offline, the write is queued and the card already shows the change.
+  DataStore.updateSale(saleId, { note: note || firebase.firestore.FieldValue.delete() })
+    .catch(() => showToast("Error al guardar la nota. Intenta de nuevo."));
+}
+
 async function confirmEditSale(saleId) {
   const total  = parseFloat(document.getElementById("edit-total").value);
   const method = document.getElementById("edit-method").value;
-  const note   = document.getElementById("edit-note").value.trim();
 
   if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
 
   const updates = { total, method };
-  if (note) updates.note = note;
 
   // Change only the time of day; the sale keeps its date and seconds.
   const timeInput = document.getElementById("edit-time");
@@ -2786,9 +2855,11 @@ function renderHistoryWithData(data) {
           ${editModeActive
             ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>
                <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>`
-            : `<button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
+            : `<button class="history-action-btn${sale.note ? ' has-note' : ''}" onclick="openSaleNote('${saleId}')" title="Nota">${icon('note')}</button>
+               <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
         </div>
       </div>
+      ${sale.note ? `<div class="history-note">${esc(sale.note)}</div>` : ''}
     `;
 
     container.appendChild(div);
@@ -3126,9 +3197,29 @@ function computeCartTotals() {
 }
 
 // ── renderCart — groups items, shows promos ──
+// Orden header icon: empty, then 1 cookie (1-2 items), 2 cookies (3-5), 3 cookies spilling over (6+).
+const CART_LEVEL_ICONS = ["cart", "cart1", "cart2", "cart3"];
+function updateCartIcon() {
+  const el = document.getElementById("cartIcon");
+  if (!el) return;
+  const n = cart.length;
+  const level = n === 0 ? 0 : n <= 2 ? 1 : n <= 5 ? 2 : 3;
+  const prev = el.dataset.level;
+  if (prev === String(level)) return;
+  el.dataset.level = level;
+  el.innerHTML = icon(CART_LEVEL_ICONS[level]);
+  if (prev !== undefined) {
+    // a small pop when it gets fuller, a small dip when it gets emptier
+    el.classList.remove("grow", "shrink");
+    void el.offsetWidth;
+    el.classList.add(level > Number(prev) ? "grow" : "shrink");
+  }
+}
+
 function renderCart() {
   const payBtn = document.getElementById("payBtn");
   payBtn.disabled = cart.length === 0;
+  updateCartIcon();
 
   const container = document.getElementById("cart");
   const frag = document.createDocumentFragment();
@@ -3768,14 +3859,26 @@ async function confirmMerma() {
   renderMermaLog();
 }
 
+let _mermaLog = [];
+let _mermaEditing = false;
+let _mermaMarked = new Set();
+
 async function renderMermaLog() {
   const container = document.getElementById("mermaList");
   if (!container) return;
 
   showSpinner();
-  const mermas = await DataStore.getMermas().finally(hideSpinner);
+  _mermaLog = await DataStore.getMermas().finally(hideSpinner);
+  renderMermaLogWithData();
+}
 
-  if (!mermas.length) {
+function renderMermaLogWithData() {
+  const container = document.getElementById("mermaList");
+  if (!container) return;
+
+  if (!_mermaLog.length) {
+    _mermaEditing = false;
+    _mermaMarked.clear();
     container.innerHTML = `
       <div class="pending-empty">
         <div style="font-size:36px;margin-bottom:10px;">${icon('clipboard')}</div>
@@ -3785,39 +3888,75 @@ async function renderMermaLog() {
     return;
   }
 
-  const rows = mermas.map(m => {
+  const rows = _mermaLog.map(m => {
     const r = MERMA_REASONS[m.reason] || { label: m.reason, icon: "package" };
+    const marked = _mermaMarked.has(m._id);
     return `
-      <div class="merma-entry">
+      <div class="merma-entry${marked ? ' marked' : ''}${_mermaEditing ? ' editing' : ''}">
         <div>
           <div style="font-weight:600;">${esc(m.name)}</div>
           <div style="font-size:11px;color:var(--text-muted);">${esc(m.date)}</div>
         </div>
         <span class="merma-reason ${m.reason}">${icon(r.icon)} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
-        <button class="history-action-btn danger" onclick="deleteMermaEntry('${m._id}')" title="Eliminar">${icon('trash')}</button>
+        ${_mermaEditing ? `<button class="history-action-btn danger" onclick="toggleMermaMark('${m._id}')" title="${marked ? 'Deshacer' : 'Eliminar'}">${icon('trash')}</button>` : ''}
       </div>
     `;
   }).join('');
+
+  const actions = _mermaEditing ? `
+    <div class="restock-confirm-row">
+      <button class="btn-secondary" onclick="cancelMermaEdit()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmMermaEdit()">Confirmar${_mermaMarked.size ? ` (${_mermaMarked.size})` : ''}</button>
+    </div>
+    <button class="btn-danger" style="width:100%;margin-top:8px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
+  ` : `
+    <button class="btn-secondary" style="width:100%;margin-top:12px;font-size:13px;" onclick="startMermaEdit()">${icon('pencil')} Editar registro</button>
+  `;
 
   container.innerHTML = `
     <div style="background:var(--card-bg);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);">
       ${rows}
     </div>
-    <button class="btn-secondary" style="width:100%;margin-top:12px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
+    ${actions}
   `;
+}
+
+function startMermaEdit() {
+  _mermaEditing = true;
+  _mermaMarked.clear();
+  renderMermaLogWithData();
+}
+
+function cancelMermaEdit() {
+  _mermaEditing = false;
+  _mermaMarked.clear();
+  renderMermaLogWithData();
+}
+
+function toggleMermaMark(id) {
+  if (_mermaMarked.has(id)) _mermaMarked.delete(id); else _mermaMarked.add(id);
+  renderMermaLogWithData();
+}
+
+function confirmMermaEdit() {
+  const ids = [..._mermaMarked];
+  _mermaEditing = false;
+  _mermaMarked.clear();
+  if (ids.length) _mermaLog = _mermaLog.filter(m => !ids.includes(m._id));
+  renderMermaLogWithData();
+  if (!ids.length) return;
+  // Don't await: offline, the write is queued and the list already updated locally.
+  DataStore.deleteMermas(ids).catch(() => showToast("Error al eliminar. Intenta de nuevo."));
 }
 
 function clearMermaLog() {
   confirmModal("¿Borrar todo el registro de mermas?", async () => {
+    _mermaEditing = false;
+    _mermaMarked.clear();
     await DataStore.clearMermas();
     renderMermaLog();
   });
-}
-
-async function deleteMermaEntry(id) {
-  await DataStore.deleteMerma(id);
-  renderMermaLog();
 }
 
 // ─────────────────────────────────────────────

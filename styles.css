@@ -316,6 +316,29 @@ button:active { opacity: 0.75; }
 }
 
 .cart h2 { margin: 0 0 6px; font-size: 17px; }
+.cart-title { display: flex; align-items: center; gap: 6px; }
+.cart-icon { display: inline-flex; transform-origin: 50% 70%; }
+.cart-icon .icon { width: 27px; height: 27px; vertical-align: baseline; }
+.cart-icon.grow   { animation: cartGrow 0.4s ease-out; }
+.cart-icon.shrink { animation: cartShrink 0.35s ease-out; }
+
+@keyframes cartGrow {
+  0%   { transform: scale(0.8); }
+  55%  { transform: scale(1.2) rotate(-6deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes cartShrink {
+  0%   { transform: scale(1.15) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* buttons with an icon: icon and label centered together */
+.btn-icon { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-icon .icon { width: 18px; height: 18px; vertical-align: baseline; }
+/* narrow column: icon always at the left, label (balanced, up to 2 lines) to its right */
+.btn-pending { justify-content: flex-start; gap: 6px; font-size: 12px; padding: 9px 8px; font-weight: 600; line-height: 1.25; }
+.btn-pending .icon { width: 16px; height: 16px; flex-shrink: 0; }
+.btn-pending .btn-label { flex: 1; min-width: 0; text-align: left; text-wrap: balance; overflow-wrap: anywhere; }
 
 .cart-items {
   overflow-y: auto;
@@ -402,11 +425,32 @@ button:active { opacity: 0.75; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  min-height: 23px; /* rows with a stock pill are no taller than the rest */
 }
 
 .inv-name, .inv-list-name { font-weight: 700; font-size: 14px; }
 .inv-list-qty { font-size: 14px; font-weight: 600; color: var(--text-muted); flex-shrink: 0; }
 .inv-list-sub { font-size: 12px; color: var(--text-muted); }
+
+/* current stock and frozen count side by side, clearly separated */
+.inv-list-nums { display: flex; align-items: center; flex-shrink: 0; }
+.inv-frozen {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 42px;
+  margin-left: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 600;
+  color: #3b82c4;
+  font-variant-numeric: tabular-nums;
+}
+.inv-frozen .icon { width: 15px; height: 15px; }
+.inv-frozen.zero { opacity: 0.45; }
+.inv-frozen.empty { border-left-color: transparent; }
 
 /* ── INVENTORY EDIT / BAKE MODALS ─────────── */
 .edit-inv-row {
@@ -522,6 +566,27 @@ button:active { opacity: 0.75; }
 
 .history-total { font-weight: 700; font-size: 14px; }
 
+/* footnote under the total */
+.history-note {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8a8a8a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.final-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #8a8a8a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-action-btn.has-note { background: var(--brand-light); color: var(--brand-dark); }
+
 #cutBtn button { background: var(--btn-danger-bg); color: var(--btn-danger-color); width: 100%; margin-top: 8px; }
 
 /* ── DELETE BUTTON ─────────────────────── */
@@ -569,8 +634,16 @@ button:active { opacity: 0.75; }
 
 /* Icon floaters (History edit, Inventory prices / hide) */
 .fab-icon { padding: 0; }
-.fab-icon > span { display: flex; align-items: center; justify-content: center; }
-.fab-icon .icon { display: block; width: 26px; height: 26px; }
+/* icon pinned to the exact middle of the circle, independent of text/flex layout quirks */
+.fab-icon .icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+}
 .fab-upper { bottom: 96px; }
 .fab-edit.active { background: #1565c0; }
 .fab-hide.active { background: #e65100; }
@@ -880,7 +953,7 @@ button:active { opacity: 0.75; }
 /* ── MERMAS ── */
 .merma-entry {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
   align-items: center;
   font-size: 13px;
@@ -889,6 +962,11 @@ button:active { opacity: 0.75; }
 }
 
 .merma-entry:last-child { border-bottom: none; }
+.merma-entry.editing { grid-template-columns: 1fr auto auto auto; }
+.merma-entry.marked > div:first-child,
+.merma-entry.marked .merma-reason,
+.merma-entry.marked .merma-qty { opacity: 0.45; }
+.merma-entry.marked > div:first-child { text-decoration: line-through; }
 
 .merma-reason {
   font-size: 11px;
@@ -1331,6 +1409,23 @@ button:active { opacity: 0.75; }
 .history-empty .icon { color: var(--text-muted); }
 
 .low-stock-badge .icon { width: 1em; height: 1em; vertical-align: -0.15em; }
+
+/* inventory list: every stock number lives in the same pill box (colored when low/out,
+   invisible when fine) so the digits always line up in one column */
+.stock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 2px; /* digits sit a touch high in the line box; this re-centers them */
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.stock-pill.ok  { color: var(--text-muted); font-weight: 600; }
+.stock-pill.low { background: var(--orange); color: #fff; }
+.stock-pill.out { background: var(--red); color: #fff; }
+.stock-pill .icon { width: 14px; height: 14px; vertical-align: baseline; transform: translateY(-1.15px); }
 
 /* ── INVENTORY CATEGORIES / DISABLED BUTTONS ── */
 .inv-list-cat,
