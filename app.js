@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.8.0";
-const APP_UPDATED = "2026-11-14T04:58Z";
+const APP_VERSION = "1.8.1";
+const APP_UPDATED = "2026-11-14T04:59Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2856,9 +2856,10 @@ function renderHistoryWithData(data) {
       <div class="history-footer">
         <div class="history-total">Total: $${parseFloat(finalTotal).toFixed(2)}</div>
         <div style="display:flex;gap:6px;align-items:center;">
-          ${editModeActive ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>` : ''}
-          <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>
-          <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>
+          ${editModeActive
+            ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>
+               <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>`
+            : `<button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
         </div>
       </div>
     `;
