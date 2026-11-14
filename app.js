@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.14";
-const APP_UPDATED = "2026-11-15T02:10Z";
+const APP_VERSION = "1.17.15";
+const APP_UPDATED = "2026-11-15T03:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2779,20 +2779,63 @@ function toggleEditMode() {
   renderHistory();
 }
 
+// ── iOS-style wheel picker: scroll-snap columns with a highlight band over the centre row ──
+const WHEEL_ITEM = 36; // px, must match .wheel-item height in styles.css
+function wheelColHTML(id, items, selIdx) {
+  return `<div class="wheel-col" id="${id}" data-sel="${selIdx}">${items.map((it, i) =>
+    `<div class="wheel-item${i === selIdx ? " sel" : ""}" data-v="${it.v}">${it.label}</div>`).join("")}</div>`;
+}
+function wheelIndex(col) {
+  return Math.max(0, Math.min(col.children.length - 1, Math.round(col.scrollTop / WHEEL_ITEM)));
+}
+// Put every column on its starting row and keep the centred row highlighted while scrolling
+function initWheels(root) {
+  root.querySelectorAll(".wheel-col").forEach(col => {
+    col.scrollTop = Number(col.dataset.sel) * WHEEL_ITEM;
+    let raf = 0;
+    col.addEventListener("scroll", () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const idx = wheelIndex(col);
+        [...col.children].forEach((el, i) => el.classList.toggle("sel", i === idx));
+      });
+    }, { passive: true });
+    col.addEventListener("click", e => {
+      const item = e.target.closest(".wheel-item");
+      if (item) col.scrollTo({ top: [...col.children].indexOf(item) * WHEEL_ITEM, behavior: "smooth" });
+    });
+  });
+}
+// Value of the row currently under the highlight band (null when that column isn't there)
+function wheelValue(id) {
+  const col = document.getElementById(id);
+  return col ? col.children[wheelIndex(col)].dataset.v : null;
+}
+
 function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
-  // Time of day as 12-hour dropdowns (hour, minutes, a.m./p.m.), whatever the device's own clock setting
+  // Time of day on one wheel picker (hour, minutes, a.m./p.m.), whatever the device's own clock setting
   const when = sale.isoDate ? new Date(sale.isoDate) : null;
   const saleTime = when ? pad2(when.getHours()) + ":" + pad2(when.getMinutes()) : "";
   const h12 = when ? (when.getHours() % 12 || 12) : 12;
   const isPm = when ? when.getHours() >= 12 : false;
   const use24 = !!appSettings.use24hEditor;
-  const hourOpts = use24
-    ? Array.from({ length: 24 }, (_, i) => `<option value="${i}" ${when && i === when.getHours() ? "selected" : ""}>${pad2(i)}</option>`).join("")
-    : Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === h12 ? "selected" : ""}>${i + 1}</option>`).join("");
-  const minOpts = Array.from({ length: 60 }, (_, i) => `<option value="${i}" ${when && i === when.getMinutes() ? "selected" : ""}>${pad2(i)}</option>`).join("");
+  // One iOS-style wheel picker (hour | minutes | a.m./p.m.) instead of separate dropdowns
+  const hourItems = use24
+    ? Array.from({ length: 24 }, (_, i) => ({ v: i, label: pad2(i) }))
+    : Array.from({ length: 12 }, (_, i) => ({ v: i + 1, label: String(i + 1) }));
+  const hourSel = use24 ? (when ? when.getHours() : 0) : h12 - 1;
+  const minItems = Array.from({ length: 60 }, (_, i) => ({ v: i, label: pad2(i) }));
+  const wheelHTML = `
+    <div class="wheel" id="edit-wheel">
+      <div class="wheel-band"></div>
+      ${wheelColHTML("edit-hour", hourItems, hourSel)}
+      ${wheelColHTML("edit-min", minItems, when ? when.getMinutes() : 0)}
+      ${use24 ? "" : wheelColHTML("edit-ampm", [{ v: "am", label: "a.m." }, { v: "pm", label: "p.m." }], isPm ? 1 : 0)}
+    </div>`;
 
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
@@ -2810,16 +2853,13 @@ function openEditSale(saleId) {
 
       ${saleTime ? `
       <label>Hora</label>
-      <div class="time12-row" id="edit-time" data-original="${saleTime}">
-        <select id="edit-hour">${hourOpts}</select>
-        <select id="edit-min">${minOpts}</select>
-        ${use24 ? "" : `<select id="edit-ampm"><option value="am" ${isPm ? "" : "selected"}>a.m.</option><option value="pm" ${isPm ? "selected" : ""}>p.m.</option></select>`}
-      </div>
+      <div id="edit-time" data-original="${saleTime}">${wheelHTML}</div>
       ` : ''}
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
+  initWheels(document.getElementById("modalContent"));
 }
 
 function openSaleNote(saleId) {
@@ -2860,10 +2900,10 @@ async function confirmEditSale(saleId) {
   const timeInput = document.getElementById("edit-time");
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (timeInput && sale && sale.isoDate) {
-    const ampm = document.getElementById("edit-ampm");
-    const hv = parseInt(document.getElementById("edit-hour").value, 10);
-    const h = ampm ? (hv % 12) + (ampm.value === "pm" ? 12 : 0) : hv;
-    const m = parseInt(document.getElementById("edit-min").value, 10);
+    const ampm = wheelValue("edit-ampm");
+    const hv = parseInt(wheelValue("edit-hour"), 10);
+    const h = ampm ? (hv % 12) + (ampm === "pm" ? 12 : 0) : hv;
+    const m = parseInt(wheelValue("edit-min"), 10);
     if (isNaN(h) || isNaN(m)) { showToast("Hora inválida"); return; }
     if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original) {
       const d = new Date(sale.isoDate);
