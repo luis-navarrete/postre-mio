@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.10.0";
-const APP_UPDATED = "2026-11-14T05:29Z";
+const APP_VERSION = "1.10.1";
+const APP_UPDATED = "2026-11-14T05:32Z";
 
 const STORE_ID = "postremio_main";
 
@@ -314,8 +314,10 @@ const DataStore = {
     await storeRef("mermas").add(merma);
   },
 
-  async deleteMerma(id) {
-    await storeRef("mermas").doc(id).delete();
+  async deleteMermas(ids) {
+    const batch = db.batch();
+    ids.forEach(id => batch.delete(storeRef("mermas").doc(id)));
+    await batch.commit();
   },
 
   async clearMermas() {
@@ -1708,6 +1710,8 @@ function showPage(page) {
   if (page === "mermas") {
     document.getElementById("mermaPage").style.display = "block";
     document.getElementById("mermaFab").style.display = "flex";
+    _mermaEditing = false;
+    _mermaMarked.clear();
     renderMermaLog();
   }
 
@@ -3768,14 +3772,26 @@ async function confirmMerma() {
   renderMermaLog();
 }
 
+let _mermaLog = [];
+let _mermaEditing = false;
+let _mermaMarked = new Set();
+
 async function renderMermaLog() {
   const container = document.getElementById("mermaList");
   if (!container) return;
 
   showSpinner();
-  const mermas = await DataStore.getMermas().finally(hideSpinner);
+  _mermaLog = await DataStore.getMermas().finally(hideSpinner);
+  renderMermaLogWithData();
+}
 
-  if (!mermas.length) {
+function renderMermaLogWithData() {
+  const container = document.getElementById("mermaList");
+  if (!container) return;
+
+  if (!_mermaLog.length) {
+    _mermaEditing = false;
+    _mermaMarked.clear();
     container.innerHTML = `
       <div class="pending-empty">
         <div style="font-size:36px;margin-bottom:10px;">${icon('clipboard')}</div>
@@ -3785,39 +3801,75 @@ async function renderMermaLog() {
     return;
   }
 
-  const rows = mermas.map(m => {
+  const rows = _mermaLog.map(m => {
     const r = MERMA_REASONS[m.reason] || { label: m.reason, icon: "package" };
+    const marked = _mermaMarked.has(m._id);
     return `
-      <div class="merma-entry">
+      <div class="merma-entry${marked ? ' marked' : ''}${_mermaEditing ? ' editing' : ''}">
         <div>
           <div style="font-weight:600;">${esc(m.name)}</div>
           <div style="font-size:11px;color:var(--text-muted);">${esc(m.date)}</div>
         </div>
         <span class="merma-reason ${m.reason}">${icon(r.icon)} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
-        <button class="history-action-btn danger" onclick="deleteMermaEntry('${m._id}')" title="Eliminar">${icon('trash')}</button>
+        ${_mermaEditing ? `<button class="history-action-btn danger" onclick="toggleMermaMark('${m._id}')" title="${marked ? 'Deshacer' : 'Eliminar'}">${icon('trash')}</button>` : ''}
       </div>
     `;
   }).join('');
+
+  const actions = _mermaEditing ? `
+    <div class="restock-confirm-row">
+      <button class="btn-secondary" onclick="cancelMermaEdit()">Cancelar</button>
+      <button class="btn-primary" onclick="confirmMermaEdit()">Confirmar${_mermaMarked.size ? ` (${_mermaMarked.size})` : ''}</button>
+    </div>
+    <button class="btn-danger" style="width:100%;margin-top:8px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
+  ` : `
+    <button class="btn-secondary" style="width:100%;margin-top:12px;font-size:13px;" onclick="startMermaEdit()">${icon('pencil')} Editar registro</button>
+  `;
 
   container.innerHTML = `
     <div style="background:var(--card-bg);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);">
       ${rows}
     </div>
-    <button class="btn-secondary" style="width:100%;margin-top:12px;font-size:13px;" onclick="clearMermaLog()">Borrar historial</button>
+    ${actions}
   `;
+}
+
+function startMermaEdit() {
+  _mermaEditing = true;
+  _mermaMarked.clear();
+  renderMermaLogWithData();
+}
+
+function cancelMermaEdit() {
+  _mermaEditing = false;
+  _mermaMarked.clear();
+  renderMermaLogWithData();
+}
+
+function toggleMermaMark(id) {
+  if (_mermaMarked.has(id)) _mermaMarked.delete(id); else _mermaMarked.add(id);
+  renderMermaLogWithData();
+}
+
+function confirmMermaEdit() {
+  const ids = [..._mermaMarked];
+  _mermaEditing = false;
+  _mermaMarked.clear();
+  if (ids.length) _mermaLog = _mermaLog.filter(m => !ids.includes(m._id));
+  renderMermaLogWithData();
+  if (!ids.length) return;
+  // Don't await: offline, the write is queued and the list already updated locally.
+  DataStore.deleteMermas(ids).catch(() => showToast("Error al eliminar. Intenta de nuevo."));
 }
 
 function clearMermaLog() {
   confirmModal("¿Borrar todo el registro de mermas?", async () => {
+    _mermaEditing = false;
+    _mermaMarked.clear();
     await DataStore.clearMermas();
     renderMermaLog();
   });
-}
-
-async function deleteMermaEntry(id) {
-  await DataStore.deleteMerma(id);
-  renderMermaLog();
 }
 
 // ─────────────────────────────────────────────

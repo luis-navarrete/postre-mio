@@ -880,7 +880,7 @@ button:active { opacity: 0.75; }
 /* ── MERMAS ── */
 .merma-entry {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto;
   gap: 8px;
   align-items: center;
   font-size: 13px;
@@ -889,6 +889,11 @@ button:active { opacity: 0.75; }
 }
 
 .merma-entry:last-child { border-bottom: none; }
+.merma-entry.editing { grid-template-columns: 1fr auto auto auto; }
+.merma-entry.marked > div:first-child,
+.merma-entry.marked .merma-reason,
+.merma-entry.marked .merma-qty { opacity: 0.45; }
+.merma-entry.marked > div:first-child { text-decoration: line-through; }
 
 .merma-reason {
   font-size: 11px;
