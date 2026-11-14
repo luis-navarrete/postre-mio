@@ -1898,3 +1898,8 @@ body.has-savebar .toast { bottom: 96px; }
   text-transform: uppercase;
   vertical-align: middle;
 }
+
+/* 12-hour time editor: hour, minutes, a.m./p.m. */
+.time12-row { display: flex; gap: 8px; }
+.time12-row .cselect { flex: 1; min-width: 0; }
+.time12-row .cselect:last-child { flex: 1.25; }
