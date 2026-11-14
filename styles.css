@@ -334,7 +334,8 @@ button:active { opacity: 0.75; }
 
 /* buttons with an icon: icon and label centered together */
 .btn-icon { display: flex; align-items: center; justify-content: center; gap: 8px; }
-.btn-icon .icon { width: 18px; height: 18px; vertical-align: baseline; }
+.btn-icon > span[data-icon] { display: inline-flex; align-items: center; }
+.btn-icon .icon { display: block; width: 18px; height: 18px; }
 /* narrow column: icon always at the left, label (balanced, up to 2 lines) to its right */
 .btn-pending { justify-content: flex-start; gap: 6px; font-size: 12px; padding: 9px 8px; font-weight: 600; line-height: 1.25; }
 .btn-pending .icon { width: 16px; height: 16px; flex-shrink: 0; }
