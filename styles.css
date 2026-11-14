@@ -435,15 +435,17 @@ button:active { opacity: 0.75; }
 
 /* current stock and frozen count side by side, clearly separated */
 .inv-list-nums { display: flex; align-items: center; flex-shrink: 0; }
+/* fixed-width stock slot so the separator and the frozen column line up on every row */
+.inv-list-nums .inv-list-qty { display: flex; justify-content: flex-end; min-width: 64px; }
 .inv-frozen {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 4px;
   min-width: 42px;
-  margin-left: 8px;
-  padding-left: 8px;
-  border-left: 1px solid var(--border);
+  margin-right: 8px;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
   font-size: 14px;
   font-weight: 600;
   color: #3b82c4;
@@ -451,7 +453,7 @@ button:active { opacity: 0.75; }
 }
 .inv-frozen .icon { width: 15px; height: 15px; }
 .inv-frozen.zero { opacity: 0.45; }
-.inv-frozen.empty { border-left-color: transparent; }
+.inv-frozen.empty { border-right-color: transparent; }
 
 /* ── INVENTORY EDIT / BAKE MODALS ─────────── */
 .edit-inv-row {
