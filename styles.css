@@ -335,9 +335,10 @@ button:active { opacity: 0.75; }
 /* buttons with an icon: icon and label centered together */
 .btn-icon { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .btn-icon .icon { width: 18px; height: 18px; vertical-align: baseline; }
-/* narrow column: icon on top, label centered below in balanced lines */
-.btn-pending { flex-direction: column; gap: 4px; font-size: 13px; padding: 10px 8px; font-weight: 600; line-height: 1.25; }
-.btn-pending .btn-label { text-align: center; text-wrap: balance; }
+/* narrow column: icon always at the left, label (balanced, up to 2 lines) to its right */
+.btn-pending { justify-content: flex-start; gap: 6px; font-size: 12px; padding: 9px 8px; font-weight: 600; line-height: 1.25; }
+.btn-pending .icon { width: 16px; height: 16px; flex-shrink: 0; }
+.btn-pending .btn-label { flex: 1; min-width: 0; text-align: left; text-wrap: balance; overflow-wrap: anywhere; }
 
 .cart-items {
   overflow-y: auto;
