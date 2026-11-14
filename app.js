@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.14.0";
-const APP_UPDATED = "2026-11-14T09:09Z";
+const APP_VERSION = "1.16.1";
+const APP_UPDATED = "2026-11-14T09:42Z";
 
 const STORE_ID = "postremio_main";
 
@@ -400,14 +400,46 @@ const DataStore = {
     await configRef("frozenInventory").set({ [name]: qty }, { merge: true });
   },
 
-  // ── Bulk clear for daily cut ──
-  async clearDayData() {
-    const collections = ["sales", "mermas", "restockLog"];
-    for (const col of collections) {
-      const snap = await storeRef(col).get();
+  // ── Archivo: closed days of the current stand (every sale is kept as its own record) ──
+  async getArchive() {
+    const snap = await fastGet(storeRef("archive"));
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  async getArchiveMermas() {
+    const snap = await fastGet(storeRef("archiveMermas"));
+    return snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+  },
+
+  // Moves the day's sales and mermas into the archive. Each record is copied and removed
+  // from the day's list in the same batch, so nothing is lost or duplicated if this stops
+  // half way (what wasn't moved is still in Historial and a second corte finishes it).
+  async closeDay(sales, mermas, dayNo, cutId) {
+    const moves = [
+      ...sales.map(r => ["sales", "archive", r]),
+      ...mermas.map(r => ["mermas", "archiveMermas", r]),
+    ];
+    const PER_BATCH = 200; // two writes per record, Firestore allows 500 per batch
+    for (let i = 0; i < moves.length; i += PER_BATCH) {
       const batch = db.batch();
-      snap.docs.forEach(doc => batch.delete(doc.ref));
+      moves.slice(i, i + PER_BATCH).forEach(([from, to, rec]) => {
+        const { _id, ...data } = rec;
+        batch.set(storeRef(to).doc(_id), { ...data, dayNo, cutId });
+        batch.delete(storeRef(from).doc(_id));
+      });
       await batch.commit();
+    }
+  },
+
+  // "Cerrar stand": deletes every archived record
+  async deleteArchive() {
+    for (const col of ["archive", "archiveMermas"]) {
+      const snap = await storeRef(col).get();
+      for (let i = 0; i < snap.docs.length; i += 400) {
+        const batch = db.batch();
+        snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
     }
   }
 };
@@ -551,6 +583,8 @@ const _ICON_PATHS = {
   eye:      '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   eyeOff:   '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>',
   chevronsDown: '<polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+  chevronRight: '<polyline points="9 18 15 12 9 6"/>',
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
@@ -737,8 +771,8 @@ const menu = [
     category: "🍰 Postres",
     items: [
       { name: "Carlota de limón", price: 30.00, img: "carlota.jpg" },
-      { name: "Pan de zanahoria", price: 50.00, img: "pan_zanahoria.jpg" },
-      { name: "Pay de elote", price: 40.00, img: "pay_elote.jpg" }
+      { name: "Pan de zanahoria", price: 50.00, img: "pan_zanahoria2.jpg" },
+      { name: "Pay de elote", price: 40.00, img: "pay_elote2.jpg" }
     ]
   }
 ];
@@ -1709,7 +1743,7 @@ function showPage(page) {
     return;
   }
 
-  ["posPage","inventoryPage","historyPage","promoPage","pendingPage","mermaPage","settingsPage"]
+  ["posPage","inventoryPage","historyPage","archivePage","promoPage","pendingPage","mermaPage","settingsPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
   ["promoFab","mermaFab","editFab","priceFab","hideFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
@@ -1728,6 +1762,10 @@ function showPage(page) {
     updatedFrozenItems.clear();
     renderProducts();
     renderInventory();
+  }
+  if (page === "archive") {
+    document.getElementById("archivePage").style.display = "block";
+    renderArchive();
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
@@ -1765,6 +1803,8 @@ function showPage(page) {
     editModeActive = false;
   }
   document.getElementById("sideMenu").classList.remove("open");
+  // highlight the open page in the menu
+  document.querySelectorAll("#sideMenu button[data-page]").forEach(b => b.classList.toggle("active", b.dataset.page === page));
   updateSettingsDirty();
   updateStatsJump();
   syncModeFabs();
@@ -1773,7 +1813,7 @@ function showPage(page) {
   window.scrollTo(0, 0);
 
   const pageEl = document.getElementById(
-    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
+    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", archive: "archivePage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
   );
   if (pageEl) {
     pageEl.classList.remove("page-enter");
@@ -2360,8 +2400,9 @@ function renderBakeModalBody() {
     return `
       <div class="edit-inv-row">
         <div class="edit-inv-line">
-          <span class="edit-inv-label">${esc(name)} <span style="color:var(--text-muted);font-size:12px;">(${frozen} disp.)</span></span>
+          <span class="edit-inv-label">${esc(name)}</span>
           <div class="edit-inv-controls">
+            <span class="bake-frozen" title="Congelados disponibles">${frozen}${icon('snowflake')}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -2868,11 +2909,8 @@ function renderHistoryWithData(data) {
   updateCutBtnWithData(data);
 }
 
-function renderHistoryStats(data) {
-  const el = document.getElementById("historyStats");
-  if (!el) return;
-  if (!data.length) { el.style.display = "none"; el.innerHTML = ""; return; }
-
+// Inner HTML of the "Vendidos" block for a list of sales (used by History and by Archivo)
+function statsHTML(data) {
   const counts = {};
   data.forEach(sale => (sale.items || []).forEach(item => {
     const n = currentProductName(item.name);
@@ -2893,7 +2931,15 @@ function renderHistoryStats(data) {
       <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip"><b>${n}×</b><span>${esc(name)}</span></span>`).join("")}</div>
     </div>`).join("");
 
-  el.innerHTML = `<div class="stats-title"><span>Vendidos</span><span class="stats-total">${data.length} ${data.length === 1 ? "venta" : "ventas"}</span></div>${rows}`;
+  return `<div class="stats-title"><span>Vendidos</span><span class="stats-total">${data.length} ${data.length === 1 ? "venta" : "ventas"}</span></div>${rows}`;
+}
+
+function renderHistoryStats(data) {
+  const el = document.getElementById("historyStats");
+  if (!el) return;
+  if (!data.length) { el.style.display = "none"; el.innerHTML = ""; return; }
+
+  el.innerHTML = statsHTML(data);
   el.style.display = "block";
   updateStatsJump();
 }
@@ -2948,109 +2994,381 @@ function deleteSale(saleId) {
   });
 }
 
+// ─────────────────────────────────────────────
+//  CORTE DE CAJA + ARCHIVO
+// ─────────────────────────────────────────────
+
+const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
+const pad2 = n => String(n).padStart(2, "0");
+
+// Corte de caja: closes the day. Every sale in Historial moves, intact, to Archivo
+// and Historial starts empty for the next day.
 async function generateCut() {
-  const todayISO = new Date().toISOString().slice(0, 10);
+  if (!navigator.onLine) { showToast("El corte necesita conexión a internet"); return; }
 
-  const history = _historyData || await DataStore.getSales();
-
-  const todaySales = history.filter(s =>
-    s.isoDate ? s.isoDate.startsWith(todayISO) : true
-  );
-
-  const total = todaySales.reduce((sum, s) => sum + s.total, 0);
-  const count = todaySales.length;
-
-  // Build CSV data now (Firestore reads), before any download or clearing.
-  // If this fails, bail out entirely — never offer to delete without a ready export.
-  let csvString = null;
+  showSpinner();
+  let sales;
   try {
-    csvString = await buildCsvString(history);
+    sales = await DataStore.getSales();
   } catch (e) {
-    showToast("Error al preparar el archivo. Cierre de caja cancelado.");
+    showToast("No se pudieron cargar las ventas");
     return;
+  } finally {
+    hideSpinner();
   }
+  if (!sales.length) { showToast("No hay ventas por cerrar"); return; }
 
-  confirmModal("¿Cerrar caja y borrar ventas?", async () => {
-    // Export must actually happen before anything gets deleted.
+  confirmModal("¿Cerrar el día y archivar las ventas?", async () => {
+    showSpinner();
     try {
-      triggerCsvDownload(csvString);
-    } catch (e) {
-      showToast("Error al descargar el archivo. Cierre de caja cancelado.");
-      return;
-    }
+      const [mermas, archive] = await Promise.all([DataStore.getMermas(), DataStore.getArchive()]);
+      const dayNo = archive.reduce((max, r) => Math.max(max, r.dayNo || 0), 0) + 1;
+      await DataStore.closeDay(sales, mermas, dayNo, new Date().toISOString());
+      await DataStore.clearRestockLog();
 
-    try {
-      await DataStore.clearDayData();
       _historyData = [];
       renderHistoryWithData([]);
 
+      const total = sales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
       openPopupModal(`
-        <h3 style="margin-top:0;">Corte del día</h3>
-        <p>Ventas: <strong>${count}</strong></p>
-        <p>Total: <strong>$${parseFloat(total).toFixed(2)}</strong></p>
+        <h3 style="margin-top:0;">Día ${dayNo} archivado</h3>
+        <p>Ventas: <strong>${sales.length}</strong></p>
+        <p>Total: <strong>${money(total)}</strong></p>
         <button class="btn-primary" onclick="closeModal()">Cerrar</button>
       `);
     } catch (e) {
-      showToast("El archivo ya se descargó, pero hubo un error al borrar las ventas: " + (e.message || "reintenta"));
+      console.error("generateCut failed:", e);
+      showToast("No se pudo completar el corte. Intenta de nuevo: lo que no se movió sigue en el historial.");
+    } finally {
+      hideSpinner();
     }
   });
 }
 
-async function buildCsvString(history) {
-  const mermas   = await DataStore.getMermas();
-  const hiddenItems = getHiddenItems();
-  const products = menu.flatMap(c => c.items).map(i => i.name).filter(name => !hiddenItems.includes(name));
+// ── Archivo page ──
+let _archiveDays = [];
+let _archiveMermas = [];
 
-  let csv = `Folio,Fecha,Hora,Método de pago,Total,`;
-  products.forEach(p => { csv += `"${p}",`; });
-  csv += "\n";
-
-  history.forEach(sale => {
-    const folio  = sale.folio || "";
-    const parts  = sale.date ? sale.date.split(",") : [];
-    const date   = parts[0]?.trim() || "";
-    const time   = parts[1]?.trim() || "";
-    const method = sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia";
-    let row = `${folio},${date},${time},${method},${sale.total},`;
-    products.forEach(p => {
-      let qty = 0;
-      sale.items.forEach(item => { if (currentProductName(item.name) === p) qty++; });
-      row += qty + ",";
-    });
-    csv += row + "\n";
-  });
-
-  csv += "\n";
-
-  let soldRow = `,,,,Vendidos,`;
-  products.forEach(p => {
-    let total = 0;
-    history.forEach(sale => {
-      sale.items.forEach(item => { if (currentProductName(item.name) === p) total++; });
-    });
-    soldRow += total + ",";
-  });
-  csv += soldRow + "\n";
-
-  const mermaTotals = {};
-  mermas.forEach(m => { const p = parentProduct(m.name); mermaTotals[p] = (mermaTotals[p] || 0) + m.qty; });
-  let mermaRow = `,,,,Mermas,`;
-  products.forEach(p => { mermaRow += (mermaTotals[p] || 0) + ","; });
-  csv += mermaRow + "\n";
-
-  return csv;
+function groupArchive(sales, mermas) {
+  const byDay = {};
+  sales.forEach(s => { (byDay[s.dayNo || 0] = byDay[s.dayNo || 0] || { dayNo: s.dayNo || 0, sales: [], mermas: [] }).sales.push(s); });
+  mermas.forEach(m => { (byDay[m.dayNo || 0] = byDay[m.dayNo || 0] || { dayNo: m.dayNo || 0, sales: [], mermas: [] }).mermas.push(m); });
+  return Object.values(byDay).map(d => {
+    d.sales.sort((a, b) => String(a.isoDate || "").localeCompare(String(b.isoDate || "")));
+    d.total = d.sales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
+    d.byMethod = { cash: 0, card: 0, transfer: 0 };
+    d.sales.forEach(s => { d.byMethod[s.method] = (d.byMethod[s.method] || 0) + (parseFloat(s.total) || 0); });
+    const first = d.sales.find(s => s.isoDate);
+    d.date = first ? new Date(first.isoDate) : null;
+    return d;
+  }).sort((a, b) => a.dayNo - b.dayNo);
 }
 
-function triggerCsvDownload(csv) {
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url  = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `postre_mio_corte_${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+const dayDateLabel = d => d.date ? d.date.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }) : "";
+
+async function renderArchive() {
+  const list = document.getElementById("archiveList");
+  if (!list) return;
+  loadXlsx(); // so Exportar can build the file right when it's tapped
+
+  showSpinner();
+  try {
+    const [sales, mermas] = await Promise.all([DataStore.getArchive(), DataStore.getArchiveMermas()]);
+    _archiveMermas = mermas;
+    _archiveDays = groupArchive(sales, mermas);
+  } catch (e) {
+    console.error("renderArchive failed:", e);
+    showToast("No se pudo cargar el archivo");
+  } finally {
+    hideSpinner();
+  }
+
+  const days = [..._archiveDays].reverse();
+  list.innerHTML = days.length ? days.map(d => `
+    <div class="arch-day" onclick="openArchiveDay(${d.dayNo})">
+      <div>
+        <div class="arch-day-title">Día ${d.dayNo}</div>
+        <div class="arch-day-date">${esc(dayDateLabel(d))}</div>
+      </div>
+      <div class="arch-day-right">
+        <div>
+          <div class="arch-day-total">${money(d.total)}</div>
+          <div class="arch-day-count">${d.sales.length} ${d.sales.length === 1 ? "venta" : "ventas"}</div>
+        </div>
+        ${icon('chevronRight')}
+      </div>
+    </div>`).join("") : `
+    <div class="pending-empty">
+      <div style="font-size:36px;margin-bottom:10px;">${icon('package')}</div>
+      <p>Aún no hay días archivados.<br>Se agregan al hacer el corte de caja en Historial.</p>
+    </div>`;
+
+  const none = days.length === 0;
+  document.getElementById("archiveActions").innerHTML = `
+    <button class="btn-brand btn-icon" style="width:100%;margin-top:16px;" onclick="exportArchive()" ${none ? "disabled" : ""}>${icon('download')} Exportar</button>
+    <button class="btn-danger" style="width:100%;margin-top:10px;" onclick="openCloseStand()" ${none ? "disabled" : ""}>Cerrar stand</button>
+  `;
 }
 
+function groupSaleItems(sale) {
+  const grouped = {};
+  (sale.items || []).forEach(item => {
+    const key = item.name + (item.extra ? "::" + item.extra.name : "");
+    if (!grouped[key]) grouped[key] = { name: item.name, extra: item.extra || null, unit: item.price, qty: 0 };
+    grouped[key].qty++;
+  });
+  return Object.values(grouped);
+}
+
+function archiveSaleHTML(sale) {
+  const time = sale.isoDate ? (d => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`)(new Date(sale.isoDate)) : "";
+  const items = groupSaleItems(sale).map(g => `
+    <div class="arch-item">
+      <b>${g.qty}×</b>
+      <span>${esc(g.name)}${g.extra ? ` <i>+ ${esc(g.extra.name)}</i>` : ""}</span>
+      <span class="arch-item-price">${money(g.unit * g.qty)}</span>
+    </div>`).join("");
+  const promos = (sale.promos || []).map(p => `
+    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? "−" + money(p.discount) : ""}</span></div>`).join("");
+  return `
+    <div class="arch-sale">
+      <div class="arch-sale-head">
+        <span><b>${esc(time)}</b>${sale.folio ? ` · ${esc(sale.folio)}` : ""}</span>
+        <span>${esc(METHOD_LABELS[sale.method] || "")}</span>
+      </div>
+      ${items}${promos}
+      <div class="arch-sale-foot"><span>${sale.note ? esc(sale.note) : ""}</span><strong>${money(sale.total)}</strong></div>
+    </div>`;
+}
+
+function openArchiveDay(dayNo) {
+  const day = _archiveDays.find(d => d.dayNo === dayNo);
+  if (!day) return;
+  const methods = Object.entries(day.byMethod).filter(([, v]) => v > 0)
+    .map(([k, v]) => `<span><em>${esc(METHOD_LABELS[k] || k)}</em> ${money(v)}</span>`).join("");
+  const mermas = day.mermas.length ? `
+    <div class="arch-section-title">Mermas</div>
+    ${day.mermas.map(m => {
+      const r = MERMA_REASONS[m.reason] || { label: m.reason, icon: "package" };
+      return `<div class="arch-item"><b>−${m.qty}</b><span>${esc(m.name)}</span><span class="arch-item-price">${icon(r.icon)} ${esc(r.label)}</span></div>`;
+    }).join("")}` : "";
+
+  openCompactModal(`
+    <h3 style="margin:0 0 2px;">Día ${day.dayNo}</h3>
+    <div class="arch-day-date" style="margin-bottom:10px;">${esc(dayDateLabel(day))}</div>
+    <div class="arch-summary"><strong>${money(day.total)}</strong><span>${day.sales.length} ${day.sales.length === 1 ? "venta" : "ventas"}</span></div>
+    <div class="arch-methods">${methods}</div>
+    <div class="history-stats flat">${statsHTML(day.sales)}</div>
+    <div class="arch-section-title">Ventas</div>
+    ${day.sales.map(archiveSaleHTML).join("")}
+    ${mermas}
+    <button class="btn-secondary" style="margin-top:12px;" onclick="closeModal()">Cerrar</button>
+  `);
+}
+
+// ── Export (xlsx, one sheet per day) ──
+let _xlsxLoading = null;
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  if (!_xlsxLoading) {
+    _xlsxLoading = new Promise((resolve, reject) => {
+      const el = document.createElement("script");
+      el.src = "vendor/xlsx.mini.min.js";
+      el.onload = resolve;
+      el.onerror = () => { _xlsxLoading = null; reject(new Error("xlsx failed to load")); };
+      document.head.appendChild(el);
+    });
+    _xlsxLoading.catch(() => {});
+  }
+  return _xlsxLoading;
+}
+
+function saleDateTime(sale) {
+  if (sale.isoDate) {
+    const d = new Date(sale.isoDate);
+    return [`${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`, `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`];
+  }
+  const parts = (sale.date || "").split(",");
+  return [(parts[0] || "").trim(), (parts[1] || "").trim()];
+}
+
+function buildArchiveWorkbook(days, mermas) {
+  const XL = window.XLSX;
+  const wb = XL.utils.book_new();
+  const hidden = getHiddenItems();
+
+  // Product columns: the menu (minus hidden) plus anything that was actually sold
+  const products = menu.flatMap(c => c.items).map(i => i.name).filter(n => !hidden.includes(n));
+  days.forEach(d => d.sales.forEach(s => (s.items || []).forEach(i => {
+    const n = currentProductName(i.name);
+    if (!products.includes(n)) products.push(n);
+  })));
+
+  const FIXED = ["Folio", "Fecha", "Hora", "Método de pago", "Total", "Recibido", "Cambio", "Nota", "Promociones", "Detalle"];
+  const moneyCols = [4, 5, 6];
+  const setMoney = (ws, r, cols) => cols.forEach(c => { const cell = ws[XL.utils.encode_cell({ r, c })]; if (cell && cell.t === "n") cell.z = '"$"#,##0.00'; });
+  const sheetNames = new Set();
+  const sheetName = base => {
+    let name = base.replace(/[\[\]:*?\/\\]/g, "").slice(0, 31) || "Hoja";
+    let i = 2;
+    while (sheetNames.has(name.toLowerCase())) name = name.slice(0, 28) + " " + i++;
+    sheetNames.add(name.toLowerCase());
+    return name;
+  };
+
+  // ── Resumen ──
+  const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia"]];
+  days.forEach(d => sum.push([
+    "Día " + d.dayNo, d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
+    d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0,
+  ]));
+  const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer"][i]] || 0), 0);
+  sum.push(["Total del evento", "", col(2), col(3), col(4), col(5), col(6)]);
+  const wsSum = XL.utils.aoa_to_sheet(sum);
+  wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+  for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6]);
+  XL.utils.book_append_sheet(wb, wsSum, sheetName("Resumen"));
+
+  // ── One sheet per day ──
+  days.forEach(d => {
+    const rows = [[...FIXED, ...products]];
+    d.sales.forEach(sale => {
+      const [fecha, hora] = saleDateTime(sale);
+      const counts = {};
+      (sale.items || []).forEach(i => { const n = currentProductName(i.name); counts[n] = (counts[n] || 0) + 1; });
+      const detalle = groupSaleItems(sale).map(g => `${g.qty}× ${g.name}${g.extra ? " + " + g.extra.name : ""}`).join(", ");
+      const promos = (sale.promos || []).map(p => p.name + (p.discount > 0 ? ` (−${money(p.discount)})` : "") + (p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : "")).join("; ");
+      rows.push([
+        sale.folio || "", fecha, hora, METHOD_LABELS[sale.method] || sale.method || "",
+        parseFloat(sale.total) || 0,
+        sale.amount !== undefined ? parseFloat(sale.amount) || 0 : "",
+        sale.change !== undefined ? parseFloat(sale.change) || 0 : "",
+        sale.note || "", promos, detalle,
+        ...products.map(p => counts[p] || 0),
+      ]);
+    });
+    const last = rows.length; // 1-based row of the last sale
+    rows.push([]);
+    const sold = products.map(p => d.sales.reduce((t, s) => t + (s.items || []).filter(i => currentProductName(i.name) === p).length, 0));
+    const waste = {};
+    d.mermas.forEach(m => { const p = currentProductName(parentProduct(m.name)); waste[p] = (waste[p] || 0) + (m.qty || 0); });
+    const pad = n => Array(n).fill("");
+    rows.push([...pad(9), "Vendidos", ...sold]);
+    rows.push([...pad(9), "Mermas", ...products.map(p => waste[p] || 0)]);
+    rows.push([]);
+    rows.push([...pad(3), "Total del día", d.total]);
+    Object.entries(d.byMethod).filter(([, v]) => v > 0).forEach(([k, v]) => rows.push([...pad(3), METHOD_LABELS[k] || k, v]));
+    rows.push([...pad(3), "Ventas", d.sales.length]);
+
+    const ws = XL.utils.aoa_to_sheet(rows);
+    // the day's total is a live sum of the sales above it
+    const totalRow = last + 4; // 0-based index of "Total del día"
+    const totalCell = ws[XL.utils.encode_cell({ r: totalRow, c: 4 })];
+    if (totalCell && last > 1) totalCell.f = `SUM(E2:E${last})`;
+    ws["!cols"] = [{ wch: 15 }, { wch: 11 }, { wch: 9 }, { wch: 15 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 24 }, { wch: 24 }, { wch: 40 }, ...products.map(p => ({ wch: Math.max(6, Math.min(16, p.length)) }))];
+    for (let r = 1; r < rows.length - 1; r++) setMoney(ws, r, moneyCols); // all but the final "Ventas" count
+    XL.utils.book_append_sheet(wb, ws, sheetName(`Día ${d.dayNo}${d.date ? " " + pad2(d.date.getDate()) + "-" + pad2(d.date.getMonth() + 1) : ""}`));
+  });
+
+  // ── Mermas (detail) ──
+  if (mermas.length) {
+    const dayOf = Object.fromEntries(days.map(d => [d.dayNo, d]));
+    const mrows = [["Día", "Fecha", "Producto", "Motivo", "Cantidad"]];
+    [...mermas].sort((a, b) => (a.dayNo || 0) - (b.dayNo || 0)).forEach(m => mrows.push([
+      "Día " + (m.dayNo || ""), m.date || "", m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
+    ]));
+    const wsM = XL.utils.aoa_to_sheet(mrows);
+    wsM["!cols"] = [{ wch: 8 }, { wch: 22 }, { wch: 36 }, { wch: 18 }, { wch: 10 }];
+    XL.utils.book_append_sheet(wb, wsM, sheetName("Mermas"));
+  }
+  return wb;
+}
+
+// Called straight from a tap: everything here is synchronous so the share sheet still
+// counts as a user action on iOS.
+function exportArchive() {
+  if (!_archiveDays.length) { showToast("No hay días archivados"); return; }
+  if (!window.XLSX) {
+    loadXlsx().then(() => showToast("Listo. Toca Exportar otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
+    return;
+  }
+  const wb = buildArchiveWorkbook(_archiveDays, _archiveMermas);
+  const now = new Date();
+  const name = `postre_mio_archivo_${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.xlsx`;
+  const data = window.XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  const file = new File([data], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+
+  const download = () => {
+    const url = URL.createObjectURL(file);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: name }).catch(e => { if (e.name !== "AbortError") download(); });
+  } else {
+    download();
+  }
+}
+
+// ── Cerrar stand ──
+function openCloseStand() {
+  openPopupModal(`
+    <h3 style="margin-top:0;">Cerrar stand</h3>
+    <p style="font-size:14px;line-height:1.4;">¿Deseas borrar todos los registros del evento? Recuerda exportarlos antes de continuar</p>
+    <button class="btn-danger" onclick="openStandPassword()">Continuar</button>
+    <button class="btn-brand" onclick="exportArchive()">Exportar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function openStandPassword() {
+  openPopupModal(`
+    <h3 style="margin-top:0;">Contraseña</h3>
+    <p style="font-size:14px;color:var(--text-muted);margin:0 0 10px;">Ingresa el PIN de la app para continuar.</p>
+    <div class="promo-form">
+      <input id="stand-pin" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="PIN">
+    </div>
+    <button class="btn-danger" id="standContinueBtn" style="margin-top:12px;" onclick="confirmCloseStand()">Continuar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+  document.getElementById("stand-pin").focus();
+}
+
+async function confirmCloseStand() {
+  const input = document.getElementById("stand-pin");
+  const btn = document.getElementById("standContinueBtn");
+  const pin = input.value;
+  if (pin.length !== 4) { showToast("Ingresa el PIN de 4 dígitos"); return; }
+  if (!navigator.onLine) { showToast("Cerrar el stand necesita conexión a internet"); return; }
+
+  btn.disabled = true;
+  try {
+    const authDoc = await fastGet(configRef("auth"), true);
+    if (await hashPin(pin) !== authDoc.data().pinHash) {
+      showToast("PIN incorrecto");
+      input.value = "";
+      input.focus();
+      btn.disabled = false;
+      return;
+    }
+    showSpinner();
+    await DataStore.deleteArchive();
+    hideSpinner();
+    closeModal();
+    showToast("Stand cerrado", "check");
+    renderArchive();
+  } catch (e) {
+    hideSpinner();
+    console.error("confirmCloseStand failed:", e);
+    showToast("No se pudo cerrar el stand. Intenta de nuevo.");
+    btn.disabled = false;
+  }
+}
 
 let _spinnerCount = 0;
 function showSpinner() {

@@ -136,6 +136,15 @@
   </div>
 </div>
 
+<!-- ARCHIVO -->
+<div id="archivePage" class="page page-flow" style="display:none;">
+  <div class="page-content">
+    <h2>Archivo</h2>
+    <div id="archiveList"></div>
+    <div id="archiveActions"></div>
+  </div>
+</div>
+
 <!-- PROMOCIONES -->
 <div id="promoPage" class="page page-flow" style="display:none;">
   <div class="page-content">
@@ -182,14 +191,15 @@
 <div id="sideMenu" class="side-menu">
   <div class="menu-content">
     <h3>Menú</h3>
-    <button onclick="showPage('pos')">Caja</button>
-    <button onclick="showPage('pending')">Pedidos pendientes</button>
-    <button onclick="showPage('history')">Historial</button>
-    <button onclick="showPage('inventory')">Inventario</button>
-    <button onclick="showPage('promos')">Promociones</button>
-    <button onclick="showPage('mermas')">Mermas</button>
+    <button class="active" data-page="pos" onclick="showPage('pos')">Caja</button>
+    <button data-page="pending" onclick="showPage('pending')">Pedidos pendientes</button>
+    <button data-page="history" onclick="showPage('history')">Historial</button>
+    <button data-page="archive" onclick="showPage('archive')">Archivo</button>
+    <button data-page="inventory" onclick="showPage('inventory')">Inventario</button>
+    <button data-page="promos" onclick="showPage('promos')">Promociones</button>
+    <button data-page="mermas" onclick="showPage('mermas')">Mermas</button>
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
-    <button onclick="showPage('settings')">Ajustes</button>
+    <button data-page="settings" onclick="showPage('settings')">Ajustes</button>
   </div>
 </div>
 <!-- Catches taps outside the open menu so they only close it -->
