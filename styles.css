@@ -543,6 +543,18 @@ button:active { opacity: 0.75; }
 
 .history-total { font-weight: 700; font-size: 14px; }
 
+/* footnote under the total */
+.history-note {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8a8a8a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-action-btn.has-note { background: var(--brand-light); color: var(--brand-dark); }
+
 #cutBtn button { background: var(--btn-danger-bg); color: var(--btn-danger-color); width: 100%; margin-top: 8px; }
 
 /* ── DELETE BUTTON ─────────────────────── */

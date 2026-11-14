@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.10.9";
-const APP_UPDATED = "2026-11-14T05:42Z";
+const APP_VERSION = "1.11.0";
+const APP_UPDATED = "2026-11-14T05:45Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2656,24 +2656,45 @@ function openEditSale(saleId) {
       <label>Hora</label>
       <input id="edit-time" type="time" value="${saleTime}" data-original="${saleTime}">
       ` : ''}
-
-      <label>Nota (opcional)</label>
-      <input id="edit-note" type="text" value="${esc(sale.note || '')}" placeholder="Ej: cobro parcial, error de precio...">
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
 }
 
+function openSaleNote(saleId) {
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (!sale) return;
+  openCompactModal(`
+    <h3 style="margin-top:0;">${icon('note')} Nota de la venta</h3>
+    <div class="promo-form">
+      <textarea id="sale-note" rows="3" maxlength="200" placeholder="Ej: cobro parcial, error de precio...">${esc(sale.note || '')}</textarea>
+    </div>
+    <button class="btn-brand" onclick="saveSaleNote('${saleId}')" style="margin-top:14px;">Guardar</button>
+    ${sale.note ? `<button class="btn-danger" onclick="saveSaleNote('${saleId}', true)">Quitar nota</button>` : ''}
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `);
+}
+
+function saveSaleNote(saleId, remove = false) {
+  const sale = (_historyData || []).find(s => s._id === saleId);
+  if (!sale) return;
+  const note = remove ? "" : document.getElementById("sale-note").value.trim();
+  if (note) sale.note = note; else delete sale.note;
+  closeModal();
+  renderHistoryWithData(_historyData);
+  // Don't await: offline, the write is queued and the card already shows the change.
+  DataStore.updateSale(saleId, { note: note || firebase.firestore.FieldValue.delete() })
+    .catch(() => showToast("Error al guardar la nota. Intenta de nuevo."));
+}
+
 async function confirmEditSale(saleId) {
   const total  = parseFloat(document.getElementById("edit-total").value);
   const method = document.getElementById("edit-method").value;
-  const note   = document.getElementById("edit-note").value.trim();
 
   if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
 
   const updates = { total, method };
-  if (note) updates.note = note;
 
   // Change only the time of day; the sale keeps its date and seconds.
   const timeInput = document.getElementById("edit-time");
@@ -2801,9 +2822,11 @@ function renderHistoryWithData(data) {
           ${editModeActive
             ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>
                <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>`
-            : `<button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
+            : `<button class="history-action-btn${sale.note ? ' has-note' : ''}" onclick="openSaleNote('${saleId}')" title="Nota">${icon('note')}</button>
+               <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
         </div>
       </div>
+      ${sale.note ? `<div class="history-note">${esc(sale.note)}</div>` : ''}
     `;
 
     container.appendChild(div);
