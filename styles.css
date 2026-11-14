@@ -334,7 +334,8 @@ button:active { opacity: 0.75; }
 
 /* buttons with an icon: icon and label centered together */
 .btn-icon { display: flex; align-items: center; justify-content: center; gap: 8px; }
-.btn-icon .icon { width: 18px; height: 18px; vertical-align: baseline; }
+.btn-icon > span[data-icon] { display: inline-flex; align-items: center; }
+.btn-icon .icon { display: block; width: 18px; height: 18px; }
 /* narrow column: icon always at the left, label (balanced, up to 2 lines) to its right */
 .btn-pending { justify-content: flex-start; gap: 6px; font-size: 12px; padding: 9px 8px; font-weight: 600; line-height: 1.25; }
 .btn-pending .icon { width: 16px; height: 16px; flex-shrink: 0; }
@@ -622,15 +623,15 @@ button:active { opacity: 0.75; }
   justify-content: center;
   padding: 0 0 2px 0;
   margin: 0;
-  /* white ring + dark shadow keep it distinct on top of same-coloured buttons */
-  box-shadow: 0 0 0 3px #fff, 0 6px 16px rgba(0,0,0,0.3);
+  /* a darker shadow keeps it distinct on top of same-coloured buttons */
+  box-shadow: 0 6px 16px rgba(0,0,0,0.32);
   cursor: pointer;
   z-index: 500;
   line-height: 1;
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.fab:active { transform: scale(0.93); box-shadow: 0 0 0 3px #fff, 0 3px 8px rgba(0,0,0,0.3); }
+.fab:active { transform: scale(0.93); box-shadow: 0 3px 8px rgba(0,0,0,0.3); }
 
 /* Icon floaters (History edit, Inventory prices / hide) */
 .fab-icon { padding: 0; }
@@ -1591,7 +1592,7 @@ button:disabled {
   font-size: 15px;
   font-weight: 700;
   border-radius: 14px;
-  box-shadow: 0 0 0 3px #fff, 0 6px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
 
 body.has-savebar .toast { bottom: 96px; }
