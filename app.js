@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.9";
-const APP_UPDATED = "2026-11-14T04:54Z";
+const APP_VERSION = "1.7.0";
+const APP_UPDATED = "2026-11-14T04:55Z";
 
 const STORE_ID = "postremio_main";
 
@@ -560,6 +560,7 @@ const _ICON_PATHS = {
   transfer: '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
   percent:  '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
   refresh:  '<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>',
+  chevronsDown: '<polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/>',
   chevronDown: '<polyline points="6 9 12 15 18 9"/>',
   tick:     '<polyline points="20 6 9 17 4 12"/>',
   plus:     '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
@@ -1696,6 +1697,7 @@ function showPage(page) {
   }
   document.getElementById("sideMenu").classList.remove("open");
   updateSettingsDirty();
+  updateStatsJump();
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
@@ -2855,6 +2857,26 @@ function renderHistoryStats(data) {
 
   el.innerHTML = `<div class="stats-title"><span>Ventas</span><strong>${data.length}</strong></div>${rows}`;
   el.style.display = "block";
+  updateStatsJump();
+}
+
+// Small floating button on History that jumps to the stats when they're below the fold.
+function updateStatsJump() {
+  const btn = document.getElementById("statsJumpBtn");
+  const stats = document.getElementById("historyStats");
+  if (!btn || !stats) return;
+  let show = false;
+  if (document.getElementById("historyPage").style.display !== "none" && stats.style.display !== "none") {
+    show = stats.getBoundingClientRect().top > window.innerHeight - 8;
+  }
+  btn.classList.toggle("show", show);
+}
+
+function scrollToStats() {
+  const stats = document.getElementById("historyStats");
+  const header = document.querySelector(".header");
+  const top = stats.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10;
+  window.scrollTo({ top, behavior: "smooth" });
 }
 
 function updateCutBtnWithData(data) {
@@ -4073,6 +4095,11 @@ function sharePending(id) {
     navigator.clipboard.writeText(text).then(() => showToast("Copiado al portapapeles"));
   }
 }
+
+// History: show/hide the "go to stats" button as the page scrolls or changes size
+window.addEventListener("scroll", updateStatsJump, { passive: true });
+window.addEventListener("resize", updateStatsJump);
+if (window.ResizeObserver) new ResizeObserver(updateStatsJump).observe(document.getElementById("historyList"));
 
 // Settings: re-check for unsaved changes whenever a control is edited
 ["input", "change"].forEach(ev => document.getElementById("settingsContent").addEventListener(ev, updateSettingsDirty));

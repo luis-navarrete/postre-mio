@@ -1568,6 +1568,41 @@ body.has-savebar .toast { bottom: 96px; }
   font-size: 12px;
 }
 
+/* floating shortcut to the stats */
+.stats-jump {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  z-index: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 14px;
+  width: auto;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 12px);
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s, visibility 0s linear 0.2s;
+}
+
+.stats-jump.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.stats-jump .icon { width: 16px; height: 16px; color: var(--brand-dark); }
+
 /* divider between the sales list and the stats */
 .history-stats::before {
   content: "";
