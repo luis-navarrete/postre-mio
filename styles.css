@@ -557,21 +557,22 @@ button:active { opacity: 0.75; }
   justify-content: center;
   padding: 0 0 2px 0;
   margin: 0;
-  box-shadow: 0 4px 14px rgba(126,208,210,0.5);
+  /* white ring + dark shadow keep it distinct on top of same-coloured buttons */
+  box-shadow: 0 0 0 3px #fff, 0 6px 16px rgba(0,0,0,0.3);
   cursor: pointer;
   z-index: 500;
   line-height: 1;
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-.fab:active { transform: scale(0.93); box-shadow: 0 2px 6px rgba(126,208,210,0.4); }
+.fab:active { transform: scale(0.93); box-shadow: 0 0 0 3px #fff, 0 3px 8px rgba(0,0,0,0.3); }
 
 /* Icon floaters (History edit, Inventory prices / hide) */
 .fab-icon { padding: 0; }
 .fab-icon .icon { width: 26px; height: 26px; vertical-align: middle; }
 .fab-upper { bottom: 96px; }
-.fab-edit.active { background: #1565c0; box-shadow: 0 4px 14px rgba(21,101,192,0.45); }
-.fab-hide.active { background: #e65100; box-shadow: 0 4px 14px rgba(230,81,0,0.45); }
+.fab-edit.active { background: #1565c0; }
+.fab-hide.active { background: #e65100; }
 
 /* room so the two inventory floaters never cover the last buttons */
 #inventoryPage .page-content { padding-bottom: 190px; }
@@ -1484,7 +1485,7 @@ button:disabled {
   font-size: 15px;
   font-weight: 700;
   border-radius: 14px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.28);
+  box-shadow: 0 0 0 3px #fff, 0 6px 20px rgba(0,0,0,0.3);
 }
 
 body.has-savebar .toast { bottom: 96px; }
