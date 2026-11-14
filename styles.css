@@ -318,7 +318,7 @@ button:active { opacity: 0.75; }
 .cart h2 { margin: 0 0 6px; font-size: 17px; }
 .cart-title { display: flex; align-items: center; gap: 6px; }
 .cart-icon { display: inline-flex; transform-origin: 50% 70%; }
-.cart-icon .icon { width: 22px; height: 22px; vertical-align: baseline; }
+.cart-icon .icon { width: 27px; height: 27px; vertical-align: baseline; }
 .cart-icon.grow   { animation: cartGrow 0.4s ease-out; }
 .cart-icon.shrink { animation: cartShrink 0.35s ease-out; }
 
