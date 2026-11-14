@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.13.1";
-const APP_UPDATED = "2026-11-14T08:59Z";
+const APP_VERSION = "1.14.0";
+const APP_UPDATED = "2026-11-14T09:09Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2889,11 +2889,11 @@ function renderHistoryStats(data) {
 
   const rows = groups.filter(g => g.items.length).map(g => `
     <div class="stats-cat">
-      <div class="stats-cat-head"><span>${g.label}</span><strong>${g.items.reduce((sum, [, n]) => sum + n, 0)}</strong></div>
+      <div class="stats-cat-head"><span class="stats-cat-name">${g.label}</span><span class="stats-count">${g.items.reduce((sum, [, n]) => sum + n, 0)}</span></div>
       <div class="stats-items">${g.items.map(([name, n]) => `<span class="stats-chip"><b>${n}×</b><span>${esc(name)}</span></span>`).join("")}</div>
     </div>`).join("");
 
-  el.innerHTML = `<div class="stats-title"><span>Ventas</span><strong>${data.length}</strong></div>${rows}`;
+  el.innerHTML = `<div class="stats-title"><span>Vendidos</span><span class="stats-total">${data.length} ${data.length === 1 ? "venta" : "ventas"}</span></div>${rows}`;
   el.style.display = "block";
   updateStatsJump();
 }

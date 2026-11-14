@@ -1668,9 +1668,9 @@ body.has-savebar .toast { bottom: 96px; }
   background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 10px 12px;
+  padding: 16px 18px;
   margin-top: 32px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* floating shortcut to the stats */
@@ -1721,40 +1721,58 @@ body.has-savebar .toast { bottom: 96px; }
 .stats-title {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 13px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: var(--text-muted);
-  margin-bottom: 4px;
 }
 
-.stats-cat { padding: 5px 0; border-top: 1px solid var(--border); }
+/* "VENDIDOS" label, and the "14 ventas" count in the same size and colour */
+.stats-title > span:first-child { text-transform: uppercase; letter-spacing: 0.6px; }
+.stats-total { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.stats-cat { padding: 12px 0 6px; border-top: 1px solid var(--border); }
 .stats-cat:first-of-type { border-top: none; }
 
 .stats-cat-head {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  font-weight: 600;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.stats-cat-name { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 700; }
+.stats-cat-name .icon { width: 17px; height: 17px; color: var(--brand-dark); }
+
+.stats-count {
+  min-width: 28px;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--brand-light);
+  color: #2c8f92;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .stats-items {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 3px 12px;
-  margin-top: 3px;
+  gap: 8px 14px;
   color: var(--text-muted);
 }
 
 .stats-chip {
   display: flex;
   align-items: baseline;
-  gap: 4px;
+  gap: 5px;
+  font-size: 13px;
   line-height: 1.25;
 }
 
-.stats-chip b { color: var(--text); flex-shrink: 0; }
+.stats-chip b { color: var(--text); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* Pages that scroll with the document (so iOS can scroll them to the top) */
 .page.page-flow { height: auto; overflow: visible; }
