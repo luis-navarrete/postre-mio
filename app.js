@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.7.0";
-const APP_UPDATED = "2026-11-14T04:55Z";
+const APP_VERSION = "1.7.1";
+const APP_UPDATED = "2026-11-14T04:56Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1605,6 +1605,46 @@ function toggleMenu() {
   syncMenuTop();
   document.getElementById("sideMenu").classList.toggle("open");
 }
+
+// Swipe from the far left edge to the right opens the menu; swiping left closes it.
+const SWIPE_EDGE = 30;      // px from the left edge where an opening swipe must start
+const SWIPE_DISTANCE = 70;  // px of horizontal travel needed
+let _swipe = null;
+
+function menuSwipeAllowed() {
+  return document.getElementById("appShell").style.display !== "none"
+    && !document.body.classList.contains("modal-open");
+}
+
+document.addEventListener("touchstart", e => {
+  _swipe = null;
+  if (e.touches.length !== 1 || !menuSwipeAllowed()) return;
+  const t = e.touches[0];
+  const open = document.getElementById("sideMenu").classList.contains("open");
+  if (!open && t.clientX <= SWIPE_EDGE) _swipe = { x: t.clientX, y: t.clientY, mode: "open" };
+  else if (open) _swipe = { x: t.clientX, y: t.clientY, mode: "close" };
+}, { passive: true });
+
+document.addEventListener("touchmove", e => {
+  if (!_swipe) return;
+  const t = e.touches[0];
+  const dx = t.clientX - _swipe.x;
+  const dy = t.clientY - _swipe.y;
+  if (Math.abs(dy) > Math.abs(dx) * 0.7 && Math.abs(dy) > 20) { _swipe = null; return; } // vertical scroll
+  const menu = document.getElementById("sideMenu");
+  if (_swipe.mode === "open" && dx >= SWIPE_DISTANCE) {
+    syncMenuTop();
+    menu.classList.add("open");
+    vibrate(8);
+    _swipe = null;
+  } else if (_swipe.mode === "close" && dx <= -SWIPE_DISTANCE) {
+    menu.classList.remove("open");
+    _swipe = null;
+  }
+}, { passive: true });
+
+document.addEventListener("touchend", () => { _swipe = null; }, { passive: true });
+document.addEventListener("touchcancel", () => { _swipe = null; }, { passive: true });
 
 document.addEventListener("click", function(e) {
   const menu = document.getElementById("sideMenu");
