@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.3.0";
-const APP_UPDATED = "2026-11-14T01:45Z";
+const APP_VERSION = "1.3.1";
+const APP_UPDATED = "2026-11-14T01:48Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1540,9 +1540,15 @@ function showPage(page) {
 function renderSettings() {
   document.getElementById("settingsContent").innerHTML = `
     <div class="settings-card">
-      <h3>${icon('save')} Seguridad</h3>
-      <button class="btn-secondary" style="width:100%;" onclick="openChangePinModal()">Cambiar PIN</button>
-      <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
+      <h3>${icon('note')} Acerca de</h3>
+      <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
+      <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
+    </div>
+
+    <div class="settings-card">
+      <h3>${icon('save')} Actualizar app</h3>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
+      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
     </div>
 
     <div class="settings-card">
@@ -1582,15 +1588,9 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
-      <h3>${icon('note')} Acerca de</h3>
-      <div class="costs-row" style="border:none;"><span>Versión</span><strong>${esc(APP_VERSION)}</strong></div>
-      <div class="costs-row" style="border:none;"><span>Actualizada</span><strong>${esc(new Date(APP_UPDATED).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" }))}</strong></div>
-    </div>
-
-    <div class="settings-card">
-      <h3>${icon('save')} Actualizar app</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Borra la copia guardada para uso sin internet y vuelve a cargar la app. Úsalo si algo se ve desactualizado.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="refreshApp()">Actualizar app</button>
+      <h3>${icon('save')} Seguridad</h3>
+      <button class="btn-secondary" style="width:100%;" onclick="openChangePinModal()">Cambiar PIN</button>
+      <button class="btn-danger" style="width:100%;" onclick="logout()">Cerrar sesión</button>
     </div>
   `;
 }
@@ -2874,7 +2874,7 @@ function renderPromos() {
           onclick="togglePromo(${idx})">
           ${p.active ? `${icon('check')} Activa` : `${icon('pause')} Inactiva`}
         </button>
-        <button class="delete-btn" onclick="deletePromo(${idx})">${icon('trash')}</button>
+        <button class="history-action-btn danger" onclick="deletePromo(${idx})">${icon('trash')}</button>
       </div>
     `;
     container.appendChild(card);
@@ -3084,7 +3084,7 @@ function renderRestockLogWithData(log) {
         <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
-      <button onclick="deleteRestockEntry('${entry._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
+      <button class="history-action-btn danger" onclick="deleteRestockEntry('${entry._id}')" title="Eliminar">${icon('trash')}</button>
     </div>
   `).join('');
 
@@ -3347,7 +3347,7 @@ async function renderMermaLog() {
         </div>
         <span class="merma-reason ${m.reason}">${icon(r.icon)} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
-        <button onclick="deleteMermaEntry('${m._id}')" style="background:none;border:none;cursor:pointer;color:var(--red);padding:4px;margin:0;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;" title="Eliminar">×</button>
+        <button class="history-action-btn danger" onclick="deleteMermaEntry('${m._id}')" title="Eliminar">${icon('trash')}</button>
       </div>
     `;
   }).join('');
@@ -3533,7 +3533,7 @@ async function renderPending() {
         <div class="pending-actions">
           <button class="btn-brand" onclick="loadPending('${order._id}')">${icon('cart')} Cobrar</button>
           <button class="btn-secondary" onclick="sharePending('${order._id}')" style="font-size:13px;padding:8px 12px;">Compartir</button>
-          <button class="delete-btn" onclick="deletePending('${order._id}')">${icon('trash')}</button>
+          <button class="history-action-btn danger" onclick="deletePending('${order._id}')">${icon('trash')}</button>
         </div>
       </div>
     `;
