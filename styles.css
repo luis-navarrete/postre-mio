@@ -1903,3 +1903,31 @@ body.has-savebar .toast { bottom: 96px; }
 .time12-row { display: flex; gap: 8px; }
 .time12-row .cselect { flex: 1; min-width: 0; }
 .time12-row .cselect:last-child { flex: 1.25; }
+
+/* modal header with a borderless close cross in the top right corner (stays visible while scrolling) */
+.modal-head {
+  position: sticky;
+  top: -22px;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin: -22px -22px 10px;
+  padding: 18px 14px 8px 22px;
+  background: var(--card-bg);
+}
+
+.modal-content .icon-close {
+  width: auto;
+  margin: 0;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  line-height: 0;
+  cursor: pointer;
+}
+
+.icon-close .icon { width: 22px; height: 22px; }
+.icon-close:active { opacity: 0.5; }
