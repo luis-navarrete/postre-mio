@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.0";
-const APP_UPDATED = "2026-11-14T04:43Z";
+const APP_VERSION = "1.6.1";
+const APP_UPDATED = "2026-11-14T04:47Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3306,9 +3306,8 @@ function deletePromo(idx) {
 // ── promo creation modal ──────────────────────
 
 function openPromoModal() {
-  const productOptions = visibleMenu().flatMap(c => c.items.map(i =>
-    `<option value="${esc(i.name)}" data-icon="${CATEGORY_ICONS[c.category] || ''}">${esc(i.name)}</option>`
-  )).join("");
+  const productOptions = allMenuItems()
+    .map(i => `<option value="${esc(i.name)}">${esc(i.name)}</option>`).join("");
   const categoryOptions = allCategories()
     .map(c => `<option value="${esc(c)}" data-icon="${CATEGORY_ICONS[c] || ''}">${esc(catName(c))}</option>`).join("");
 
