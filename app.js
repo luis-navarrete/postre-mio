@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.0";
-const APP_UPDATED = "2026-11-14T22:22Z";
+const APP_VERSION = "1.17.2";
+const APP_UPDATED = "2026-11-14T22:28Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1382,6 +1382,19 @@ function saveFinalNote() {
   renderFinalStep();
 }
 
+// Dates and times shown in the app are always 12-hour ("14/11/2026, 8:30:45 p.m."),
+// whatever the device's own settings are. (Folios stay 24-hour: see formatFolio.)
+function fmtDateTime12(d) {
+  return d.toLocaleString("es-MX", { day: "numeric", month: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+}
+function fmtTime12(d) {
+  return d.toLocaleTimeString("es-MX", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+// Text for a record's date: built from its ISO date when it has one, else the text saved with it
+function dateText(rec) {
+  return rec && rec.isoDate ? fmtDateTime12(new Date(rec.isoDate)) : ((rec && rec.date) || "");
+}
+
 // Folio = the sale's date and time, e.g. 261114-203045 (YYMMDD-HHMMSS). It's made on the
 // device itself, so it works offline, never waits on the network and never changes.
 function formatFolio(date) {
@@ -1519,7 +1532,7 @@ function generateTicket(sale) {
       <div style="text-align:center;">
         <img src="ticket_logo.jpg" style="max-width:100px;"><br>
         <strong style="font-size:13px;">POSTRE MÍO</strong><br>
-        ${sale.date}<br>
+        ${esc(dateText(sale))}<br>
         Folio: ${sale.folio || '—'}<br>
       </div>
 
@@ -2529,6 +2542,7 @@ async function confirmBakeAll() {
   if (changes.length === 0) return;
 
   const bakeDate = new Date().toLocaleString();
+  const bakeIso = new Date().toISOString();
 
   for (const [name, qty] of changes) {
     frozenInventory[name] = (frozenInventory[name] ?? 0) - qty;
@@ -2539,7 +2553,7 @@ async function confirmBakeAll() {
     originalInventory[name] = inventory[name];
     updatedItems.delete(name);
     await DataStore.setStock(name, inventory[name]);
-    await DataStore.addRestock({ date: bakeDate, name, qty, source: 'bake' });
+    await DataStore.addRestock({ date: bakeDate, isoDate: bakeIso, name, qty, source: 'bake' });
   }
 
   renderInventory();
@@ -2683,10 +2697,11 @@ async function saveInventoryChanges() {
     await Promise.all([...updatedItems].map(name => DataStore.setStock(name, inventory[name])));
 
     const restockDate = new Date().toLocaleString();
+    const restockIso = new Date().toISOString();
     await Promise.all(
       Object.entries(_pendingRestockByName)
         .filter(([, qty]) => qty > 0)
-        .map(([name, qty]) => DataStore.addRestock({ date: restockDate, name, qty }))
+        .map(([name, qty]) => DataStore.addRestock({ date: restockDate, isoDate: restockIso, name, qty }))
     );
 
     await Promise.all([...updatedFrozenItems].map(name => DataStore.setFrozenStock(name, frozenInventory[name])));
@@ -2775,14 +2790,17 @@ function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
 
-  const saleTime = sale.isoDate ? (() => {
-    const d = new Date(sale.isoDate);
-    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  })() : "";
+  // Time of day as 12-hour dropdowns (hour, minutes, a.m./p.m.), whatever the device's own clock setting
+  const when = sale.isoDate ? new Date(sale.isoDate) : null;
+  const saleTime = when ? pad2(when.getHours()) + ":" + pad2(when.getMinutes()) : "";
+  const h12 = when ? (when.getHours() % 12 || 12) : 12;
+  const isPm = when ? when.getHours() >= 12 : false;
+  const hourOpts = Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}" ${i + 1 === h12 ? "selected" : ""}>${i + 1}</option>`).join("");
+  const minOpts = Array.from({ length: 60 }, (_, i) => `<option value="${i}" ${when && i === when.getMinutes() ? "selected" : ""}>${pad2(i)}</option>`).join("");
 
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
-    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(sale.date)}</p>
+    <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(dateText(sale))}</p>
     <div class="promo-form">
       <label>Total ($)</label>
       <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
@@ -2796,7 +2814,11 @@ function openEditSale(saleId) {
 
       ${saleTime ? `
       <label>Hora</label>
-      <input id="edit-time" type="time" value="${saleTime}" data-original="${saleTime}">
+      <div class="time12-row" id="edit-time" data-original="${saleTime}">
+        <select id="edit-hour">${hourOpts}</select>
+        <select id="edit-min">${minOpts}</select>
+        <select id="edit-ampm"><option value="am" ${isPm ? "" : "selected"}>a.m.</option><option value="pm" ${isPm ? "selected" : ""}>p.m.</option></select>
+      </div>
       ` : ''}
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
@@ -2842,9 +2864,10 @@ async function confirmEditSale(saleId) {
   const timeInput = document.getElementById("edit-time");
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (timeInput && sale && sale.isoDate) {
-    if (!timeInput.value) { showToast("Hora inválida"); return; }
-    if (timeInput.value !== timeInput.dataset.original) {
-      const [h, m] = timeInput.value.split(":").map(Number);
+    const h = (parseInt(document.getElementById("edit-hour").value, 10) % 12) + (document.getElementById("edit-ampm").value === "pm" ? 12 : 0);
+    const m = parseInt(document.getElementById("edit-min").value, 10);
+    if (isNaN(h) || isNaN(m)) { showToast("Hora inválida"); return; }
+    if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original) {
       const d = new Date(sale.isoDate);
       d.setHours(h, m);
       updates.isoDate = d.toISOString();
@@ -2950,7 +2973,7 @@ function renderHistoryWithData(data) {
 
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div class="inv-name">${esc(sale.date || "")}</div>
+        <div class="inv-name">${esc(dateText(sale))}</div>
         ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">${esc(sale.folio)}</div>` : ''}
       </div>
 
@@ -3190,7 +3213,7 @@ function groupSaleItems(sale) {
 }
 
 function archiveSaleHTML(sale) {
-  const time = sale.isoDate ? (d => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`)(new Date(sale.isoDate)) : "";
+  const time = sale.isoDate ? fmtTime12(new Date(sale.isoDate)) : "";
   const items = groupSaleItems(sale).map(g => `
     <div class="arch-item">
       <b>${g.qty}×</b>
@@ -3344,7 +3367,7 @@ function buildArchiveWorkbook(days, mermas) {
     const dayOf = Object.fromEntries(days.map(d => [d.dayNo, d]));
     const mrows = [["Día", "Fecha", "Producto", "Motivo", "Cantidad"]];
     [...mermas].sort((a, b) => (a.dayNo || 0) - (b.dayNo || 0)).forEach(m => mrows.push([
-      "Día " + (m.dayNo || ""), m.date || "", m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
+      "Día " + (m.dayNo || ""), dateText(m), m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
     ]));
     const wsM = XL.utils.aoa_to_sheet(mrows);
     wsM["!cols"] = [{ wch: 8 }, { wch: 22 }, { wch: 36 }, { wch: 18 }, { wch: 10 }];
@@ -3971,7 +3994,7 @@ function renderRestockLogWithData(log) {
     <div class="restock-entry${marked ? ' marked' : ''}${_restockEditing ? ' editing' : ''}">
       <div>
         <div style="font-weight:600;">${entry.source === 'bake' ? icon('flame') + ' ' : ''}${esc(entry.name)}</div>
-        <div style="font-size:11px;color:var(--text-muted);">${esc(entry.date)}</div>
+        <div style="font-size:11px;color:var(--text-muted);">${esc(dateText(entry))}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
       ${_restockEditing ? `<button class="history-action-btn danger" onclick="toggleRestockMark('${entry._id}')" title="${marked ? 'Deshacer' : 'Eliminar'}">${icon('trash')}</button>` : ''}
@@ -4237,7 +4260,7 @@ async function confirmMerma() {
   inventory[name] = stock - qty;
   DataStore.setStock(name, inventory[name]);
 
-  await DataStore.addMerma({ date: new Date().toLocaleString(), name, qty, reason });
+  await DataStore.addMerma({ date: new Date().toLocaleString(), isoDate: new Date().toISOString(), name, qty, reason });
 
   closeModal();
   showToast(`Merma de ${qty} × ${name} registrada`);
@@ -4281,7 +4304,7 @@ function renderMermaLogWithData() {
       <div class="merma-entry${marked ? ' marked' : ''}${_mermaEditing ? ' editing' : ''}">
         <div>
           <div style="font-weight:600;">${esc(m.name)}</div>
-          <div style="font-size:11px;color:var(--text-muted);">${esc(m.date)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${esc(dateText(m))}</div>
         </div>
         <span class="merma-reason ${m.reason}">${icon(r.icon)} ${r.label}</span>
         <span class="merma-qty">−${m.qty}</span>
@@ -4497,7 +4520,7 @@ async function renderPending() {
     card.innerHTML = `
       <div class="pending-card-header">
         <div class="pending-name">${esc(order.name)}</div>
-        <div class="pending-date">${esc(order.date)}</div>
+        <div class="pending-date">${esc(dateText(order))}</div>
       </div>
       ${order.note ? `<div class="pending-note">${icon('note')} ${esc(order.note)}</div>` : ''}
       <div class="pending-items">${esc(summary)}</div>
