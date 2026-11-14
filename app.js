@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.6.3";
-const APP_UPDATED = "2026-11-14T04:49Z";
+const APP_VERSION = "1.6.4";
+const APP_UPDATED = "2026-11-14T04:50Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1762,6 +1762,7 @@ function renderSettings() {
       <div id="denomList" class="denom-list">
         ${appSettings.cashDenominations.map(denomRowHTML).join('')}
       </div>
+      <div id="denomDupMsg" class="field-error" style="display:none;">Hay cantidades repetidas. Cada botón debe tener un monto distinto.</div>
       <button id="denomAddBtn" class="btn-secondary" style="width:100%;" onclick="addDenomRow()">${icon('plus')} Agregar cantidad</button>
     </div>
 
@@ -1853,9 +1854,10 @@ async function assignMissingFolios() {
 // ── Settings: unsaved-changes tracking and floating save button ──
 // Each tracked field compares the control's current value with the saved one.
 const _byId = id => document.getElementById(id);
-const _normDenoms = () => [...new Set(
-  [...document.querySelectorAll("#denomList .denom-input")].map(i => Number(i.value))
-)].filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+// Positive whole amounts typed in the cash rows, sorted (repeats are kept so they can be flagged).
+const _normDenoms = () => [...document.querySelectorAll("#denomList .denom-input")]
+  .map(i => Number(i.value)).filter(n => Number.isInteger(n) && n > 0).sort((a, b) => a - b);
+const _hasRepeats = arr => new Set(arr).size !== arr.length;
 
 const SETTINGS_FIELDS = {
   lowStockThreshold: {
@@ -1898,8 +1900,8 @@ const SETTINGS_FIELDS = {
     read: _normDenoms,
     saved: () => appSettings.cashDenominations,
     same: (a, b) => JSON.stringify(a) === JSON.stringify(b),
-    valid: v => v.length > 0,
-    error: "Agrega al menos una cantidad en Efectivo",
+    valid: v => v.length > 0 && !_hasRepeats(v),
+    error: "Efectivo: agrega al menos una cantidad y sin repetir",
     marks: () => [_byId("denomList")],
   },
 };
@@ -1926,11 +1928,22 @@ function updateSettingsDirty() {
     if (changed) count++;
   }
 
-  // New cash amounts get their own highlight
+  // New cash amounts get their own highlight; repeated amounts are flagged and block saving
   const savedDenoms = new Set(appSettings.cashDenominations);
-  document.querySelectorAll("#denomList .denom-input").forEach(i =>
-    i.classList.toggle("changed", i.value !== "" && !savedDenoms.has(Number(i.value)))
-  );
+  const denomInputs = [...document.querySelectorAll("#denomList .denom-input")];
+  const counts = {};
+  denomInputs.forEach(i => { const n = Number(i.value); if (i.value !== "" && n > 0) counts[n] = (counts[n] || 0) + 1; });
+  let hasRepeats = false;
+  denomInputs.forEach(i => {
+    const n = Number(i.value);
+    const dup = i.value !== "" && counts[n] > 1;
+    if (dup) hasRepeats = true;
+    i.classList.toggle("dup", dup);
+    i.classList.toggle("changed", !dup && i.value !== "" && !savedDenoms.has(n));
+  });
+  const dupMsg = _byId("denomDupMsg");
+  if (dupMsg) dupMsg.style.display = hasRepeats ? "block" : "none";
+  _byId("settingsSaveBtn").disabled = hasRepeats;
 
   _byId("settingsSaveLabel").textContent = count > 1 ? `Guardar cambios (${count})` : "Guardar cambios";
   bar.classList.toggle("show", count > 0);

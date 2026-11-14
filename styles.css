@@ -1499,6 +1499,18 @@ body.has-savebar .toast { bottom: 96px; }
 .switch-row,
 .denom-list { transition: background 0.2s, border-color 0.2s, box-shadow 0.2s; }
 
+.settings-card input.dup {
+  border-color: var(--red) !important;
+  background: #fff0f0 !important;
+}
+
+.field-error {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  margin: -2px 0 8px;
+}
+
 .settings-card input.changed,
 .settings-card textarea.changed {
   border-color: var(--brand) !important;
