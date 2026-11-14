@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.9.1";
-const APP_UPDATED = "2026-11-14T05:13Z";
+const APP_VERSION = "1.10.0";
+const APP_UPDATED = "2026-11-14T05:29Z";
 
 const STORE_ID = "postremio_main";
 
@@ -530,7 +530,7 @@ const _ICON_PATHS = {
   coins:    '<circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18"/><path d="M7 6h1v4"/><path d="m16.7 13.9.7.7-2.8 2.8"/>',
   tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
   gift:     '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
-  ticket:   '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 5v2M13 11v2M13 17v2"/>',
+  ticket:   '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 8.5v.01M13 12v.01M13 15.5v.01"/>',
   check:    '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
   pause:    '<circle cx="12" cy="12" r="10"/><line x1="10" y1="15" x2="10" y2="9"/><line x1="14" y1="15" x2="14" y2="9"/>',
   pencil:   '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
@@ -634,7 +634,7 @@ const defaultInventory = {
   "Pan de zanahoria": 0,
   "Pay de elote": 0,
   "Rebanada de tres leches": 0,
-  "Cheesecake mermelada de fresa": 0,
+  "Cheesecake de fresa": 0,
   "Cheesecake Nutella": 0
 };
 
@@ -646,13 +646,17 @@ const PRODUCT_RENAMES = {
   "Pastel red velvet": "Rebanada Red Velvet",
   "Pastel Red Velvet": "Rebanada Red Velvet",
   "Pastel de tres leches": "Rebanada de tres leches",
-  "Cheesecake · Mermelada de fresa": "Cheesecake mermelada de fresa",
+  "Cheesecake · Mermelada de fresa": "Cheesecake de fresa",
+  "Cheesecake mermelada de fresa": "Cheesecake de fresa",
   "Cheesecake · Nutella": "Cheesecake Nutella",
   "Mini pastel zanahoria": "Mini pastel maceta",
   "Mini pastel red velvet": "Mini pastel maceta",
   "Mini pastel Nutella": "Mini pastel maceta",
   "Mini pastel dulce de leche": "Mini pastel maceta",
 };
+
+// Current name for a product that may have been renamed (old sales keep their old item names)
+const currentProductName = name => PRODUCT_RENAMES[name] || name;
 
 const savedInventory = JSON.parse(localStorage.getItem("inventory")) || {};
 let inventory = { ...defaultInventory, ...savedInventory };
@@ -712,7 +716,7 @@ const menu = [
       { name: "Mini pastel maceta", price: 220.00, img: "mini_cake.jpg" },
       { name: "Rebanada Red Velvet", price: 80.00, img: "pastel_rv.jpg" },
       { name: "Rebanada de tres leches", price: 95.00, img: "tres_leches.jpg" },
-      { name: "Cheesecake mermelada de fresa", price: 80.00, img: "cheesecake_fresa.jpg" },
+      { name: "Cheesecake de fresa", price: 80.00, img: "cheesecake_fresa.jpg" },
       { name: "Cheesecake Nutella", price: 80.00, img: "cheesecake_nutella.jpg" }
     ]
   },
@@ -1009,6 +1013,13 @@ function optionParts(opt) {
     const m = document.createElement("span");
     m.className = "cselect-meta";
     m.textContent = opt.dataset.meta;
+    if (opt.dataset.metaNum !== undefined) {
+      // numbers get a fixed-width, right-aligned slot so they line up across options
+      const num = document.createElement("span");
+      num.className = "cselect-meta-num";
+      num.textContent = opt.dataset.metaNum;
+      m.append(" ", num);
+    }
     parts.push(m);
   }
   return parts;
@@ -1075,7 +1086,8 @@ function openCustomSelect(sel, btn, refresh) {
     const item = document.createElement("div");
     item.className = "cselect-item" + (i === sel.selectedIndex ? " selected" : "");
     item.append(...optionParts(opt));
-    if (i === sel.selectedIndex) item.insertAdjacentHTML("beforeend", icon("tick"));
+    // every row reserves the check's space so right-hand columns (like stock) line up
+    item.insertAdjacentHTML("beforeend", `<span class="cselect-tick">${i === sel.selectedIndex ? icon("tick") : ""}</span>`);
     item.addEventListener("click", () => {
       const changed = sel.selectedIndex !== i;
       sel.selectedIndex = i;
@@ -1739,12 +1751,6 @@ function renderSettings() {
     </div>
 
     <div class="settings-card">
-      <h3>${icon('note')} Folios</h3>
-      <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Cambia los folios del historial al formato nuevo (fecha y hora de la venta). Los que ya lo tienen no se tocan.</p>
-      <button class="btn-secondary" style="width:100%;" onclick="convertFolios()">Convertir folios</button>
-    </div>
-
-    <div class="settings-card">
       <h3>${icon('alert')} Stock bajo</h3>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 8px;">Se muestra "Poco" cuando el stock es esta cantidad o menos.</p>
       <div class="costs-row" style="border:none;">
@@ -1805,62 +1811,6 @@ async function refreshApp() {
     console.error("refreshApp failed:", e);
   }
   location.reload();
-}
-
-// Converts every sale's folio to the time format (YYMMDD-HHMMSS, from the sale's own date
-// and time). Sales already in that format keep theirs; old numbered folios and sales
-// without a folio get a new one. Safe to run again: it only touches what isn't converted yet.
-async function convertFolios() {
-  let sales;
-  try {
-    sales = await DataStore.getSales();
-  } catch (e) {
-    showToast("No se pudieron cargar las ventas");
-    return;
-  }
-
-  const isNewFormat = f => /^\d{6}-\d{6}$/.test(String(f || ""));
-  const todo = sales.filter(s => s.isoDate && !isNewFormat(s.folio))
-    .sort((a, b) => a.isoDate.localeCompare(b.isoDate));
-  const withoutDate = sales.filter(s => !s.isoDate && !isNewFormat(s.folio)).length;
-
-  if (!todo.length) {
-    showToast(withoutDate ? "Hay ventas sin fecha que no se pueden convertir" : "Todos los folios ya están en el formato nuevo");
-    return;
-  }
-
-  const hadOld = todo.filter(s => s.folio).length;
-  const msg = `¿Cambiar el folio de ${todo.length} venta${todo.length === 1 ? "" : "s"} al formato nuevo?` +
-    (hadOld ? " Los folios anteriores dejarán de existir." : "");
-
-  confirmModal(msg, async () => {
-    showSpinner();
-    try {
-      const taken = new Set(sales.filter(s => isNewFormat(s.folio)).map(s => s.folio));
-      const updates = todo.map(sale => {
-        let when = new Date(sale.isoDate);
-        while (taken.has(formatFolio(when))) when = new Date(when.getTime() + 1000);
-        const folio = formatFolio(when);
-        taken.add(folio);
-        return { id: sale._id, folio };
-      });
-
-      // Firestore batches hold up to 500 writes
-      for (let i = 0; i < updates.length; i += 400) {
-        const batch = db.batch();
-        updates.slice(i, i + 400).forEach(u => batch.update(storeRef("sales").doc(u.id), { folio: u.folio }));
-        await batch.commit();
-      }
-
-      showToast(`${updates.length} folios convertidos`, "check");
-      renderHistoryFromFirestore();
-    } catch (e) {
-      console.error("convertFolios failed:", e);
-      showToast("Error al convertir los folios. Intenta de nuevo.");
-    } finally {
-      hideSpinner();
-    }
-  });
 }
 
 // ── Settings: unsaved-changes tracking and floating save button ──
@@ -2195,8 +2145,10 @@ function renderInventory() {
     if (hideModeActive) {
       row.onclick = () => toggleItemHidden(parent);
       row.innerHTML = `
-        <div class="inv-list-main"><span class="inv-list-name">${esc(name)}</span></div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:4px;">${isHidden ? `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg> Oculto — toca para mostrar` : `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Visible — toca para ocultar`}</div>
+        <div class="inv-list-main">
+          <span class="inv-list-name">${esc(name)}</span>
+          <span class="vis-icon ${isHidden ? 'is-hidden' : 'is-visible'}" title="${isHidden ? 'Oculto' : 'Visible'}">${icon(isHidden ? 'eyeOff' : 'eye')}</span>
+        </div>
       `;
     } else {
       row.innerHTML = `
@@ -2852,7 +2804,8 @@ function renderHistoryStats(data) {
 
   const counts = {};
   data.forEach(sale => (sale.items || []).forEach(item => {
-    counts[item.name] = (counts[item.name] || 0) + 1;
+    const n = currentProductName(item.name);
+    counts[n] = (counts[n] || 0) + 1;
   }));
 
   const known = new Set();
@@ -2990,7 +2943,7 @@ async function buildCsvString(history) {
     let row = `${folio},${date},${time},${method},${sale.total},`;
     products.forEach(p => {
       let qty = 0;
-      sale.items.forEach(item => { if (item.name === p) qty++; });
+      sale.items.forEach(item => { if (currentProductName(item.name) === p) qty++; });
       row += qty + ",";
     });
     csv += row + "\n";
@@ -3002,7 +2955,7 @@ async function buildCsvString(history) {
   products.forEach(p => {
     let total = 0;
     history.forEach(sale => {
-      sale.items.forEach(item => { if (item.name === p) total++; });
+      sale.items.forEach(item => { if (currentProductName(item.name) === p) total++; });
     });
     soldRow += total + ",";
   });
@@ -3266,7 +3219,7 @@ function renderCart() {
 // ── render promo list ─────────────────────────
 
 function promoTypeLabel(type) {
-  return { free_item: `${icon('gift')} Gratis`, fixed_price: `${icon('coins')} Precio fijo`, pct_discount: "% Descuento", raffle: `${icon('ticket')} Rifa` }[type] || type;
+  return { free_item: `${icon('gift')} Gratis`, fixed_price: `${icon('coins')} Precio fijo`, pct_discount: `${icon('percent')} Descuento`, raffle: `${icon('ticket')} Rifa` }[type] || type;
 }
 
 function promoTypeClass(type) {
@@ -3369,7 +3322,7 @@ function openPromoModal() {
       <select id="pf-type" onchange="onPromoTypeChange()">
         <option value="free_item" data-icon="gift">Producto gratis</option>
         <option value="fixed_price" data-icon="tag">Precio fijo por grupo</option>
-        <option value="pct_discount" data-icon="percent">% Descuento</option>
+        <option value="pct_discount" data-icon="percent">Descuento</option>
         <option value="raffle" data-icon="ticket">Entrada de rifa</option>
       </select>
 
@@ -3782,7 +3735,7 @@ function openMermaModal() {
 
 function mermaItemOptions(items) {
   return items.flatMap(i => stockNamesFor(i.name)).map(k =>
-    `<option value="${esc(k)}" data-meta="STOCK: ${inventory[k] ?? 0}">${esc(k)}</option>`
+    `<option value="${esc(k)}" data-meta="STOCK:" data-meta-num="${inventory[k] ?? 0}">${esc(k)}</option>`
   ).join('');
 }
 
