@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.8";
-const APP_UPDATED = "2026-11-14T23:30Z";
+const APP_VERSION = "1.17.9";
+const APP_UPDATED = "2026-11-14T23:55Z";
 
 const STORE_ID = "postremio_main";
 
@@ -644,6 +644,12 @@ function productStock(productName) {
 }
 function parentProduct(key) { return key.split(" · ")[0]; }
 
+// "STOCK: n" under each Caja card. The number always sits in the same pill box (coloured when low/out,
+// invisible otherwise) so the card never changes size when the colour appears.
+function stockLineHTML(n, isLow, isOut) {
+  return `STOCK: <span class="stock-num${isOut ? " out" : isLow ? " low" : ""}">${n}</span>`;
+}
+
 // Stock at or below this (but above 0) is flagged as "Poco"; editable in Ajustes.
 let lowStockThreshold = 3;
 
@@ -813,7 +819,7 @@ function renderProducts() {
         <img src="${item.img}">
         <h3>${esc(item.name)}</h3>
         ${item.noBasePrice ? '' : `<p>$${parseFloat(item.price).toFixed(2)}</p>`}
-        <p id="stock-${safeId}" class="stock-line">STOCK: ${stock}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ""}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ""}</p>
+        <p id="stock-${safeId}" class="stock-line">${stockLineHTML(stock, isLow, isOut)}</p>
       `;
       if (!isOut) div.onclick = () => addToCart(item);
       grid.appendChild(div);
@@ -3662,8 +3668,7 @@ function renderCart() {
     const remaining = productStock(item.name) - inCart;
     const isLow = remaining > 0 && remaining <= lowStockThreshold;
     const isOut = remaining <= 0;
-    el.innerHTML = `STOCK: ${Math.max(0, remaining)}${isLow ? ` <span class="low-stock-badge">${icon('alert')} Poco</span>` : ''}${isOut ? ' <span class="low-stock-badge" style="background:#e53935;">Sin stock</span>' : ''}`;
-    el.style.color = isOut ? 'var(--red)' : isLow ? 'var(--orange)' : 'var(--text-muted)';
+    el.innerHTML = stockLineHTML(Math.max(0, remaining), isLow, isOut);
 
     const card = el.closest('.product');
     if (card) {
