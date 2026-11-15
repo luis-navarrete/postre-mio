@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.23.5";
-const APP_UPDATED = "2026-11-18T07:00Z";
+const APP_VERSION = "1.23.6";
+const APP_UPDATED = "2026-11-18T08:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5242,23 +5242,38 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
+// The dashed outline of a day left out of the calculation, drawn as an svg of the cell's exact size. The same
+// function is used for the resting state and for the press animation, so the dashes are identical in both.
+function fcDotsPath(W, H) {
+  const R = 9, r = R - 1, mx = (W / 2).toFixed(2);
+  const P = 2 * (W - 2 - 2 * r) + 2 * (H - 2 - 2 * r) + 2 * Math.PI * r, n = Math.max(8, Math.round(P / 10)), unit = P / n;
+  return `<path class="fc-dots" style="stroke-dasharray:${(unit * 0.62).toFixed(2)} ${(unit * 0.38).toFixed(2)}" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${1 + r}a${r} ${r} 0 0 1-${r}-${r}V${1 + r}a${r} ${r} 0 0 1 ${r}-${r}Z"/>`;
+}
+// Put the dashed outline on every left-out day (after each render and when the window is resized)
+function fcPaintOutlines() {
+  document.querySelectorAll(".fc-day.off").forEach(el => {
+    el.querySelectorAll(".fc-outline").forEach(n => n.remove());
+    const box = el.getBoundingClientRect();
+    if (!box.width) return;
+    el.insertAdjacentHTML("beforeend", `<svg class="fc-outline" viewBox="0 0 ${box.width.toFixed(2)} ${box.height.toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">${fcDotsPath(box.width, box.height)}</svg>`);
+  });
+}
+window.addEventListener("resize", () => { clearTimeout(fcPaintOutlines._t); fcPaintOutlines._t = setTimeout(fcPaintOutlines, 120); });
+
 // Two outline halves that start together at the top centre and meet at the bottom centre. The svg is drawn in real
 // pixels at the cell's exact size (border box, 9px corners, 2px line) so the line lies exactly on the cell's border.
 // On a festivo day a darker purple copy, clipped to the festivo cap's own crescent shape, is laid over the part that
 // crosses the cap, so the two line up exactly.
 const FC_CAP = 9; // px, thickness of the festivo cap (keep in sync with the ::before box-shadow in styles.css)
-function fcDrawSvg(festivo, W, H) {
+function fcDrawSvg(festivo, W, H, withDots) {
   const R = 9, r = R - 1, mx = (W / 2).toFixed(2), w = W.toFixed(2), h = H.toFixed(2);
   const paths = `<path pathLength="1" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${mx}"/>` +
     `<path pathLength="1" d="M${mx} 1H${1 + r}a${r} ${r} 0 0 0-${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 0 ${r} ${r}H${mx}"/>`;
   const box = dy => `M0 ${R + dy}a${R} ${R} 0 0 1 ${R} -${R}H${(W - R).toFixed(2)}a${R} ${R} 0 0 1 ${R} ${R}V${(H - R + dy).toFixed(2)}a${R} ${R} 0 0 1 -${R} ${R}H${R}a${R} ${R} 0 0 1 -${R} -${R}Z`;
-  // dashed outline drawn in the same svg (so it shares the line's exact geometry): evenly spaced dashes all round
-  const P = 2 * (W - 2 - 2 * r) + 2 * (H - 2 - 2 * r) + 2 * Math.PI * r, n = Math.max(8, Math.round(P / 10)), unit = P / n;
-  const dots = `<path class="fc-dots" style="stroke-dasharray:${(unit * 0.62).toFixed(2)} ${(unit * 0.38).toFixed(2)}" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${1 + r}a${r} ${r} 0 0 1-${r}-${r}V${1 + r}a${r} ${r} 0 0 1 ${r}-${r}Z"/>`;
   const cap = festivo
     ? `<defs><clipPath id="fcCapClip"><path clip-rule="evenodd" d="${box(0)} ${box(FC_CAP)}"/></clipPath></defs><g class="fc-draw-cap" clip-path="url(#fcCapClip)">${paths}</g>`
     : "";
-  return `<svg class="fc-draw" viewBox="0 0 ${w} ${h}" aria-hidden="true">${dots}${paths}${cap}</svg>`;
+  return `<svg class="fc-draw" viewBox="0 0 ${w} ${h}" aria-hidden="true">${withDots ? fcDotsPath(W, H) : ""}${paths}${cap}</svg>`;
 }
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
@@ -5284,7 +5299,8 @@ function fcPressStart(e, key) {
     // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
     el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
     const box = el.getBoundingClientRect();
-    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height));
+    // a left-out day already carries its dashed outline (fc-outline); a day being left out gets it from this svg
+    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height, !el.querySelector(".fc-outline")));
   }
   _fcPress = {
     key, button: e.button, fired: false, at: 0,
@@ -5536,6 +5552,7 @@ function fcRender() {
       <p class="fc-hint">Estas cifras vienen de resúmenes de los estudios; confírmalas antes de tomarlas como exactas. Tus propios datos pesan más: con más días de ventas, el pronóstico depende cada vez menos de estos factores.</p>
     </details>`;
   root.innerHTML = `<div class="fc-top">${options}<div class="fc-side">${calendar}</div></div>${body}${hist}${sources}`;
+  fcPaintOutlines();
 }
 
 function fcHistoryHTML(m) {
