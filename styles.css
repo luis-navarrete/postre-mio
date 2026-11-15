@@ -32,19 +32,10 @@ html, body {
   min-height: 100%;
 }
 
-/* Pulling the page down (iOS rubber band) reveals the canvas above the page: make that part teal like the header.
-   The grey page colour is painted as an image that extends far below the page, so only the top shows teal. */
-html {
-  background-color: var(--brand);
-  background-image: linear-gradient(var(--bg), var(--bg));
-  background-repeat: no-repeat;
-  background-position: 0 0;
-  background-size: 100% calc(100% + 400vh);
-}
 
-/* Caja keeps fixed panes that scroll on their own; other pages scroll the document
-   so iOS's tap-the-status-bar-to-scroll-to-top works */
-body.no-page-scroll {
+/* The header stays put: the page never scrolls itself, each page scrolls inside its own area under the header
+   (so pulling down / up only moves the content, never the header). */
+body {
   overflow: hidden;
   height: 100dvh;
 }
@@ -1854,8 +1845,6 @@ body.has-savebar .toast { bottom: 96px; }
 .stats-chip b { color: var(--text); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* Pages that scroll with the document (so iOS can scroll them to the top) */
-.page.page-flow { height: auto; overflow: visible; }
-.page.page-flow .page-content { height: auto; overflow: visible; }
 
 /* Full-color receipt icon: larger than the single-color ones so its detail reads */
 .icon-receipt { width: 1.2em; height: 1.2em; vertical-align: middle; }

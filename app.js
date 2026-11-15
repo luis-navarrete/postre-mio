@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.26.3";
-const APP_UPDATED = "2026-11-18T18:00Z";
+const APP_VERSION = "1.27.0";
+const APP_UPDATED = "2026-11-18T19:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1964,6 +1964,7 @@ function showPage(page) {
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
+  document.querySelectorAll(".page-content").forEach(el => { el.scrollTop = 0; }); // every page scrolls inside itself
 
   const pageEl = document.getElementById(
     { pos: "posPage", inventory: "inventoryPage", history: "historyPage", archive: "archivePage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage", forecast: "forecastPage" }[page]
@@ -3347,16 +3348,17 @@ function updateStatsJump() {
   if (!btn || !stats) return;
   let show = false;
   if (document.getElementById("historyPage").style.display !== "none" && stats.style.display !== "none") {
-    show = stats.getBoundingClientRect().top > window.innerHeight - 8;
+    const sc = document.querySelector("#historyPage .page-content");
+    show = stats.getBoundingClientRect().top > sc.getBoundingClientRect().bottom - 8;
   }
   btn.classList.toggle("show", show);
 }
 
 function scrollToStats() {
   const stats = document.getElementById("historyStats");
-  const header = document.querySelector(".header");
-  const top = stats.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10;
-  window.scrollTo({ top, behavior: "smooth" });
+  const sc = document.querySelector("#historyPage .page-content");
+  const top = stats.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 10;
+  sc.scrollTo({ top, behavior: "smooth" });
 }
 
 function updateCutBtnWithData(data) {
@@ -4988,7 +4990,7 @@ function sharePending(id) {
 }
 
 // History: show/hide the "go to stats" button as the page scrolls or changes size
-window.addEventListener("scroll", updateStatsJump, { passive: true });
+document.querySelector("#historyPage .page-content").addEventListener("scroll", updateStatsJump, { passive: true });
 window.addEventListener("resize", updateStatsJump);
 if (window.ResizeObserver) new ResizeObserver(updateStatsJump).observe(document.getElementById("historyList"));
 
