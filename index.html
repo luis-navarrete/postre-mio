@@ -69,11 +69,12 @@
     <div class="cart">
       <h2 class="cart-title"><span id="cartIcon" class="cart-icon"></span> Orden</h2>
       <div class="cart-items" id="cart"></div>
-      <div class="total">Total: $<span id="total">0</span></div>
+      <div class="total"><span class="total-label">TOTAL:</span> <span class="total-amt">$<span id="total">0</span></span></div>
 
       <button id="payBtn" class="pay" onclick="openPaymentOptions();">Cobrar</button>
       <button class="clear btn-icon" onclick="clearCart()"><span data-icon="cart"></span> Limpiar</button>
       <button class="btn-secondary btn-icon btn-pending" onclick="saveAsPending()"><span data-icon="clipboard"></span><span class="btn-label">Guardar como pendiente</span></button>
+      <button class="btn-secondary btn-icon btn-pending cart-last" onclick="openGiftPicker()"><span data-icon="gift"></span><span class="btn-label">Añadir regalo</span></button>
     </div>
 
   </div>

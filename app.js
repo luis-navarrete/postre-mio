@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.23.7";
-const APP_UPDATED = "2026-11-18T09:00Z";
+const APP_VERSION = "1.26.2";
+const APP_UPDATED = "2026-11-18T17:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1109,6 +1109,46 @@ function removeItem(i) {
   renderCart();
 }
 
+// ── Gifts ("Añadir regalo") ──
+// Pick any product; it goes through the normal add-to-cart flow (stock check, flavour / extras questions) flagged as a gift.
+function openGiftPicker() {
+  const flat = menu.flatMap(c => c.items);
+  let i = 0;
+  const rows = menu.map(cat => `
+    <div class="corr-cat">${catHTML(cat.category)}</div>
+    ${cat.items.map(it => { const idx = i++; return `<button class="gift-row" onclick="pickGift(${idx})"><span>${esc(it.name)}</span><small>STOCK: ${productStock(it.name)}</small></button>`; }).join("")}`).join("");
+  openCompactModal(`
+    <div class="modal-head">
+      <div class="modal-head-main"><h3 style="width:auto;">${icon('gift')} Añadir regalo</h3></div>
+      <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
+    </div>
+    <div class="modal-scroll">
+      <p class="corr-intro">Elige el producto que se regala. No cuesta nada y sale de tu inventario.</p>
+      ${rows}
+      <div class="modal-spacer"></div>
+    </div>
+  `);
+  document.getElementById("modalContent").classList.add("modal-split");
+  window._giftFlat = flat;
+}
+function pickGift(idx) {
+  const item = (window._giftFlat || [])[idx];
+  closeModal();
+  if (item) addToCart({ ...item, gift: true });
+}
+// + / − on a gift line (same name and flavour / extra)
+function changeGiftQty(name, extraName, delta) {
+  const same = i => i.gift && i.name === name && (i.extra ? i.extra.name : null) === extraName;
+  if (delta > 0) {
+    if (cart.filter(i => i.name === name).length >= productStock(name)) { showToast("No hay más stock disponible"); return; }
+    const model = [...cart].reverse().find(same);
+    if (model) { cart.push({ ...model, cartId: ++_cartIdCounter }); renderCart(); }
+  } else {
+    const idx = cart.map((i, n) => same(i) ? n : -1).filter(n => n >= 0).pop();
+    if (idx !== undefined) { cart.splice(idx, 1); renderCart(); }
+  }
+}
+
 function clearCart() {
   if (cart.length === 0) return;
   confirmModal("¿Limpiar la orden?", () => {
@@ -1286,6 +1326,8 @@ function closeModal() {
 
 function openPaymentOptions() {
   const { finalTotal } = computeCartTotals();
+  // nothing to pay (an order made only of gifts): go straight to the last step
+  if (finalTotal === 0) { showFinalStep(0, "cash", 0, 0); return; }
   openPopupModal(`
     <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
     <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
@@ -3870,9 +3912,18 @@ function itemMatchesScope(item, promo) {
 }
 
 // Returns array of { promo, discount, freeItems[] }
-function applyPromotions(cartItems) {
-  const applied = [];
+// A gift ("Añadir regalo") is handled as a free_item promotion that needs no condition and no active promo: each gift
+// item in the cart is discounted by its own price. Gifts never count towards (nor get discounted by) other promotions.
+const GIFT_PROMO = { id: "gift", name: "Regalo", active: true, scope: "any", scopeValue: "", triggerQty: 1, type: "free_item", value: 1 };
 
+function applyPromotions(allItems) {
+  const applied = [];
+  const gifts = allItems.filter(i => i.gift);
+  const cartItems = allItems.filter(i => !i.gift);
+
+  if (gifts.length) {
+    applied.push({ promo: GIFT_PROMO, discount: gifts.reduce((s, i) => s + i.price, 0), freeCount: gifts.length, freeItemName: [...new Set(gifts.map(g => g.name))].join(", ") });
+  }
   if (!cartItems.length) return applied;
 
   for (const promo of promotions) {
@@ -3960,10 +4011,10 @@ function renderCart() {
 
   const { finalTotal, appliedPromos } = computeCartTotals();
 
-  // Group ALL items by name + extra variant
+  // Group ALL items by name + extra variant (gifts are kept apart from regular items)
   const grouped = {};
   cart.forEach(item => {
-    const key = item.name + (item.extra ? '::' + item.extra.name : '');
+    const key = item.name + (item.extra ? '::' + item.extra.name : '') + (item.gift ? '::gift' : '');
     if (!grouped[key]) grouped[key] = { ...item, qty: 0 };
     grouped[key].qty++;
   });
@@ -3976,13 +4027,14 @@ function renderCart() {
       : `$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}`;
     const div = document.createElement("div");
     div.className = "item";
+    const qtyFn = item.gift ? "changeGiftQty" : "changeQtyGrouped";
     div.innerHTML = `
       <div class="cart-item-name">${esc(item.name)}</div>
-      <div class="cart-item-price">${priceLine}</div>
+      <div class="cart-item-price">${item.gift ? `<span class="gift-tag">${icon('gift')} Regalo</span> × ${item.qty}` : priceLine}</div>
       ${item.extra ? `<div class="cart-extra-line"><span>↳ ${esc(item.extra.name)}</span></div>` : ''}
       <div class="cart-item-controls">
-        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
-        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
+        <button onclick="${qtyFn}('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
+        <button onclick="${qtyFn}('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
       </div>
     `;
     frag.appendChild(div);
@@ -4973,6 +5025,8 @@ const FC_DEFAULTS = {
   useTrend: true,
   usePayday: false, paydays: [], payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip,
   usePromo: false, promoDays: [], promoBoost: FC_SUGGESTED.promoBoost,
+  closeHour: 21,      // the stand closes at this hour: the rest of today runs from the last sale to then
+  fillToday: true,    // the rest of today counts as a day to fill (what the stock cannot cover today runs out)
   useFestivo: false, festivoDays: [], // holiday / long weekend: a day that sells like a weekend day
   useHistory: true,                   // learn from events saved in earlier years/events
   eventName: "",
@@ -4989,7 +5043,7 @@ function fcLoadPrefs() {
   const base = { ...FC_DEFAULTS, weekdayF: { ...FC_DEFAULTS.weekdayF } };
   if (saved.v !== FC_VERSION) {
     // numbers saved by an older version were rough guesses: keep switches, marked days and the like, not the factors
-    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "useFestivo", "festivoDays", "useHistory", "eventName"]
+    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "fillToday", "closeHour", "useFestivo", "festivoDays", "useHistory", "eventName"]
       .forEach(k => { if (saved[k] !== undefined) base[k] = saved[k]; });
     return base;
   }
@@ -5035,7 +5089,9 @@ function fcGroupByDay(sales) {
   sales.forEach(s => {
     if (!s.isoDate) return;
     const k = fcKey(new Date(s.isoDate));
-    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0, total: 0 };
+    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0, total: 0, first: Infinity, last: -Infinity };
+    const at = new Date(s.isoDate).getTime();
+    day.first = Math.min(day.first, at); day.last = Math.max(day.last, at);
     day.sales++;
     day.total += parseFloat(s.total) || 0;
     (s.items || []).forEach(i => {
@@ -5059,6 +5115,17 @@ function fcMenuOrder() {
     order[k] = { ci, pos: ii * 10 + vi, cat: cat.category };
   })));
   return order;
+}
+
+// Share of today still to come: from the time of today's last sale to the closing hour, out of the whole selling
+// window (first sale today to closing). No sales yet today: the whole day. Past closing time: nothing.
+function fcTodayLeft(todayObs, p, now) {
+  const close = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime() + (Number(p.closeHour) || 21) * 3600000;
+  if (now.getTime() >= close) return 0;
+  if (!todayObs || !isFinite(todayObs.first)) return 1;
+  const window = close - todayObs.first;
+  if (window <= 0) return 0;
+  return Math.min(1, Math.max(0, (close - todayObs.last) / window));
 }
 
 // sales: every sale of the event (archive + the open day). stock/frozen: { key: n }. history: saved events.
@@ -5091,7 +5158,9 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
   const remaining = [];
   for (let d = lastUsed ? fcAddDays(lastUsed, 1) : start; d <= end; d = fcAddDays(d, 1)) {
     if (fcKey(d) < todayKey) continue; // days already gone with no sales are not forecast
-    remaining.push({ key: fcKey(d), date: d, ...fcDayFactor(d, p) });
+    if (fcKey(d) === todayKey && !p.fillToday) continue; // the rest of today is not a day to fill
+    const isToday = fcKey(d) === todayKey;
+    remaining.push({ key: fcKey(d), date: d, today: isToday, frac: isToday ? fcTodayLeft(observed.find(o => o.today), p, now) : 1, ...fcDayFactor(d, p) });
   }
 
   const names = new Set();
@@ -5108,12 +5177,11 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
     const den = denom + (histDenom > 0 ? histW : 0);
     const base = den > 0 ? (num + (histDenom > 0 ? histW * histRate : 0)) / den : 0;
     const perDay = remaining.map(r => {
-      let v = base * r.f;
-      // today's sales so far are already out of the stock count
-      if (todayObs && !todayObs.included && r.key === todayKey) v = Math.max(0, v - (todayObs.units[name] || 0));
-      return v;
+      // today's demand is served from the stock first (so the stock is subtracted once, below); whatever the stock
+      // cannot cover, i.e. what runs out today, ends up in "make"
+      return base * r.f * r.frac; // frac = share of today still to come (1 for the other days)
     });
-    const total = perDay.reduce((t, v) => t + v, 0) * (1 + p.margin / 100);
+    const total = perDay.reduce((t, v) => t + (v || 0), 0) * (1 + p.margin / 100);
     const need = Math.ceil(total - 1e-9);
     const have = (stock[name] ?? 0) + (frozen[name] ?? 0);
     return { name, cat: order[name] ? order[name].cat : "", base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
@@ -5242,6 +5310,7 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
+const FC_ANIM_DELAY = 150; // a quick press (shorter than this) shows no animation; keep the css durations = HOLD - DELAY
 // The dashed outline of a day left out of the calculation, drawn as an svg of the cell's exact size. The same
 // function is used for the resting state and for the press animation, so the dashes are identical in both.
 function fcDotsPath(W, H) {
@@ -5287,23 +5356,28 @@ function fcToggleInclude(key) {
   _fc.prefs.override[key] = !d.included;
 }
 function fcMarked() { fcSavePrefs(); fcSyncMeta(); fcRender(); }
-let _fcPress = { timer: 0, fired: false, key: "", at: 0, button: -1 };
+let _fcPress = { timer: 0, anim: 0, fired: false, key: "", at: 0, button: -1 };
 function fcPressStart(e, key) {
   if (e.button !== 0 && e.button !== 2) return;
   fcPressCancel();
   const right = e.button === 2;
   const el = e.currentTarget;
-  if (right) {
-    el.classList.add("pressing-festivo");
-  } else if (el.classList.contains("obs") || el.classList.contains("off")) {
-    // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
-    el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
-    const box = el.getBoundingClientRect();
-    // a left-out day already carries its dashed outline (fc-outline); a day being left out gets it from this svg
-    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height, !el.querySelector(".fc-outline")));
-  }
+  // The animation only begins once the press has lasted FC_ANIM_DELAY ms, so a quick click shows nothing;
+  // it then runs for the rest of the hold (FC_HOLD_MS - FC_ANIM_DELAY) and the action fires as it ends.
+  const anim = setTimeout(() => {
+    _fcPress.anim = 0;
+    if (right) {
+      el.classList.add("pressing-festivo");
+    } else if (el.classList.contains("obs") || el.classList.contains("off")) {
+      // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
+      el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
+      const box = el.getBoundingClientRect();
+      // a left-out day already carries its dashed outline (fc-outline); a day being left out gets it from this svg
+      el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height, !el.querySelector(".fc-outline")));
+    }
+  }, FC_ANIM_DELAY);
   _fcPress = {
-    key, button: e.button, fired: false, at: 0,
+    key, button: e.button, fired: false, at: 0, anim,
     timer: setTimeout(() => { // held long enough
       _fcPress.timer = 0; _fcPress.fired = true; _fcPress.at = Date.now();
       if (right) fcToggleMark(key, "festivo"); else fcToggleInclude(key);
@@ -5314,12 +5388,14 @@ function fcPressStart(e, key) {
 function fcPressEnd(e, key) {
   if (e.button !== _fcPress.button || _fcPress.key !== key || !_fcPress.timer) return; // already a hold, or not ours
   clearTimeout(_fcPress.timer);
-  _fcPress.timer = 0;
+  clearTimeout(_fcPress.anim);
+  _fcPress.timer = 0; _fcPress.anim = 0;
   fcToggleMark(key, e.button === 2 ? "promo" : "pay"); fcMarked(); // short press
 }
 function fcPressCancel() {
   if (_fcPress.timer) clearTimeout(_fcPress.timer);
-  _fcPress.timer = 0;
+  if (_fcPress.anim) clearTimeout(_fcPress.anim);
+  _fcPress.timer = 0; _fcPress.anim = 0;
   document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => {
     el.classList.remove("pressing-festivo", "pressing-include", "draw", "erase");
     el.querySelectorAll(".fc-draw").forEach(n => n.remove());
@@ -5489,6 +5565,8 @@ function fcRender() {
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
         fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%"))}
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
+      ${fcSwitch("fcToday", "Resto de hoy: reponer lo que se agote", p.fillToday, "fcSet('fillToday', this.checked)",
+        fcNum("Hora de cierre", p.closeHour, "closeHour", 0, 24, 1, "h"))}
       <div class="fc-opt fc-calc">
         ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
         <div class="fc-num-row"><span>Fechas del evento</span><button class="fc-range-btn" onclick="fcOpenRange()">${fcRangeLabel()}</button></div>
@@ -5506,7 +5584,7 @@ function fcRender() {
       <tr>
         <th class="l">Producto</th>
         ${m.observed.map(d => `<th class="${d.included ? "" : "off"}">${fcLabel(d.key)}</th>`).join("")}
-        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}</th>`).join("")}
+        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}${d.today ? ` <small>(resto ${Math.round(d.frac * 100)}%)</small>` : ""}</th>`).join("")}
         <th>Necesario</th><th>Hay</th><th class="make">Hacer</th>
       </tr>`;
     const cols = 4 + m.observed.length + m.remaining.length;
@@ -5515,7 +5593,7 @@ function fcRender() {
       <tr>
         <td class="l">${esc(r.name)}</td>
         ${r.sold.map((v, i) => `<td class="${m.observed[i].included ? "" : "off"}">${v}</td>`).join("")}
-        ${r.perDay.map(v => `<td class="fut">${v.toFixed(1)}</td>`).join("")}
+        ${r.perDay.map(v => `<td class="fut">${v === null ? "–" : v.toFixed(1)}</td>`).join("")}
         <td>${r.need}</td>
         <td>${r.stock}${r.frozen ? ` <small>+${r.frozen}${icon("snowflake")}</small>` : ""}</td>
         <td class="make"><span class="${r.make ? "pill" : "pill zero"}">${r.make}</span></td>
@@ -5638,6 +5716,20 @@ function fcCopy() {
   else showToast("No se pudo copiar");
 }
 // ── END PRONÓSTICO ───────────────────────────
+
+// The Caja page fills exactly what is left under the header, whatever the device: measure the header
+function syncHeaderHeight() {
+  const header = document.querySelector(".header");
+  if (header && header.offsetHeight) document.documentElement.style.setProperty("--header-h", header.offsetHeight + "px");
+}
+(function () {
+  const header = document.querySelector(".header");
+  if (!header) return;
+  if (window.ResizeObserver) new ResizeObserver(syncHeaderHeight).observe(header);
+  window.addEventListener("resize", syncHeaderHeight);
+  window.addEventListener("orientationchange", syncHeaderHeight);
+  syncHeaderHeight();
+})();
 
 updateForecastAccess();
 window.matchMedia("(hover: hover) and (pointer: fine)").addEventListener("change", updateForecastAccess);
