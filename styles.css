@@ -2129,3 +2129,22 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-sources summary { cursor: pointer; font-weight: 700; font-size: 14px; }
 .fc-sources p { margin: 10px 0 0; }
 .fc-sources a { color: var(--brand-dark); }
+
+.fc-modes button.on.is-festivo { background: var(--purple); color: #fff; }
+.fc-day.is-festivo { box-shadow: inset 0 -4px 0 var(--purple); }
+.fc-legend .lg.is-festivo { background: var(--purple); border-radius: 3px; }
+.fc-name { width: 190px !important; text-align: left !important; }
+.fc-save-ev { width: 100% !important; margin: 10px 0 0 !important; font-size: 13px; }
+.fc-save-ev:disabled { opacity: 0.5; }
+.fc-evs { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.fc-ev { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--bg); border-radius: 10px; }
+.fc-ev-main { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--text-muted); min-width: 0; }
+.fc-ev-main b { color: var(--text); font-size: 14px; }
+.fc-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.fc-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; color: #fff; background: var(--text-muted); }
+.fc-tag.promo { background: var(--orange); }
+.fc-tag.pay { background: var(--green); }
+.fc-tag.festivo { background: var(--purple); }
+.fc-tag.out { background: var(--red); }
+.fc-ev-del { width: auto !important; margin: 0 !important; padding: 6px !important; background: transparent; border: none; color: var(--text-muted); cursor: pointer; line-height: 0; flex-shrink: 0; }
+.fc-ev-del .icon { width: 18px; height: 18px; }

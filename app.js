@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.18.2";
-const APP_UPDATED = "2026-11-15T20:30Z";
+const APP_VERSION = "1.19.0";
+const APP_UPDATED = "2026-11-15T22:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -394,6 +394,25 @@ const DataStore = {
 
   async saveHiddenItems(items) {
     await configRef("hidden").set({ items });
+  },
+
+  // ── Forecast (Pronóstico): marked days + saved past events ──
+  async getForecastMeta() {
+    const doc = await fastGet(configRef("forecast"));
+    return doc.exists ? doc.data() : {};
+  },
+  async saveForecastMeta(fields) {
+    await configRef("forecast").set(fields, { merge: true });
+  },
+  async getEventHistory() {
+    const doc = await fastGet(configRef("eventHistory"));
+    return doc.exists ? Object.values(doc.data()).filter(e => e && e.days) : [];
+  },
+  async saveEvent(ev) {
+    await configRef("eventHistory").set({ [ev.id]: ev }, { merge: true });
+  },
+  async deleteEvent(id) {
+    await configRef("eventHistory").update({ [id]: firebase.firestore.FieldValue.delete() });
   },
 
   // ── Settings ──
@@ -3538,7 +3557,32 @@ async function confirmCloseStand() {
       btn.disabled = false;
       return;
     }
+    // Keep the event's numbers for the Pronóstico model before the records are deleted
     showSpinner();
+    let kept = true;
+    try { await fcSaveEventFromArchive(); } catch (e) { console.error("saving the event for the forecast failed:", e); kept = false; }
+    hideSpinner();
+    if (!kept) {
+      openPopupModal(`
+        <h3 style="margin-top:0;">No se guardó el evento</h3>
+        <p style="font-size:14px;line-height:1.4;">No se pudo guardar el evento en el historial del pronóstico. Si cierras el stand ahora, ese evento no ayudará a futuros pronósticos.</p>
+        <button class="btn-danger" onclick="finishCloseStand()">Cerrar de todos modos</button>
+        <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      `);
+      return;
+    }
+    await finishCloseStand();
+  } catch (e) {
+    hideSpinner();
+    console.error("confirmCloseStand failed:", e);
+    showToast("No se pudo cerrar el stand. Intenta de nuevo.");
+    btn.disabled = false;
+  }
+}
+
+async function finishCloseStand() {
+  showSpinner();
+  try {
     await DataStore.deleteArchive();
     hideSpinner();
     closeModal();
@@ -3546,9 +3590,8 @@ async function confirmCloseStand() {
     renderArchive();
   } catch (e) {
     hideSpinner();
-    console.error("confirmCloseStand failed:", e);
+    console.error("finishCloseStand failed:", e);
     showToast("No se pudo cerrar el stand. Intenta de nuevo.");
-    btn.disabled = false;
   }
 }
 
@@ -4741,6 +4784,9 @@ const FC_DEFAULTS = {
   useTrend: true,
   usePayday: false, paydays: [], payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip,
   usePromo: false, promoDays: [], promoBoost: FC_SUGGESTED.promoBoost,
+  useFestivo: false, festivoDays: [], // holiday / long weekend: a day that sells like a weekend day
+  useHistory: true,                   // learn from events saved in earlier years/events
+  eventName: "",
   margin: 10,
   eventDays: 4,
   override: {}, // day key -> true/false: include/exclude an observed day (default: all but today)
@@ -4752,7 +4798,7 @@ function fcLoadPrefs() {
   const base = { ...FC_DEFAULTS, weekdayF: { ...FC_DEFAULTS.weekdayF } };
   if (saved.v !== FC_VERSION) {
     // numbers saved by an older version were rough guesses: keep switches, marked days and the like, not the factors
-    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays"]
+    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "useFestivo", "festivoDays", "useHistory", "eventName"]
       .forEach(k => { if (saved[k] !== undefined) base[k] = saved[k]; });
     return base;
   }
@@ -4781,30 +4827,54 @@ function fcPayFactor(date, p) {
   return best;
 }
 
+// A festivo (holiday / puente) sells like a weekend day: it gets at least the average Saturday/Sunday factor
 function fcDayFactor(date, p) {
-  const wd = p.useWeekday ? (Number(p.weekdayF[date.getDay()]) || 1) : 1;
+  let wd = p.useWeekday ? (Number(p.weekdayF[date.getDay()]) || 1) : 1;
+  if (p.useWeekday && p.useFestivo && p.festivoDays.includes(fcKey(date))) {
+    wd = Math.max(wd, ((Number(p.weekdayF[0]) || 1) + (Number(p.weekdayF[6]) || 1)) / 2);
+  }
   const pay = p.usePayday ? fcPayFactor(date, p) : 1;
   const promo = p.usePromo && p.promoDays.includes(fcKey(date)) ? 1 + p.promoBoost / 100 : 1;
   return { f: wd * pay * promo, wd, pay, promo };
 }
 
-// sales: every sale of the event (archive + the open day). stock/frozen: { key: n }.
-function fcModel(sales, p, now, stock, frozen) {
+// Sales grouped by calendar day: { key, units: {product: n}, sales, total }
+function fcGroupByDay(sales) {
   const byDay = {};
   sales.forEach(s => {
     if (!s.isoDate) return;
     const k = fcKey(new Date(s.isoDate));
-    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0 };
+    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0, total: 0 };
     day.sales++;
+    day.total += parseFloat(s.total) || 0;
     (s.items || []).forEach(i => {
       const key = stockKey({ name: currentProductName(i.name), extra: i.extra });
       day.units[key] = (day.units[key] || 0) + 1;
     });
   });
-  const keys = Object.keys(byDay).sort();
-  if (!keys.length) return null;
+  return byDay;
+}
 
+// Past events saved by "Guardar evento" / Cerrar stand. Each carries the days that were marked
+// (payday, promotion, festivo), so its sales are compared fairly with this event's.
+function fcEventPrefs(p, ev) {
+  return { ...p, paydays: ev.paydays || [], promoDays: ev.promoDays || [], festivoDays: ev.festivoDays || [] };
+}
+
+// sales: every sale of the event (archive + the open day). stock/frozen: { key: n }. history: saved events.
+function fcModel(sales, p, now, stock, frozen, history = []) {
+  const byDay = fcGroupByDay(sales);
+  const keys = Object.keys(byDay).sort();
   const todayKey = fcKey(now);
+
+  // Past events: each past day counts as (units ÷ that day's factor); together they act as extra
+  // half-weight days (at most 4 days' worth) when working out the normal-day rate.
+  const hist = p.useHistory ? history : [];
+  const histDays = hist.flatMap(ev => ev.days.map(d => ({ d, f: fcDayFactor(fcDate(d.key), fcEventPrefs(p, ev)).f })));
+  const histDenom = histDays.reduce((t, h) => t + h.f, 0);
+  const histW = Math.min(histDays.length, 4) * 0.5;
+  if (!keys.length && !histDays.length) return null;
+
   const observed = keys.map(k => {
     const d = fcDate(k);
     const included = p.override[k] !== undefined ? !!p.override[k] : k !== todayKey;
@@ -4812,26 +4882,27 @@ function fcModel(sales, p, now, stock, frozen) {
   });
   const used = observed.filter(d => d.included);
 
-  const start = observed[0].date;
+  const start = observed.length ? observed[0].date : fcDate(todayKey);
   const end = fcAddDays(start, Math.max(1, p.eventDays) - 1);
   const lastUsed = used.length ? used[used.length - 1].date : null;
   const remaining = [];
-  if (lastUsed) {
-    for (let d = fcAddDays(lastUsed, 1); d <= end; d = fcAddDays(d, 1)) {
-      if (fcKey(d) < todayKey) continue; // days already gone with no sales are not forecast
-      remaining.push({ key: fcKey(d), date: d, ...fcDayFactor(d, p) });
-    }
+  for (let d = lastUsed ? fcAddDays(lastUsed, 1) : start; d <= end; d = fcAddDays(d, 1)) {
+    if (fcKey(d) < todayKey) continue; // days already gone with no sales are not forecast
+    remaining.push({ key: fcKey(d), date: d, ...fcDayFactor(d, p) });
   }
 
   const names = new Set();
   observed.forEach(d => Object.keys(d.units).forEach(n => names.add(n)));
+  histDays.forEach(h => Object.keys(h.d.units).forEach(n => names.add(n)));
   const todayObs = observed.find(d => d.today);
   const weight = i => (p.useTrend ? 1 + 0.5 * i : 1);
   const denom = used.reduce((t, d, i) => t + weight(i) * d.f, 0);
 
   const rows = [...names].map(name => {
     const num = used.reduce((t, d, i) => t + weight(i) * (d.units[name] || 0), 0);
-    const base = denom > 0 ? num / denom : 0;
+    const histRate = histDenom > 0 ? histDays.reduce((t, h) => t + (h.d.units[name] || 0), 0) / histDenom : 0;
+    const den = denom + (histDenom > 0 ? histW : 0);
+    const base = den > 0 ? (num + (histDenom > 0 ? histW * histRate : 0)) / den : 0;
     const perDay = remaining.map(r => {
       let v = base * r.f;
       // today's sales so far are already out of the stock count
@@ -4844,7 +4915,54 @@ function fcModel(sales, p, now, stock, frozen) {
     return { name, base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
   }).sort((a, b) => b.make - a.make || b.need - a.need || a.name.localeCompare(b.name, "es"));
 
-  return { observed, used, remaining, rows, start, end, totalMake: rows.reduce((t, r) => t + r.make, 0) };
+  return { observed, used, remaining, rows, start, end, histDays: histDays.length, histW, totalMake: rows.reduce((t, r) => t + r.make, 0) };
+}
+
+// What the saved events + this one say about promotion days: average units on a promotion day vs a normal
+// day, after removing the weekday / payday / festivo effects. Only shown with enough days of both kinds.
+function fcEmpiricalPromo(history, sales, p) {
+  const pts = [];
+  const add = (day, pp) => {
+    const total = Object.values(day.units).reduce((t, v) => t + v, 0);
+    const f = fcDayFactor(fcDate(day.key), { ...pp, usePromo: false }).f;
+    if (total > 0 && f > 0) pts.push({ v: total / f, promo: pp.promoDays.includes(day.key) });
+  };
+  history.forEach(ev => ev.days.forEach(d => add(d, fcEventPrefs(p, ev))));
+  const todayKey = fcKey(new Date());
+  Object.values(fcGroupByDay(sales)).filter(d => d.key !== todayKey).forEach(d => add(d, p));
+  const pr = pts.filter(x => x.promo), no = pts.filter(x => !x.promo);
+  if (pr.length < 2 || no.length < 2) return { promoN: pr.length, normalN: no.length, uplift: null };
+  const mean = a => a.reduce((t, x) => t + x.v, 0) / a.length;
+  return { promoN: pr.length, normalN: no.length, uplift: Math.round((mean(pr) / mean(no) - 1) * 100) };
+}
+
+// Snapshot of the event for the history: days, units per product, marked days, products that ran out.
+function fcBuildEvent(sales, flags, stock, frozen) {
+  const byDay = fcGroupByDay(sales);
+  const keys = Object.keys(byDay).sort();
+  if (!keys.length) return null;
+  const startKey = keys[0], endKey = keys[keys.length - 1];
+  const within = (list, lo, hi) => (list || []).filter(k => k >= lo && k <= hi);
+  const lo = fcKey(fcAddDays(fcDate(startKey), -2)), hi = fcKey(fcAddDays(fcDate(endKey), 2));
+  const sold = new Set();
+  keys.forEach(k => Object.keys(byDay[k].units).forEach(n => sold.add(n)));
+  return {
+    id: "ev_" + startKey.replace(/-/g, ""),
+    name: (flags.eventName || "").trim() || `Evento ${fcLabel(startKey)}${startKey !== endKey ? " – " + fcLabel(endKey) : ""}`,
+    start: startKey, end: endKey, savedAt: new Date().toISOString(),
+    days: keys.map(k => ({ key: k, dow: fcDate(k).getDay(), sales: byDay[k].sales, total: Math.round(byDay[k].total * 100) / 100, units: byDay[k].units })),
+    paydays: within(flags.paydays, lo, hi), promoDays: within(flags.promoDays, startKey, endKey), festivoDays: within(flags.festivoDays, startKey, endKey),
+    soldOut: [...sold].filter(n => ((stock[n] ?? 0) + (frozen[n] ?? 0)) === 0),
+  };
+}
+
+// Called when closing the stand (any device): the marked days come from the cloud copy.
+async function fcSaveEventFromArchive() {
+  const [archive, current, meta] = await Promise.all([DataStore.getArchive(), DataStore.getSales(), DataStore.getForecastMeta().catch(() => ({}))]);
+  const ev = fcBuildEvent([...archive, ...current], meta, inventory, frozenInventory);
+  if (!ev) return false;
+  await DataStore.saveEvent(ev);
+  return true;
 }
 
 // Computer only: needs a mouse-type pointer and isn't a phone/tablet (iPadOS Safari pretends to be a Mac).
@@ -4867,8 +4985,21 @@ async function renderForecast() {
   if (!root) return;
   showSpinner();
   try {
-    const [archive, current] = await Promise.all([DataStore.getArchive(), DataStore.getSales()]);
+    const [archive, current, meta, history] = await Promise.all([
+      DataStore.getArchive(), DataStore.getSales(),
+      DataStore.getForecastMeta().catch(() => ({})), DataStore.getEventHistory().catch(() => []),
+    ]);
     _fc.sales = [...archive, ...current];
+    _fc.history = history.sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    // marked days live in the cloud too (so Cerrar stand on any device can save them with the event)
+    const p = _fc.prefs;
+    if (Array.isArray(meta.paydays) || Array.isArray(meta.promoDays) || Array.isArray(meta.festivoDays)) {
+      p.paydays = meta.paydays || []; p.promoDays = meta.promoDays || []; p.festivoDays = meta.festivoDays || [];
+      if (meta.eventName !== undefined) p.eventName = meta.eventName;
+      fcSavePrefs();
+    } else if (p.paydays.length || p.promoDays.length || p.festivoDays.length) {
+      fcSyncMeta();
+    }
   } catch (e) {
     console.error("renderForecast failed:", e);
     showToast("No se pudieron cargar las ventas");
@@ -4880,7 +5011,11 @@ async function renderForecast() {
   fcRender();
 }
 
-function fcSet(key, val) { _fc.prefs[key] = val; fcSavePrefs(); fcRender(); }
+function fcSyncMeta() {
+  const p = _fc.prefs;
+  DataStore.saveForecastMeta({ paydays: p.paydays, promoDays: p.promoDays, festivoDays: p.festivoDays, eventName: p.eventName || "" }).catch(() => {});
+}
+function fcSet(key, val) { _fc.prefs[key] = val; fcSavePrefs(); if (key === "eventName") fcSyncMeta(); fcRender(); }
 function fcSetNum(key, val, min, max) {
   const n = Number(String(val).replace(",", "."));
   if (!isFinite(n)) { fcRender(); return; }
@@ -4901,14 +5036,14 @@ function fcCalMode(mode) { _fc.mode = mode; fcRender(); }
 // Tap a day: mark/unmark it as payday or promotion (and switch that option on)
 function fcCalTap(key) {
   const p = _fc.prefs;
-  const [list, flag] = _fc.mode === "pay" ? ["paydays", "usePayday"] : ["promoDays", "usePromo"];
+  const [list, flag] = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] }[_fc.mode];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
   if (p[list].length) p[flag] = true;
-  fcSavePrefs(); fcRender();
+  fcSavePrefs(); fcSyncMeta(); fcRender();
 }
 
 function fcModelNow() {
-  return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory);
+  return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory, _fc.history || []);
 }
 
 function fcSwitch(id, label, checked, onchange, extra = "") {
@@ -4940,7 +5075,7 @@ function fcCalendarHTML(m) {
   for (let d = 1; d <= daysInMonth; d++) {
     const key = fcKey(new Date(first.getFullYear(), month, d, 12));
     const cls = ["fc-day",
-      p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "",
+      p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "", p.festivoDays.includes(key) ? "is-festivo" : "",
       obs.has(key) ? "obs" : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
     cells += `<button class="${cls}" onclick="fcCalTap('${key}')">${d}</button>`;
   }
@@ -4954,6 +5089,7 @@ function fcCalendarHTML(m) {
     <div class="fc-modes">
       <button class="${_fc.mode === "pay" ? "on is-pay" : ""}" onclick="fcCalMode('pay')">Quincena</button>
       <button class="${_fc.mode === "promo" ? "on is-promo" : ""}" onclick="fcCalMode('promo')">Promoción</button>
+      <button class="${_fc.mode === "festivo" ? "on is-festivo" : ""}" onclick="fcCalMode('festivo')">Festivo</button>
     </div>
     <div class="fc-cal">
       ${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}
@@ -4961,9 +5097,9 @@ function fcCalendarHTML(m) {
     </div>
     <div class="fc-legend">
       <span><i class="lg obs"></i>Con ventas</span><span><i class="lg fut"></i>Por pronosticar</span>
-      <span><i class="lg is-pay"></i>Quincena</span><span><i class="lg is-promo"></i>Promoción</span>
+      <span><i class="lg is-pay"></i>Quincena</span><span><i class="lg is-promo"></i>Promoción</span><span><i class="lg is-festivo"></i>Festivo</span>
     </div>
-    <p class="fc-hint">Toca un día para marcarlo como ${_fc.mode === "pay" ? "día de pago" : "día de promoción"}.</p>`;
+    <p class="fc-hint">Toca un día para marcarlo como ${{ pay: "día de pago", promo: "día de promoción", festivo: "día festivo" }[_fc.mode]}. Las marcas se guardan en la nube.</p>`;
 }
 
 function fcRender() {
@@ -4983,6 +5119,8 @@ function fcRender() {
         p.usePayday ? fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario"}. No hay un estudio publicado de la quincena en México; usé el extremo bajo de lo que reportan otros estudios.</p>` : "")}
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
         p.usePromo ? fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario"}. Si marcas todos los días del evento, el efecto se cancela (todos suben igual): solo cambia el resultado cuando algún día no está marcado.</p>` : "")}
+      ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)",
+        p.useFestivo ? `<p class="fc-hint">${p.festivoDays.length ? "Festivos marcados: " + p.festivoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días festivos en el calendario"}. Un día festivo se calcula como día de fin de semana (promedio de sábado y domingo) aunque caiga entre semana.</p>` : "")}
       <div class="fc-sep"></div>
       ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
       <p class="fc-hint">Piezas extra que se suman al pronóstico por si se vende más de lo esperado. Con 10%, si el cálculo dice 40, se propone 44. Más margen: menos riesgo de quedarte sin producto, pero más de que sobre.</p>
@@ -4994,7 +5132,7 @@ function fcRender() {
 
   let body;
   if (!m) {
-    body = `<div class="settings-card"><p class="fc-empty">Aún no hay ventas para calcular un pronóstico.</p></div>`;
+    body = `<div class="settings-card"><p class="fc-empty">Aún no hay ventas ni eventos guardados para calcular un pronóstico.</p></div>`;
   } else {
     const chips = m.observed.map(d => `
       <button class="fc-chip ${d.included ? "on" : ""}" onclick="fcToggleDay('${d.key}', ${d.included})">
@@ -5022,7 +5160,7 @@ function fcRender() {
     body = `
       <div class="settings-card">
         <h3>${icon("receipt")} Días con ventas</h3>
-        <div class="fc-chips">${chips}</div>
+        ${m.observed.length ? `<div class="fc-chips">${chips}</div>` : `<p class="fc-empty">Este evento aún no tiene ventas; el pronóstico usa solo los eventos guardados.</p>`}
         <p class="fc-hint">Toca un día para incluirlo o dejarlo fuera del cálculo. El factor (×) es lo que pesa ese día frente a uno normal.</p>
       </div>
       <div class="settings-card">
@@ -5030,14 +5168,15 @@ function fcRender() {
           <h3>${icon("flame")} Propuesta${range ? ` <small>para ${esc(range)}</small>` : ""}</h3>
           ${m.remaining.length && m.rows.length ? `<button class="btn-brand btn-icon fc-copy" onclick="fcCopy()">${icon("clipboard")} Copiar lista</button>` : ""}
         </div>
-        ${!m.used.length ? `<p class="fc-empty">Incluye al menos un día con ventas.</p>`
+        ${!m.used.length && !m.histDays ? `<p class="fc-empty">Incluye al menos un día con ventas.</p>`
           : !m.remaining.length ? `<p class="fc-empty">No quedan días por pronosticar. Sube la duración del evento si todavía faltan días.</p>`
           : `<p class="fc-total">${m.totalMake} ${m.totalMake === 1 ? "pieza" : "piezas"} por hacer</p>
              <div class="fc-table-wrap"><table class="fc-table"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
-             <p class="fc-hint">Hay = stock + congelados. Las ventas se limitan a lo que había: si algo se agotó pronto, la demanda real fue mayor; sube el margen.</p>`}
+             <p class="fc-hint">Hay = stock + congelados. Las ventas se limitan a lo que había: si algo se agotó pronto, la demanda real fue mayor; sube el margen.${m.histDays ? ` Incluye lo aprendido de ${m.histDays} ${m.histDays === 1 ? "día guardado" : "días guardados"} de eventos pasados.` : ""}</p>`}
       </div>`;
   }
 
+  const hist = fcHistoryHTML(m);
   const sources = `
     <details class="settings-card fc-sources">
       <summary>Fuentes de los valores sugeridos</summary>
@@ -5052,7 +5191,75 @@ function fcRender() {
       (<a href="https://escholarship.org/content/qt95f078fj/qt95f078fj.pdf?t=smzq6r" target="_blank" rel="noopener">eScholarship</a>). Por eso puse +10% y −10%, el extremo bajo.</p>
       <p class="fc-hint">Estas cifras vienen de resúmenes de los estudios; confírmalas antes de tomarlas como exactas. Tus propios datos pesan más: con más días de ventas, el pronóstico depende cada vez menos de estos factores.</p>
     </details>`;
-  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}${sources}`;
+  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}${hist}${sources}`;
+}
+
+function fcHistoryHTML(m) {
+  const p = _fc.prefs, hist = _fc.history || [];
+  const hasSales = !!(m && m.observed.length);
+  const emp = fcEmpiricalPromo(hist, _fc.sales || [], p);
+  const list = hist.map(ev => {
+    const units = ev.days.reduce((t, d) => t + Object.values(d.units).reduce((a, b) => a + b, 0), 0);
+    const tags = [
+      ev.promoDays.length ? `<span class="fc-tag promo">Promoción ${ev.promoDays.length} d</span>` : "",
+      ev.paydays.length ? `<span class="fc-tag pay">Quincena</span>` : "",
+      ev.festivoDays.length ? `<span class="fc-tag festivo">Festivo ${ev.festivoDays.length} d</span>` : "",
+      ev.soldOut && ev.soldOut.length ? `<span class="fc-tag out">Se agotó: ${esc(ev.soldOut.join(", "))}</span>` : "",
+    ].join("");
+    return `
+      <div class="fc-ev">
+        <div class="fc-ev-main">
+          <b>${esc(ev.name)}</b>
+          <span>${ev.days.length} ${ev.days.length === 1 ? "día" : "días"} · ${units} piezas · ${fcLabel(ev.start)} – ${fcLabel(ev.end)}</span>
+          <div class="fc-tags">${tags}</div>
+        </div>
+        <button class="fc-ev-del" onclick="fcDeleteEvent('${ev.id}')" aria-label="Borrar evento">${icon("trash")}</button>
+      </div>`;
+  }).join("");
+  return `
+    <div class="settings-card">
+      <h3>${icon("package")} Eventos guardados</h3>
+      <p class="fc-hint" style="margin-top:0;">El modelo aprende de eventos pasados: cada uno se guarda con los días que marcaste (promoción, quincena, festivo) y los productos que se agotaron, para comparar eventos de forma justa. Al cerrar el stand el evento se guarda solo.</p>
+      ${fcSwitch("fcHist", "Usar eventos guardados en el pronóstico", p.useHistory, "fcSet('useHistory', this.checked)")}
+      <div class="fc-num-row"><span>Nombre del evento</span><span><input type="text" class="fc-name" value="${esc(p.eventName || "")}" placeholder="Ej. Buen Fin 2026" onchange="fcSet('eventName', this.value.trim())"></span></div>
+      <button class="btn-brand btn-icon fc-save-ev" onclick="fcSaveEventNow()" ${hasSales ? "" : "disabled"}>${icon("save")} Guardar este evento ahora</button>
+      ${list ? `<div class="fc-evs">${list}</div>` : `<p class="fc-empty" style="margin-top:12px;">Aún no hay eventos guardados.</p>`}
+      <p class="fc-hint">${emp.uplift === null
+        ? `Efecto de la promoción medido con tus datos: todavía no hay suficientes días (hacen falta al menos 2 días con promoción y 2 sin ella; hay ${emp.promoN} y ${emp.normalN}).`
+        : `Efecto de la promoción medido con tus datos: ${emp.uplift >= 0 ? "+" : ""}${emp.uplift}% (${emp.promoN} días con promoción vs ${emp.normalN} sin ella). Compáralo con el valor sugerido (+${p.promoBoost}%).`}</p>
+    </div>`;
+}
+
+async function fcSaveEventNow() {
+  const ev = fcBuildEvent(_fc.sales || [], _fc.prefs, inventory, frozenInventory);
+  if (!ev) { showToast("No hay ventas que guardar"); return; }
+  showSpinner();
+  try {
+    await DataStore.saveEvent(ev);
+    _fc.history = [...(_fc.history || []).filter(e => e.id !== ev.id), ev].sort((a, b) => String(a.start).localeCompare(String(b.start)));
+    showToast("Evento guardado", "check");
+  } catch (e) {
+    console.error("fcSaveEventNow failed:", e);
+    showToast("No se pudo guardar el evento");
+  } finally {
+    hideSpinner();
+  }
+  fcRender();
+}
+
+function fcDeleteEvent(id) {
+  const ev = (_fc.history || []).find(e => e.id === id);
+  if (!ev) return;
+  confirmModal(`¿Borrar "${ev.name}" del historial del pronóstico?`, async () => {
+    try {
+      await DataStore.deleteEvent(id);
+      _fc.history = _fc.history.filter(e => e.id !== id);
+      showToast("Evento borrado", "check");
+    } catch (e) {
+      showToast("No se pudo borrar el evento");
+    }
+    fcRender();
+  });
 }
 
 function fcCopy() {
