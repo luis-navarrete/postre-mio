@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.2";
-const APP_UPDATED = "2026-11-19T11:00Z";
+const APP_VERSION = "1.30.3";
+const APP_UPDATED = "2026-11-19T12:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1708,7 +1708,7 @@ function generateTicket(sale) {
       <table style="width:100%;border-collapse:collapse;">
         <tr><td colspan="3" style="font-size:10px;opacity:0.6;">FORMA DE PAGO</td></tr>
         <tr>
-          <td>${sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia"}</td>
+          <td>${METHOD_LABELS[sale.method] || "Transferencia"}</td>
           <td style="width:16px;text-align:right;padding-right:0;">$</td>
           <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.amount).toFixed(2)}</td>
         </tr>
@@ -3127,6 +3127,7 @@ function openEditSale(saleId) {
           <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
           <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
           <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
+          ${sale.method === 'adjust' ? `<option value="adjust" data-icon="sliders" selected>Ajuste</option>` : ""}
         </select>
       </div>${resetBtn("method")}</div>
 
@@ -3250,18 +3251,8 @@ function openCorrectionModal() {
       <div class="promo-form" style="margin-top:12px;">
         <label>Total ($)</label>
         <input id="corr-total" type="number" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="_corrTotalTouched = true">
-        <label>Método de pago</label>
-        <select id="corr-method">
-          <option value="cash" data-icon="banknote">Efectivo</option>
-          <option value="transfer" data-icon="transfer">Transferencia</option>
-          <option value="card" data-icon="card">Tarjeta</option>
-        </select>
       </div>
-      <label class="switch-row" style="margin-top:12px;">
-        <span>Actualizar el inventario</span>
-        <span class="toggle"><input type="checkbox" id="corr-stock" checked><span class="toggle-slider"></span></span>
-      </label>
-      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:6px;">Guardar corrección</button>
+      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:12px;">Guardar corrección</button>
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <div class="modal-spacer corr-spacer"></div>
     </div>
@@ -3299,9 +3290,8 @@ async function saveCorrection() {
   if (!items.length) { showToast("Cuenta lo que queda: nada ha cambiado"); return; }
   const total = parseFloat(document.getElementById("corr-total").value);
   if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
-  const method = document.getElementById("corr-method").value;
+  const method = "adjust"; // an adjustment, not a payment
   const dayKey = document.getElementById("corr-day").value;
-  const discount = document.getElementById("corr-stock").checked;
 
   // today: now; an earlier day: just before midnight, so it ends that day's list
   let when = new Date();
@@ -3319,16 +3309,15 @@ async function saveCorrection() {
   showSpinner();
   try {
     await DataStore.addSale(sale);
-    if (discount) {
-      const counts = {};
-      items.forEach(i => { const k = stockKey(i); counts[k] = (counts[k] || 0) + 1; });
-      for (const [name, qty] of Object.entries(counts)) {
-        inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
-        DataStore.reduceStock(name, qty).catch(() => {});
-      }
-      saveInventory();
-      renderProducts();
+    // the inventory always follows what was counted
+    const counts = {};
+    items.forEach(i => { const k = stockKey(i); counts[k] = (counts[k] || 0) + 1; });
+    for (const [name, qty] of Object.entries(counts)) {
+      inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
+      DataStore.reduceStock(name, qty).catch(() => {});
     }
+    saveInventory();
+    renderProducts();
     closeModal();
     showToast("Corrección agregada", "check");
     hideSpinner();
@@ -3609,7 +3598,7 @@ function deleteSale(saleId) {
 // ─────────────────────────────────────────────
 
 const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
+const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", adjust: "Ajuste" };
 const pad2 = n => String(n).padStart(2, "0");
 // Archived days are numbered; the day still open in Historial has no number yet
 // Amount with the "$" pinned to the left of a fixed-width box and the digits right-aligned, so the
@@ -3675,7 +3664,7 @@ function groupArchive(sales, mermas) {
   return Object.values(byDay).map(d => {
     d.sales.sort((a, b) => String(a.isoDate || "").localeCompare(String(b.isoDate || "")));
     d.total = d.sales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
-    d.byMethod = { cash: 0, card: 0, transfer: 0 };
+    d.byMethod = { cash: 0, card: 0, transfer: 0, adjust: 0 };
     d.sales.forEach(s => { d.byMethod[s.method] = (d.byMethod[s.method] || 0) + (parseFloat(s.total) || 0); });
     const first = d.sales.find(s => s.isoDate);
     d.date = first ? new Date(first.isoDate) : null;
@@ -3844,16 +3833,16 @@ function buildArchiveWorkbook(days, mermas) {
   };
 
   // ── Resumen ──
-  const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia"]];
+  const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia", "Ajuste"]];
   days.forEach(d => sum.push([
     dayLabel(d.dayNo), d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
-    d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0,
+    d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0, d.byMethod.adjust || 0,
   ]));
-  const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer"][i]] || 0), 0);
-  sum.push([days.length > 1 ? "Total del evento" : "Total", "", col(2), col(3), col(4), col(5), col(6)]);
+  const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer", "adjust"][i]] || 0), 0);
+  sum.push([days.length > 1 ? "Total del evento" : "Total", "", col(2), col(3), col(4), col(5), col(6), col(7)]);
   const wsSum = XL.utils.aoa_to_sheet(sum);
-  wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
-  for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6]);
+  wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
+  for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6, 7]);
   XL.utils.book_append_sheet(wb, wsSum, sheetName("Resumen"));
 
   // ── One sheet per day ──
