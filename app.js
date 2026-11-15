@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.23.3";
-const APP_UPDATED = "2026-11-18T05:00Z";
+const APP_VERSION = "1.23.4";
+const APP_UPDATED = "2026-11-18T06:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5252,10 +5252,13 @@ function fcDrawSvg(festivo, W, H) {
   const paths = `<path pathLength="1" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${mx}"/>` +
     `<path pathLength="1" d="M${mx} 1H${1 + r}a${r} ${r} 0 0 0-${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 0 ${r} ${r}H${mx}"/>`;
   const box = dy => `M0 ${R + dy}a${R} ${R} 0 0 1 ${R} -${R}H${(W - R).toFixed(2)}a${R} ${R} 0 0 1 ${R} ${R}V${(H - R + dy).toFixed(2)}a${R} ${R} 0 0 1 -${R} ${R}H${R}a${R} ${R} 0 0 1 -${R} -${R}Z`;
+  // dashed outline drawn in the same svg (so it shares the line's exact geometry): evenly spaced dashes all round
+  const P = 2 * (W - 2 - 2 * r) + 2 * (H - 2 - 2 * r) + 2 * Math.PI * r, n = Math.max(8, Math.round(P / 10)), unit = P / n;
+  const dots = `<path class="fc-dots" style="stroke-dasharray:${(unit * 0.62).toFixed(2)} ${(unit * 0.38).toFixed(2)}" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${1 + r}a${r} ${r} 0 0 1-${r}-${r}V${1 + r}a${r} ${r} 0 0 1 ${r}-${r}Z"/>`;
   const cap = festivo
     ? `<defs><clipPath id="fcCapClip"><path clip-rule="evenodd" d="${box(0)} ${box(FC_CAP)}"/></clipPath></defs><g class="fc-draw-cap" clip-path="url(#fcCapClip)">${paths}</g>`
     : "";
-  return `<svg class="fc-draw" viewBox="0 0 ${w} ${h}" aria-hidden="true">${paths}${cap}</svg>`;
+  return `<svg class="fc-draw" viewBox="0 0 ${w} ${h}" aria-hidden="true">${dots}${paths}${cap}</svg>`;
 }
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
