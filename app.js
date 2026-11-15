@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.28.1";
-const APP_UPDATED = "2026-11-19T00:00Z";
+const APP_VERSION = "1.28.2";
+const APP_UPDATED = "2026-11-19T01:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2976,7 +2976,8 @@ function editGiftsHTML() {
     picker = `<div class="eg-picker">${giftChoices().map((c, i) => `${c.cat !== last ? (last = c.cat, `<div class="corr-cat">${catHTML(c.cat)}</div>`) : ""}
       <button class="gift-row" onclick="stageGift(${i})"><span>${esc(c.label)}</span><small>STOCK: ${productStock(c.item.name)}</small></button>`).join("")}</div>`;
   }
-  return `${existing}${staged}
+  const any = existing || staged;
+  return `${any ? `<label class="eg-label">Regalos</label>${existing}${staged}` : ""}
     <button class="btn-secondary btn-icon eg-add" onclick="toggleEditGiftPicker()">${icon('gift')} ${g.open ? "Cerrar lista" : "Añadir regalo"}</button>${picker}`;
 }
 function renderEditGifts() { const el = document.getElementById("edit-gifts"); if (el) el.innerHTML = editGiftsHTML(); }
@@ -2984,6 +2985,43 @@ function toggleEditGiftPicker() { _editGifts.open = !_editGifts.open; renderEdit
 function stageGift(i) { _editGifts.add.push(giftChoices()[i].item); _editGifts.open = false; renderEditGifts(); }
 function unstageGift(i) { _editGifts.add.splice(i, 1); renderEditGifts(); }
 function toggleRemoveGift(idx) { _editGifts.remove.has(idx) ? _editGifts.remove.delete(idx) : _editGifts.remove.add(idx); renderEditGifts(); }
+
+// ── Time of the sale (edit-sale modal): a button; the wheel only opens while the time is being edited ──
+let _editTime = null;
+function editTimeLabel() {
+  const t = _editTime;
+  const d = new Date(2000, 0, 1, t.h, t.m);
+  const txt = appSettings.use24hEditor ? `${pad2(t.h)}:${pad2(t.m)}` : fmtTime12(d);
+  return `${esc(txt)}${t.h * 60 + t.m !== t.original ? " <small>(cambiada)</small>" : ""}`;
+}
+// current hour / minutes: read from the wheel while it is open, else from the saved state
+function editTimeValues() {
+  const panel = document.getElementById("edit-time-panel");
+  if (panel && !panel.classList.contains("hidden")) {
+    const ampm = wheelValue("edit-ampm");
+    const hv = parseInt(wheelValue("edit-hour"), 10);
+    return { h: ampm ? (hv % 12) + (ampm === "pm" ? 12 : 0) : hv, m: parseInt(wheelValue("edit-min"), 10) };
+  }
+  return { h: _editTime.h, m: _editTime.m };
+}
+function toggleEditTime() {
+  const panel = document.getElementById("edit-time-panel");
+  if (!panel) return;
+  if (panel.classList.contains("hidden")) {
+    panel.classList.remove("hidden");
+    // put every column on the saved time (a hidden element cannot hold a scroll position)
+    const t = _editTime, use24 = !!appSettings.use24hEditor;
+    const set = (id, idx) => { const col = document.getElementById(id); if (col) { col.scrollTop = idx * WHEEL_ITEM; [...col.children].forEach((el, i) => el.classList.toggle("sel", i === idx)); } };
+    set("edit-hour", use24 ? t.h : (t.h % 12 || 12) - 1);
+    set("edit-min", t.m);
+    set("edit-ampm", t.h >= 12 ? 1 : 0);
+  } else {
+    const v = editTimeValues();
+    if (!isNaN(v.h) && !isNaN(v.m)) { _editTime.h = v.h; _editTime.m = v.m; }
+    panel.classList.add("hidden");
+    document.getElementById("edit-time-btn").innerHTML = editTimeLabel();
+  }
+}
 
 // ── Date of the sale (edit-sale modal): an inline month calendar under the "Fecha" button ──
 let _editDate = null;
@@ -3041,6 +3079,7 @@ function openEditSale(saleId) {
     </div>`;
 
   _editGifts = { saleId, add: [], remove: new Set(), open: false };
+  _editTime = when ? { h: when.getHours(), m: when.getMinutes(), original: when.getHours() * 60 + when.getMinutes() } : null;
   if (when) { const k = fcKey(when); _editDate = { key: k, original: k, open: false, cal: new Date(when.getFullYear(), when.getMonth(), 1, 12) }; } else _editDate = null;
 
   openCompactModal(`
@@ -3062,10 +3101,12 @@ function openEditSale(saleId) {
       <div id="edit-date">${editDateHTML()}</div>
 
       <label>Hora</label>
-      <div id="edit-time" data-original="${saleTime}">${wheelHTML}</div>
+      <div id="edit-time" data-original="${saleTime}">
+        <button class="fc-range-btn edit-date-btn" id="edit-time-btn" onclick="toggleEditTime()">${editTimeLabel()}</button>
+        <div id="edit-time-panel" class="hidden" style="margin-top:8px;">${wheelHTML}</div>
+      </div>
       ` : ''}
 
-      <label>Regalos</label>
       <div id="edit-gifts">${editGiftsHTML()}</div>
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
@@ -3254,10 +3295,7 @@ async function confirmEditSale(saleId) {
   const timeInput = document.getElementById("edit-time");
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (timeInput && sale && sale.isoDate) {
-    const ampm = wheelValue("edit-ampm");
-    const hv = parseInt(wheelValue("edit-hour"), 10);
-    const h = ampm ? (hv % 12) + (ampm === "pm" ? 12 : 0) : hv;
-    const m = parseInt(wheelValue("edit-min"), 10);
+    const { h, m } = editTimeValues();
     if (isNaN(h) || isNaN(m)) { showToast("Hora inválida"); return; }
     const dayKey = _editDate ? _editDate.key : fcKey(new Date(sale.isoDate));
     if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original || (_editDate && dayKey !== _editDate.original)) {

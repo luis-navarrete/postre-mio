@@ -2286,3 +2286,5 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .edit-date-btn { width: 100% !important; text-align: left; padding: 10px 12px !important; font-size: 14px !important; }
 .edit-date-btn small { color: var(--brand-dark); font-size: 11px; margin-left: 6px; }
 .edit-cal { margin-top: 8px; padding: 8px; background: var(--bg); border-radius: 10px; }
+
+.eg-label { display: block; margin-top: 4px; }
