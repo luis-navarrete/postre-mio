@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.28.0";
-const APP_UPDATED = "2026-11-18T23:00Z";
+const APP_VERSION = "1.28.1";
+const APP_UPDATED = "2026-11-19T00:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2985,6 +2985,37 @@ function stageGift(i) { _editGifts.add.push(giftChoices()[i].item); _editGifts.o
 function unstageGift(i) { _editGifts.add.splice(i, 1); renderEditGifts(); }
 function toggleRemoveGift(idx) { _editGifts.remove.has(idx) ? _editGifts.remove.delete(idx) : _editGifts.remove.add(idx); renderEditGifts(); }
 
+// ── Date of the sale (edit-sale modal): an inline month calendar under the "Fecha" button ──
+let _editDate = null;
+const editDateLabel = key => { const d = fcDate(key); return `${FC_DAYS[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString("es-MX", { month: "short" }).replace(".", "")} ${d.getFullYear()}`; };
+function editDateHTML() {
+  const g = _editDate;
+  let cal = "";
+  if (g.open) {
+    const first = g.cal;
+    let cells = "";
+    for (let i = 0; i < first.getDay(); i++) cells += `<span class="fc-rg-day blank"></span>`;
+    for (let d = 1, n = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate(); d <= n; d++) {
+      const key = fcKey(new Date(first.getFullYear(), first.getMonth(), d, 12));
+      cells += `<button class="fc-rg-day${key === g.key ? " rg-start rg-end" : ""}" onclick="editCalPick('${key}')">${d}</button>`;
+    }
+    const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+    cal = `<div class="edit-cal">
+      <div class="fc-cal-head">
+        <button class="fc-nav" onclick="editCalNav(-1)" aria-label="Mes anterior">${icon("chevronRight")}</button>
+        <strong>${esc(title)}</strong>
+        <button class="fc-nav next" onclick="editCalNav(1)" aria-label="Mes siguiente">${icon("chevronRight")}</button>
+      </div>
+      <div class="fc-cal">${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}${cells}</div>
+    </div>`;
+  }
+  return `<button class="fc-range-btn edit-date-btn" onclick="toggleEditCal()">${esc(editDateLabel(g.key))}${g.key !== g.original ? " <small>(cambiada)</small>" : ""}</button>${cal}`;
+}
+function renderEditDate() { const el = document.getElementById("edit-date"); if (el) el.innerHTML = editDateHTML(); }
+function toggleEditCal() { _editDate.open = !_editDate.open; renderEditDate(); }
+function editCalNav(delta) { const c = _editDate.cal; _editDate.cal = new Date(c.getFullYear(), c.getMonth() + delta, 1, 12); renderEditDate(); }
+function editCalPick(key) { _editDate.key = key; _editDate.open = false; renderEditDate(); }
+
 function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
@@ -3010,6 +3041,7 @@ function openEditSale(saleId) {
     </div>`;
 
   _editGifts = { saleId, add: [], remove: new Set(), open: false };
+  if (when) { const k = fcKey(when); _editDate = { key: k, original: k, open: false, cal: new Date(when.getFullYear(), when.getMonth(), 1, 12) }; } else _editDate = null;
 
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
@@ -3026,6 +3058,9 @@ function openEditSale(saleId) {
       </select>
 
       ${saleTime ? `
+      <label>Fecha</label>
+      <div id="edit-date">${editDateHTML()}</div>
+
       <label>Hora</label>
       <div id="edit-time" data-original="${saleTime}">${wheelHTML}</div>
       ` : ''}
@@ -3215,7 +3250,7 @@ async function confirmEditSale(saleId) {
 
   const updates = { total, method };
 
-  // Change only the time of day; the sale keeps its date and seconds.
+  // Change the day and / or the time of day; the sale keeps its seconds.
   const timeInput = document.getElementById("edit-time");
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (timeInput && sale && sale.isoDate) {
@@ -3224,8 +3259,11 @@ async function confirmEditSale(saleId) {
     const h = ampm ? (hv % 12) + (ampm === "pm" ? 12 : 0) : hv;
     const m = parseInt(wheelValue("edit-min"), 10);
     if (isNaN(h) || isNaN(m)) { showToast("Hora inválida"); return; }
-    if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original) {
+    const dayKey = _editDate ? _editDate.key : fcKey(new Date(sale.isoDate));
+    if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original || (_editDate && dayKey !== _editDate.original)) {
       const d = new Date(sale.isoDate);
+      const [yy, mm, dd] = dayKey.split("-").map(Number);
+      d.setFullYear(yy, mm - 1, dd);
       d.setHours(h, m);
       updates.isoDate = d.toISOString();
       updates.date = d.toLocaleString();
