@@ -2177,8 +2177,8 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-opt.fc-calc .fc-num-row { font-size: 15px; font-weight: 700; color: var(--text); margin: 0; }
 .fc-opt.fc-calc .fc-num-row + .fc-num-row { margin-top: 10px; }
 .fc-opt.fc-calc input { font-weight: 400; }
-.fc-opt.fc-calc .fc-num-row > span:last-child { font-weight: 400; }
 
-/* the unit (%, días) lives in a fixed-width slot so every input box lines up at the same x */
-.fc-num-row > span:last-child { display: inline-flex; align-items: center; }
-.fc-unit { display: inline-block; width: 38px; margin-left: 6px; text-align: left; font-weight: 400; }
+/* the unit (%, días) sits inside the input box, so all boxes are the same size and end flush with the switches */
+.fc-field { position: relative; display: inline-block; }
+.fc-field input { width: 92px; padding-right: 40px; }
+.fc-unit { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 400; color: var(--text-muted); pointer-events: none; }
