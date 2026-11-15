@@ -2178,3 +2178,7 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-opt.fc-calc .fc-num-row + .fc-num-row { margin-top: 10px; }
 .fc-opt.fc-calc input { font-weight: 400; }
 .fc-opt.fc-calc .fc-num-row > span:last-child { font-weight: 400; }
+
+/* the unit (%, días) lives in a fixed-width slot so every input box lines up at the same x */
+.fc-num-row > span:last-child { display: inline-flex; align-items: center; }
+.fc-unit { display: inline-block; width: 38px; margin-left: 6px; text-align: left; font-weight: 400; }

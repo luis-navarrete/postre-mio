@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.20.3";
-const APP_UPDATED = "2026-11-16T21:00Z";
+const APP_VERSION = "1.20.4";
+const APP_UPDATED = "2026-11-16T22:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5262,7 +5262,7 @@ function fcNum(label, value, key, min, max, step, suffix) {
   return `
     <div class="fc-num-row">
       <span>${label}</span>
-      <span><input type="text" inputmode="decimal" value="${value}" onchange="fcSetNum('${key}', this.value, ${min}, ${max})" onfocus="this.select()">${suffix ? " " + suffix : ""}</span>
+      <span><input type="text" inputmode="decimal" value="${value}" onchange="fcSetNum('${key}', this.value, ${min}, ${max})" onfocus="this.select()"><span class="fc-unit">${suffix || ""}</span></span>
     </div>`;
 }
 
