@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.29.0";
-const APP_UPDATED = "2026-11-19T08:00Z";
+const APP_VERSION = "1.30.0";
+const APP_UPDATED = "2026-11-19T09:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3179,9 +3179,12 @@ function saveSaleNote(saleId, remove = false) {
     .catch(() => showToast("Error al guardar la nota. Intenta de nuevo."));
 }
 
-// ── Corrective entry: one sale that adds up everything sold but never registered ──
+// ── Corrective entry: you count what is LEFT of each product; the difference with the inventory is one sale
+//    that adds up everything sold but never registered ──
 let _corrRows = [];
-let _corrQty = {};
+let _corrQty = {};     // sold = inventory at opening − what is left
+let _corrStart = {};   // inventory at opening, per product
+let _corrLeft = {};    // what is left now (what the user counts)
 let _corrTotalTouched = false;
 
 function corrRowList() {
@@ -3209,6 +3212,9 @@ function corrDayOptions() {
 function openCorrectionModal() {
   _corrRows = corrRowList();
   _corrQty = {};
+  _corrStart = {};
+  _corrLeft = {};
+  _corrRows.forEach(r => { _corrStart[r.key] = Math.max(0, inventory[r.key] ?? 0); _corrLeft[r.key] = _corrStart[r.key]; });
   _corrTotalTouched = false;
   const days = corrDayOptions();
   const dayOpts = days.map(k => {
@@ -3220,11 +3226,11 @@ function openCorrectionModal() {
     const head = r.cat !== lastCat ? (lastCat = r.cat, `<div class="corr-cat">${catHTML(r.cat)}</div>`) : "";
     return `${head}
       <div class="corr-row">
-        <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}</small></div>
+        <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}<span class="corr-sold" id="corr-s-${i}"></span></small></div>
         <div class="corr-step">
-          <button class="corr-btn" onclick="corrStep(${i}, -1)" aria-label="Quitar">−</button>
-          <span class="corr-qty" id="corr-q-${i}">0</span>
-          <button class="corr-btn" onclick="corrStep(${i}, 1)" aria-label="Agregar">+</button>
+          <button class="corr-btn" id="corr-m-${i}" onclick="corrStep(${i}, -1)" aria-label="Quitar" ${_corrStart[r.key] <= 0 ? "disabled" : ""}>−</button>
+          <span class="corr-qty" id="corr-q-${i}">${_corrStart[r.key]}</span>
+          <button class="corr-btn" id="corr-p-${i}" onclick="corrStep(${i}, 1)" aria-label="Agregar" disabled>+</button>
         </div>
       </div>`;
   }).join("");
@@ -3235,7 +3241,7 @@ function openCorrectionModal() {
       <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
     </div>
     <div class="modal-scroll">
-      <p class="corr-intro">Una sola entrada con todo lo que se vendió pero no se registró.</p>
+      <p class="corr-intro">Cuenta cuánto te queda de cada producto. Lo que falte respecto al inventario se registra como una sola venta no registrada.</p>
       <div class="promo-form">
         <label>Día</label>
         <select id="corr-day">${dayOpts}</select>
@@ -3252,7 +3258,7 @@ function openCorrectionModal() {
         </select>
       </div>
       <label class="switch-row" style="margin-top:12px;">
-        <span>Descontar del inventario</span>
+        <span>Actualizar el inventario</span>
         <span class="toggle"><input type="checkbox" id="corr-stock" checked><span class="toggle-slider"></span></span>
       </label>
       <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:6px;">Guardar corrección</button>
@@ -3265,8 +3271,12 @@ function openCorrectionModal() {
 
 function corrStep(i, delta) {
   const key = _corrRows[i].key;
-  _corrQty[key] = Math.max(0, (_corrQty[key] || 0) + delta);
-  document.getElementById("corr-q-" + i).textContent = _corrQty[key];
+  _corrLeft[key] = Math.min(_corrStart[key], Math.max(0, _corrLeft[key] + delta));
+  _corrQty[key] = _corrStart[key] - _corrLeft[key];
+  document.getElementById("corr-q-" + i).textContent = _corrLeft[key];
+  document.getElementById("corr-s-" + i).textContent = _corrQty[key] ? ` · ${_corrQty[key]} ${_corrQty[key] === 1 ? "vendido" : "vendidos"}` : "";
+  document.getElementById("corr-m-" + i).disabled = _corrLeft[key] <= 0;
+  document.getElementById("corr-p-" + i).disabled = _corrLeft[key] >= _corrStart[key];
   if (!_corrTotalTouched) {
     const total = _corrRows.reduce((t, r) => t + (_corrQty[r.key] || 0) * r.item.price, 0);
     document.getElementById("corr-total").value = total.toFixed(2);
@@ -3276,7 +3286,7 @@ function corrStep(i, delta) {
 async function saveCorrection() {
   const items = [];
   _corrRows.forEach(r => { for (let n = 0; n < (_corrQty[r.key] || 0); n++) items.push({ ...r.item, extra: r.item.extra ? { ...r.item.extra } : null }); });
-  if (!items.length) { showToast("Agrega al menos un producto"); return; }
+  if (!items.length) { showToast("Cuenta lo que queda: nada ha cambiado"); return; }
   const total = parseFloat(document.getElementById("corr-total").value);
   if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
   const method = document.getElementById("corr-method").value;
