@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.1";
-const APP_UPDATED = "2026-11-17T17:00Z";
+const APP_VERSION = "1.22.6";
+const APP_UPDATED = "2026-11-17T22:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -940,6 +940,12 @@ const ITEM_EXTRAS_STEP2 = {
 // canela's "Natural", which is the default/no-extra state and can be omitted.
 const ITEM_EXTRAS_ALWAYS_KEEP = new Set(["Mini pastel maceta"]);
 
+// A product whose extras choice is a flavour (Mini pastel maceta, Pan de muerto, and any future product added to
+// ITEM_EXTRAS_ALWAYS_KEEP or VARIANT_PRODUCTS) shows it as "Red velvet"; a paid add-on shows "+ Nutella".
+const isFlavorProduct = name => ITEM_EXTRAS_ALWAYS_KEEP.has(name) || !!VARIANT_PRODUCTS[name];
+const extraText = (itemName, extraName) => (isFlavorProduct(itemName) ? "" : "+ ") + extraName;
+const extraInline = (itemName, extraName) => itemName + (isFlavorProduct(itemName) ? " · " : " + ") + extraName; // plain text
+
 const ITEM_EXTRAS_LABEL = {
   "Rol de canela": "Elige el betún:",
   "Pan de muerto": "Elige el relleno:",
@@ -1587,7 +1593,7 @@ function generateTicket(sale) {
       ${info.extra ? `
       <tr style="font-size:10px;opacity:0.8;">
         <td></td>
-        <td style="padding-left:8px;">+ ${esc(info.extra.name)}</td>
+        <td style="padding-left:8px;">${esc(extraText(info.name, info.extra.name))}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${info.extra.price.toFixed(2)}</td>
         <td colspan="2" style="text-align:right;padding-left:2px;font-style:italic;">(incl.)</td>
@@ -3191,7 +3197,7 @@ function renderHistoryWithData(data) {
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:13px;padding:3px 0;">
           <span style="text-align:center;">${info.qty}</span>
-          <span>${esc(info.name)}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${esc(info.extra.name)}</span>` : ''}</span>
+          <span>${esc(info.name)}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">${esc(extraText(info.name, info.extra.name))}</span>` : ''}</span>
           <span style="text-align:right;">$${info.price.toFixed(2)}</span>
           <span style="text-align:right;">$${subtotal.toFixed(2)}</span>
         </div>
@@ -3353,6 +3359,12 @@ const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumF
 const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 const pad2 = n => String(n).padStart(2, "0");
 // Archived days are numbered; the day still open in Historial has no number yet
+// Amount with the "$" pinned to the left of a fixed-width box and the digits right-aligned, so the
+// symbol stays in a straight column instead of moving with the amount
+function moneyPinned(n, sign = "") {
+  const v = (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `<span class="mny"><span class="mny-cur">${sign ? `<span class="mny-sign">${sign}</span>` : ""}$</span><span>${v}</span></span>`;
+}
 const dayLabel = n => n ? "Día " + n : "Día actual";
 
 // Corte de caja: closes the day. Every sale in Historial moves, intact, to Archivo
@@ -3479,11 +3491,11 @@ function archiveSaleHTML(sale) {
   const items = groupSaleItems(sale).map(g => `
     <div class="arch-item">
       <b>${g.qty}×</b>
-      <span>${esc(g.name)}${g.extra ? ` <i>+ ${esc(g.extra.name)}</i>` : ""}</span>
-      <span class="arch-item-price">${money(g.unit * g.qty)}</span>
+      <span>${esc(g.name)}${g.extra ? ` <i>${esc(extraText(g.name, g.extra.name))}</i>` : ""}</span>
+      <span class="arch-item-price">${moneyPinned(g.unit * g.qty)}</span>
     </div>`).join("");
   const promos = (sale.promos || []).map(p => `
-    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? "−" + money(p.discount) : ""}</span></div>`).join("");
+    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
   return `
     <div class="arch-sale">
       <div class="arch-sale-head">
@@ -3491,7 +3503,7 @@ function archiveSaleHTML(sale) {
         <span>${esc(METHOD_LABELS[sale.method] || "")}</span>
       </div>
       ${items}${promos}
-      <div class="arch-sale-foot"><span>${sale.note ? esc(sale.note) : ""}</span><strong>${money(sale.total)}</strong></div>
+      <div class="arch-sale-foot"><span>${sale.note ? esc(sale.note) : ""}</span><strong>${moneyPinned(sale.total)}</strong></div>
     </div>`;
 }
 
@@ -3499,7 +3511,7 @@ function openArchiveDay(dayNo) {
   const day = _archiveDays.find(d => d.dayNo === dayNo);
   if (!day) return;
   const methods = Object.entries(day.byMethod).filter(([, v]) => v > 0)
-    .map(([k, v]) => `<div class="arch-method"><em>${esc(METHOD_LABELS[k] || k)}</em><span>${money(v)}</span></div>`).join("");
+    .map(([k, v]) => `<div class="arch-method"><em>${esc(METHOD_LABELS[k] || k)}</em>${moneyPinned(v)}</div>`).join("");
   const mermas = day.mermas.length ? `
     <div class="arch-section-title">Mermas</div>
     ${day.mermas.map(m => {
@@ -3598,7 +3610,7 @@ function buildArchiveWorkbook(days, mermas) {
       const [fecha, hora] = saleDateTime(sale);
       const counts = {};
       (sale.items || []).forEach(i => { const n = currentProductName(i.name); counts[n] = (counts[n] || 0) + 1; });
-      const detalle = groupSaleItems(sale).map(g => `${g.qty}× ${g.name}${g.extra ? " + " + g.extra.name : ""}`).join(", ");
+      const detalle = groupSaleItems(sale).map(g => `${g.qty}× ${g.extra ? extraInline(g.name, g.extra.name) : g.name}`).join(", ");
       const promos = (sale.promos || []).map(p => p.name + (p.discount > 0 ? ` (−${money(p.discount)})` : "") + (p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : "")).join("; ");
       rows.push([
         sale.folio || "", fecha, hora, METHOD_LABELS[sale.method] || sale.method || "",
@@ -4820,7 +4832,7 @@ async function renderPending() {
   list.forEach(order => {
     const grouped = {};
     order.items.forEach(item => {
-      const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+      const key = item.extra ? extraInline(item.name, item.extra.name) : item.name;
       grouped[key] = (grouped[key] || 0) + 1;
     });
     const summary = Object.entries(grouped)
@@ -4881,7 +4893,7 @@ function sharePending(id) {
 
   const grouped = {};
   order.items.forEach(item => {
-    const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+    const key = item.extra ? extraInline(item.name, item.extra.name) : item.name;
     grouped[key] = { qty: (grouped[key]?.qty || 0) + 1, price: item.price };
   });
 
