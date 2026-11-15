@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.27.2";
-const APP_UPDATED = "2026-11-18T21:00Z";
+const APP_VERSION = "1.27.3";
+const APP_UPDATED = "2026-11-18T22:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1463,7 +1463,8 @@ function showFinalStep(total, method, change, amount) {
       discount: a.discount,
       freeCount: a.freeCount || 0,
       freeItemName: a.freeItemName || "",
-      raffleEntries: a.raffleEntries || 0
+      raffleEntries: a.raffleEntries || 0,
+      gift: a.promo.id === "gift"
     }))
   };
 
@@ -3261,8 +3262,7 @@ function renderHistoryWithData(data) {
           </div>
         `;
       } else {
-        let label = `${icon('tag')} ${esc(p.name)}`;
-        if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
+        const label = promoLineLabel(p.name, p.gift, p.freeCount);
         itemsHTML += `
           <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
             <span></span>
@@ -3539,7 +3539,7 @@ function archiveSaleHTML(sale) {
       <span class="arch-item-price">${moneyPinned(g.unit * g.qty)}</span>
     </div>`).join("");
   const promos = (sale.promos || []).map(p => `
-    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
+    <div class="arch-item arch-promo"><b></b><span>${p.gift ? icon('gift') : icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
   return `
     <div class="arch-sale">
       <div class="arch-sale-head">
@@ -3918,6 +3918,12 @@ function itemMatchesScope(item, promo) {
 // item in the cart is discounted by its own price. Gifts never count towards (nor get discounted by) other promotions.
 const GIFT_PROMO = { id: "gift", name: "Regalo", active: true, scope: "any", scopeValue: "", triggerQty: 1, type: "free_item", value: 1 };
 
+// Label of a promotion line: a gift reads "[gift icon] Regalo"; other free-item promos keep "(+n gratis)"
+function promoLineLabel(name, isGift, freeCount) {
+  if (isGift) return `${icon('gift')} ${esc(name)}`;
+  return `${icon('tag')} ${esc(name)}${freeCount ? ` (+${freeCount} gratis)` : ""}`;
+}
+
 function applyPromotions(allItems) {
   const applied = [];
   const gifts = allItems.filter(i => i.gift);
@@ -4050,9 +4056,7 @@ function renderCart() {
     if (a.raffleEntries) {
       line.innerHTML = `<span>${icon('ticket')} ${esc(a.promo.name)} (×${a.raffleEntries})</span><span style="color:var(--green);">¡Rifa!</span>`;
     } else {
-      let label = `${icon('tag')} ${esc(a.promo.name)}`;
-      if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
-      line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
+      line.innerHTML = `<span>${promoLineLabel(a.promo.name, a.promo.id === "gift", a.freeCount)}</span><span>−$${a.discount.toFixed(2)}</span>`;
     }
     frag.appendChild(line);
   });
@@ -4792,7 +4796,7 @@ async function confirmSaveAsPending() {
       total: finalTotal,
       promos: appliedPromos
         .filter(a => a.discount > 0 || a.raffleEntries)
-        .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
+        .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0, gift: a.promo.id === "gift" }))
     };
 
     for (const item of order.items) {
