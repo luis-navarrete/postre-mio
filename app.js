@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.20.2";
-const APP_UPDATED = "2026-11-16T20:00Z";
+const APP_VERSION = "1.20.3";
+const APP_UPDATED = "2026-11-16T21:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5248,12 +5248,15 @@ function fcModelNow() {
   return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory, _fc.history || []);
 }
 
+// One option: a switch (the option) plus, indented underneath, the settings that belong to it
 function fcSwitch(id, label, checked, onchange, extra = "") {
   return `
-    <label class="switch-row">
-      <span>${label}</span>
-      <span class="toggle"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} onchange="${onchange}"><span class="toggle-slider"></span></span>
-    </label>${extra ? `<div class="fc-sub${checked ? "" : " off"}">${extra}</div>` : ""}`;
+    <div class="fc-opt">
+      <label class="switch-row">
+        <span>${label}</span>
+        <span class="toggle"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} onchange="${onchange}"><span class="toggle-slider"></span></span>
+      </label>${extra ? `<div class="fc-sub${checked ? "" : " off"}">${extra}</div>` : ""}
+    </div>`;
 }
 function fcNum(label, value, key, min, max, step, suffix) {
   return `
@@ -5317,9 +5320,10 @@ function fcRender() {
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
         fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%"))}
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
-      <div class="fc-sep"></div>
-      ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
-      ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+      <div class="fc-opt fc-calc">
+        ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
+        ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+      </div>
       <button class="btn-secondary fc-reset" onclick="fcResetSuggested()">Restablecer valores sugeridos</button>
     </div>`;
 

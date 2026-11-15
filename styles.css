@@ -2164,3 +2164,17 @@ body.has-savebar .toast { bottom: 96px; }
 /* an option that is switched off keeps its details, just dimmed */
 .fc-sub { transition: opacity 0.2s; }
 .fc-sub.off { opacity: 0.45; }
+
+/* Opciones: each option is its own block; its settings sit indented under it with an accent line */
+.fc-opt { background: var(--bg); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+.fc-opt .switch-row { margin: 0; font-size: 15px; font-weight: 700; }
+.fc-sub { margin: 10px 0 2px 4px; padding-left: 14px; border-left: 3px solid var(--brand); }
+.fc-sub .fc-num-row { font-size: 13px; font-weight: 400; color: var(--text-muted); margin: 8px 0; }
+.fc-sub .fc-num-row:first-child { margin-top: 0; }
+.fc-sub .fc-num-row:last-child { margin-bottom: 0; }
+.fc-opt input[type="text"] { background: var(--card-bg); }
+.fc-wd { margin: 0; }
+.fc-opt.fc-calc .fc-num-row { font-size: 15px; font-weight: 700; color: var(--text); margin: 0; }
+.fc-opt.fc-calc .fc-num-row + .fc-num-row { margin-top: 10px; }
+.fc-opt.fc-calc input { font-weight: 400; }
+.fc-opt.fc-calc .fc-num-row > span:last-child { font-weight: 400; }
