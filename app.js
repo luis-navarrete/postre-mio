@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.28.2";
-const APP_UPDATED = "2026-11-19T01:00Z";
+const APP_VERSION = "1.28.3";
+const APP_UPDATED = "2026-11-19T02:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -662,6 +662,7 @@ const _ICON_PATHS = {
   discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><g transform="rotate(45 12.5 12.5)"><path d="M10.3 16.1L14.7 8.9"/><circle cx="9.3" cy="9.7" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.7" cy="15.3" r="1.25" fill="currentColor" stroke="none"/></g>',
   sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  rotateCcw: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
   receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
@@ -2986,6 +2987,32 @@ function stageGift(i) { _editGifts.add.push(giftChoices()[i].item); _editGifts.o
 function unstageGift(i) { _editGifts.add.splice(i, 1); renderEditGifts(); }
 function toggleRemoveGift(idx) { _editGifts.remove.has(idx) ? _editGifts.remove.delete(idx) : _editGifts.remove.add(idx); renderEditGifts(); }
 
+// ── Restore buttons of the edit-sale modal: a small ↺ right of each entry, disabled (dimmed) while the value is unchanged ──
+let _editOrig = null;
+const resetBtn = (field) => `<button class="ef-reset" id="reset-${field}" onclick="resetEditField('${field}')" disabled aria-label="Restaurar" title="Restaurar">${icon('rotateCcw')}</button>`;
+function updateEditResets() {
+  const o = _editOrig, tot = document.getElementById("edit-total");
+  if (!o || !tot) return;
+  const set = (field, dirty) => { const b = document.getElementById("reset-" + field); if (b) b.disabled = !dirty; };
+  set("total", !(parseFloat(tot.value) === o.total));
+  set("method", document.getElementById("edit-method").value !== o.method);
+  if (_editDate) set("date", _editDate.key !== _editDate.original);
+  if (_editTime) { const v = editTimeValues(); set("time", !(v.h * 60 + v.m === _editTime.original)); }
+}
+function resetEditField(field) {
+  const o = _editOrig;
+  if (field === "total") document.getElementById("edit-total").value = o.total.toFixed(2);
+  else if (field === "method") document.getElementById("edit-method").value = o.method;
+  else if (field === "date") { _editDate.key = _editDate.original; _editDate.open = false; renderEditDate(); }
+  else if (field === "time") {
+    _editTime.h = Math.floor(_editTime.original / 60); _editTime.m = _editTime.original % 60;
+    const panel = document.getElementById("edit-time-panel");
+    if (panel && !panel.classList.contains("hidden")) positionEditWheels();
+    document.getElementById("edit-time-btn").innerHTML = editTimeLabel();
+  }
+  updateEditResets();
+}
+
 // ── Time of the sale (edit-sale modal): a button; the wheel only opens while the time is being edited ──
 let _editTime = null;
 function editTimeLabel() {
@@ -3004,23 +3031,27 @@ function editTimeValues() {
   }
   return { h: _editTime.h, m: _editTime.m };
 }
+// put every wheel column on the saved time (a hidden element cannot hold a scroll position)
+function positionEditWheels() {
+  const t = _editTime, use24 = !!appSettings.use24hEditor;
+  const set = (id, idx) => { const col = document.getElementById(id); if (col) { col.scrollTop = idx * WHEEL_ITEM; [...col.children].forEach((el, i) => el.classList.toggle("sel", i === idx)); } };
+  set("edit-hour", use24 ? t.h : (t.h % 12 || 12) - 1);
+  set("edit-min", t.m);
+  set("edit-ampm", t.h >= 12 ? 1 : 0);
+}
 function toggleEditTime() {
   const panel = document.getElementById("edit-time-panel");
   if (!panel) return;
   if (panel.classList.contains("hidden")) {
     panel.classList.remove("hidden");
-    // put every column on the saved time (a hidden element cannot hold a scroll position)
-    const t = _editTime, use24 = !!appSettings.use24hEditor;
-    const set = (id, idx) => { const col = document.getElementById(id); if (col) { col.scrollTop = idx * WHEEL_ITEM; [...col.children].forEach((el, i) => el.classList.toggle("sel", i === idx)); } };
-    set("edit-hour", use24 ? t.h : (t.h % 12 || 12) - 1);
-    set("edit-min", t.m);
-    set("edit-ampm", t.h >= 12 ? 1 : 0);
+    positionEditWheels();
   } else {
     const v = editTimeValues();
     if (!isNaN(v.h) && !isNaN(v.m)) { _editTime.h = v.h; _editTime.m = v.m; }
     panel.classList.add("hidden");
     document.getElementById("edit-time-btn").innerHTML = editTimeLabel();
   }
+  updateEditResets();
 }
 
 // ── Date of the sale (edit-sale modal): an inline month calendar under the "Fecha" button ──
@@ -3047,9 +3078,9 @@ function editDateHTML() {
       <div class="fc-cal">${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}${cells}</div>
     </div>`;
   }
-  return `<button class="fc-range-btn edit-date-btn" onclick="toggleEditCal()">${esc(editDateLabel(g.key))}${g.key !== g.original ? " <small>(cambiada)</small>" : ""}</button>${cal}`;
+  return `<div class="ef-row"><div class="ef-main"><button class="fc-range-btn edit-date-btn" onclick="toggleEditCal()">${esc(editDateLabel(g.key))}${g.key !== g.original ? " <small>(cambiada)</small>" : ""}</button></div>${resetBtn("date")}</div>${cal}`;
 }
-function renderEditDate() { const el = document.getElementById("edit-date"); if (el) el.innerHTML = editDateHTML(); }
+function renderEditDate() { const el = document.getElementById("edit-date"); if (el) { el.innerHTML = editDateHTML(); updateEditResets(); } }
 function toggleEditCal() { _editDate.open = !_editDate.open; renderEditDate(); }
 function editCalNav(delta) { const c = _editDate.cal; _editDate.cal = new Date(c.getFullYear(), c.getMonth() + delta, 1, 12); renderEditDate(); }
 function editCalPick(key) { _editDate.key = key; _editDate.open = false; renderEditDate(); }
@@ -3079,6 +3110,7 @@ function openEditSale(saleId) {
     </div>`;
 
   _editGifts = { saleId, add: [], remove: new Set(), open: false };
+  _editOrig = { total: parseFloat(sale.total), method: sale.method };
   _editTime = when ? { h: when.getHours(), m: when.getMinutes(), original: when.getHours() * 60 + when.getMinutes() } : null;
   if (when) { const k = fcKey(when); _editDate = { key: k, original: k, open: false, cal: new Date(when.getFullYear(), when.getMonth(), 1, 12) }; } else _editDate = null;
 
@@ -3087,14 +3119,16 @@ function openEditSale(saleId) {
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(dateText(sale, use24))}</p>
     <div class="promo-form">
       <label>Total ($)</label>
-      <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
+      <div class="ef-row"><div class="ef-main"><input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()"></div>${resetBtn("total")}</div>
 
       <label>Método de pago</label>
-      <select id="edit-method">
-        <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
-        <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
-        <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
-      </select>
+      <div class="ef-row"><div class="ef-main">
+        <select id="edit-method">
+          <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
+          <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+          <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
+        </select>
+      </div>${resetBtn("method")}</div>
 
       ${saleTime ? `
       <label>Fecha</label>
@@ -3102,7 +3136,7 @@ function openEditSale(saleId) {
 
       <label>Hora</label>
       <div id="edit-time" data-original="${saleTime}">
-        <button class="fc-range-btn edit-date-btn" id="edit-time-btn" onclick="toggleEditTime()">${editTimeLabel()}</button>
+        <div class="ef-row"><div class="ef-main"><button class="fc-range-btn edit-date-btn" id="edit-time-btn" onclick="toggleEditTime()">${editTimeLabel()}</button></div>${resetBtn("time")}</div>
         <div id="edit-time-panel" class="hidden" style="margin-top:8px;">${wheelHTML}</div>
       </div>
       ` : ''}
@@ -3112,7 +3146,11 @@ function openEditSale(saleId) {
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
-  initWheels(document.getElementById("modalContent"));
+  const mc = document.getElementById("modalContent");
+  initWheels(mc);
+  mc.oninput = mc.onchange = updateEditResets;
+  if (!mc._editScroll) { mc._editScroll = true; mc.addEventListener("scroll", e => { if (e.target.classList && e.target.classList.contains("wheel-col")) updateEditResets(); }, true); }
+  updateEditResets();
 }
 
 function openSaleNote(saleId) {
