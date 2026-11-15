@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.19.2";
-const APP_UPDATED = "2026-11-16T00:00Z";
+const APP_VERSION = "1.21.0";
+const APP_UPDATED = "2026-11-17T01:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -261,6 +261,16 @@ const DataStore = {
       const current = doc.exists ? doc.data().qty : 0;
       if (current < qty) throw new Error("insufficient_stock");
       tx.set(ref, { qty: current - qty });
+    });
+  },
+
+  // Takes qty off the stock without ever going below 0 (used by corrective entries)
+  async reduceStock(name, qty) {
+    const ref = storeRef("inventory").doc(name);
+    return db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      const current = doc.exists ? doc.data().qty : 0;
+      tx.set(ref, { qty: Math.max(0, current - qty) });
     });
   },
 
@@ -597,7 +607,7 @@ const _ICON_PATHS = {
   bread:    '<path d="M5 11a4 4 0 0 1 0-8h14a4 4 0 0 1 0 8v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/>',
   banknote: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
   coins:    '<circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18"/><path d="M7 6h1v4"/><path d="m16.7 13.9.7.7-2.8 2.8"/>',
-  tag:      '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><path d="M16.5 10.5l-6 6"/><circle cx="11" cy="11" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/>',
+  tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
   gift:     '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
   ticket:   '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 8.5v.01M13 12v.01M13 15.5v.01"/>',
   check:    '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
@@ -630,7 +640,7 @@ const _ICON_PATHS = {
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
   bills:    '<rect x="2" y="8" width="17" height="11" rx="2"/><path d="M5 5h15a2 2 0 0 1 2 2v9"/><circle cx="10.5" cy="13.5" r="2.2"/>',
-  tag:      '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><circle cx="7" cy="7" r="1"/><circle cx="12.2" cy="12.2" r="1"/><circle cx="16" cy="16" r="1"/><line x1="16.4" y1="11.8" x2="11.8" y2="16.4"/>',
+  discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><path d="M16.5 10.5l-6 6"/><circle cx="11" cy="11" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/>',
   sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
@@ -1817,7 +1827,7 @@ function showPage(page) {
 
   ["posPage","inventoryPage","historyPage","archivePage","promoPage","pendingPage","mermaPage","settingsPage","forecastPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
-  ["promoFab","mermaFab","editFab","priceFab","hideFab"]
+  ["promoFab","mermaFab","editFab","priceFab","hideFab","historyAddFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
 
   if (page === "pos") {
@@ -2793,6 +2803,10 @@ function syncModeFabs() {
   }
   const edit = document.getElementById("editFab");
   if (edit) edit.classList.toggle("active", editModeActive);
+  // "+" (corrective entry) only while editing Historial
+  const add = document.getElementById("historyAddFab");
+  const historyOpen = document.getElementById("historyPage").style.display !== "none";
+  if (add) add.style.display = historyOpen && editModeActive ? "flex" : "none";
 }
 
 function toggleItemHidden(name) {
@@ -2930,6 +2944,148 @@ function saveSaleNote(saleId, remove = false) {
   // Don't await: offline, the write is queued and the card already shows the change.
   DataStore.updateSale(saleId, { note: note || firebase.firestore.FieldValue.delete() })
     .catch(() => showToast("Error al guardar la nota. Intenta de nuevo."));
+}
+
+// ── Corrective entry: one sale that adds up everything sold but never registered ──
+let _corrRows = [];
+let _corrQty = {};
+let _corrTotalTouched = false;
+
+function corrRowList() {
+  const rows = [];
+  menu.forEach(cat => cat.items.forEach(item => {
+    if (VARIANT_PRODUCTS[item.name]) {
+      // each flavour has its own stock and its own full price
+      (ITEM_EXTRAS[item.name] || []).forEach(e => rows.push({
+        cat: cat.category, key: variantKey(item.name, e.name), label: `${item.name} · ${e.name}`,
+        item: { name: item.name, price: item.price + e.price, extra: { name: e.name, price: e.price, variant: e.name } },
+      }));
+    } else {
+      rows.push({ cat: cat.category, key: item.name, label: item.name, item: { name: item.name, price: item.price, extra: null } });
+    }
+  }));
+  return rows;
+}
+
+function corrDayOptions() {
+  const days = new Set((_historyData || []).filter(s => s.isoDate).map(s => fcKey(new Date(s.isoDate))));
+  days.add(fcKey(new Date()));
+  return [...days].sort().reverse();
+}
+
+function openCorrectionModal() {
+  _corrRows = corrRowList();
+  _corrQty = {};
+  _corrTotalTouched = false;
+  const days = corrDayOptions();
+  const dayOpts = days.map(k => {
+    const d = fcDate(k);
+    return `<option value="${k}">${esc(d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }))}</option>`;
+  }).join("");
+  let lastCat = null;
+  const rowsHTML = _corrRows.map((r, i) => {
+    const head = r.cat !== lastCat ? (lastCat = r.cat, `<div class="corr-cat">${catHTML(r.cat)}</div>`) : "";
+    return `${head}
+      <div class="corr-row">
+        <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}</small></div>
+        <div class="corr-step">
+          <button class="corr-btn" onclick="corrStep(${i}, -1)" aria-label="Quitar">−</button>
+          <span class="corr-qty" id="corr-q-${i}">0</span>
+          <button class="corr-btn" onclick="corrStep(${i}, 1)" aria-label="Agregar">+</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  openCompactModal(`
+    <div class="modal-head">
+      <div class="modal-head-main"><h3 style="width:auto;">Corrección</h3></div>
+      <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
+    </div>
+    <div class="modal-scroll">
+      <p class="corr-intro">Una sola entrada con todo lo que se vendió pero no se registró.</p>
+      <div class="promo-form">
+        <label>Día</label>
+        <select id="corr-day">${dayOpts}</select>
+      </div>
+      ${rowsHTML}
+      <div class="promo-form" style="margin-top:12px;">
+        <label>Total ($)</label>
+        <input id="corr-total" type="number" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="_corrTotalTouched = true">
+        <label>Método de pago</label>
+        <select id="corr-method">
+          <option value="cash" data-icon="banknote">Efectivo</option>
+          <option value="transfer" data-icon="transfer">Transferencia</option>
+          <option value="card" data-icon="card">Tarjeta</option>
+        </select>
+      </div>
+      <label class="switch-row" style="margin-top:12px;">
+        <span>Descontar del inventario</span>
+        <span class="toggle"><input type="checkbox" id="corr-stock" checked><span class="toggle-slider"></span></span>
+      </label>
+      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:6px;">Guardar corrección</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <div class="modal-spacer"></div>
+    </div>
+  `);
+  document.getElementById("modalContent").classList.add("modal-split");
+}
+
+function corrStep(i, delta) {
+  const key = _corrRows[i].key;
+  _corrQty[key] = Math.max(0, (_corrQty[key] || 0) + delta);
+  document.getElementById("corr-q-" + i).textContent = _corrQty[key];
+  if (!_corrTotalTouched) {
+    const total = _corrRows.reduce((t, r) => t + (_corrQty[r.key] || 0) * r.item.price, 0);
+    document.getElementById("corr-total").value = total.toFixed(2);
+  }
+}
+
+async function saveCorrection() {
+  const items = [];
+  _corrRows.forEach(r => { for (let n = 0; n < (_corrQty[r.key] || 0); n++) items.push({ ...r.item, extra: r.item.extra ? { ...r.item.extra } : null }); });
+  if (!items.length) { showToast("Agrega al menos un producto"); return; }
+  const total = parseFloat(document.getElementById("corr-total").value);
+  if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
+  const method = document.getElementById("corr-method").value;
+  const dayKey = document.getElementById("corr-day").value;
+  const discount = document.getElementById("corr-stock").checked;
+
+  // today: now; an earlier day: just before midnight, so it ends that day's list
+  let when = new Date();
+  if (dayKey !== fcKey(when)) { when = fcDate(dayKey); when.setHours(23, 59, 59, 0); }
+
+  const sale = {
+    items, total, method,
+    folio: dayKey === fcKey(new Date()) ? makeFolio() : formatFolio(when),
+    date: when.toLocaleString(), isoDate: when.toISOString(),
+    note: "Corrección: ventas no registradas", correction: true,
+  };
+
+  const btn = document.getElementById("corrSaveBtn");
+  btn.disabled = true;
+  showSpinner();
+  try {
+    await DataStore.addSale(sale);
+    if (discount) {
+      const counts = {};
+      items.forEach(i => { const k = stockKey(i); counts[k] = (counts[k] || 0) + 1; });
+      for (const [name, qty] of Object.entries(counts)) {
+        inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
+        DataStore.reduceStock(name, qty).catch(() => {});
+      }
+      saveInventory();
+      renderProducts();
+    }
+    closeModal();
+    showToast("Corrección agregada", "check");
+    hideSpinner();
+    await renderHistoryFromFirestore();
+  } catch (e) {
+    hideSpinner();
+    console.error("saveCorrection failed:", e);
+    showToast("No se pudo guardar la corrección");
+    btn.disabled = false;
+  }
 }
 
 async function confirmEditSale(saleId) {
@@ -4863,6 +5019,15 @@ function fcEventPrefs(p, ev) {
   return { ...p, paydays: ev.paydays || [], promoDays: ev.promoDays || [], festivoDays: ev.festivoDays || [] };
 }
 
+// Products in the same order as Inventario: menu categories in order, items in menu order (variants expanded)
+function fcMenuOrder() {
+  const order = {};
+  menu.forEach((cat, ci) => cat.items.forEach((it, ii) => stockNamesFor(it.name).forEach((k, vi) => {
+    order[k] = { ci, pos: ii * 10 + vi, cat: cat.category };
+  })));
+  return order;
+}
+
 // sales: every sale of the event (archive + the open day). stock/frozen: { key: n }. history: saved events.
 function fcModel(sales, p, now, stock, frozen, history = []) {
   const byDay = fcGroupByDay(sales);
@@ -4900,6 +5065,7 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
   const weight = i => (p.useTrend ? 1 + 0.5 * i : 1);
   const denom = used.reduce((t, d, i) => t + weight(i) * d.f, 0);
 
+  const order = fcMenuOrder();
   const rows = [...names].map(name => {
     const num = used.reduce((t, d, i) => t + weight(i) * (d.units[name] || 0), 0);
     const histRate = histDenom > 0 ? histDays.reduce((t, h) => t + (h.d.units[name] || 0), 0) / histDenom : 0;
@@ -4914,8 +5080,11 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
     const total = perDay.reduce((t, v) => t + v, 0) * (1 + p.margin / 100);
     const need = Math.ceil(total - 1e-9);
     const have = (stock[name] ?? 0) + (frozen[name] ?? 0);
-    return { name, base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
-  }).sort((a, b) => b.make - a.make || b.need - a.need || a.name.localeCompare(b.name, "es"));
+    return { name, cat: order[name] ? order[name].cat : "", base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
+  }).sort((a, b) => {
+    const oa = order[a.name], ob = order[b.name];
+    return (oa ? oa.ci : 999) - (ob ? ob.ci : 999) || (oa ? oa.pos : 0) - (ob ? ob.pos : 0) || a.name.localeCompare(b.name, "es");
+  });
 
   return { observed, used, remaining, rows, start, end, histDays: histDays.length, histW, totalMake: rows.reduce((t, r) => t + r.make, 0) };
 }
@@ -5032,49 +5201,71 @@ function fcResetSuggested() {
   Object.assign(_fc.prefs, { weekdayF: { ...FC_SUGGESTED.weekdayF }, payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip, promoBoost: FC_SUGGESTED.promoBoost });
   fcSavePrefs(); fcRender();
 }
-function fcToggleDay(key, included) { _fc.prefs.override[key] = !included; fcSavePrefs(); fcRender(); }
 function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.getMonth() + delta, 1, 12); fcRender(); }
-// Calendar clicks: left = payday (quincena), right = promotion, double right = festivo.
-// Each one turns its option on when a day gets marked.
+// Calendar clicks. Left: click = payday (quincena), hold = include / leave out a day that has sales.
+// Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
+const FC_HOLD_MS = 500;
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
   if (p[list].length) p[flag] = true;
 }
-function fcCalTap(key) { fcToggleMark(key, "pay"); fcSavePrefs(); fcSyncMeta(); fcRender(); }
-let _fcLastRight = { key: "", t: 0 };
-function fcCalRight(e, key) {
-  e.preventDefault();
-  const now = Date.now();
-  if (_fcLastRight.key === key && now - _fcLastRight.t < 450) {
-    // second right click: undo the promotion toggle of the first one and toggle festivo instead
-    _fcLastRight = { key: "", t: 0 };
-    fcToggleMark(key, "promo");
-    fcToggleMark(key, "festivo");
-  } else {
-    _fcLastRight = { key, t: now };
-    fcToggleMark(key, "promo");
-  }
-  fcSavePrefs(); fcSyncMeta(); fcRender();
+function fcToggleInclude(key) {
+  const m = fcModelNow();
+  const d = m && m.observed.find(x => x.key === key);
+  if (!d) { showToast("Ese día no tiene ventas"); return; }
+  _fc.prefs.override[key] = !d.included;
 }
+function fcMarked() { fcSavePrefs(); fcSyncMeta(); fcRender(); }
+let _fcPress = { timer: 0, fired: false, key: "", at: 0, button: -1 };
+function fcPressStart(e, key) {
+  if (e.button !== 0 && e.button !== 2) return;
+  fcPressCancel();
+  const right = e.button === 2;
+  e.currentTarget.classList.add(right ? "pressing-festivo" : "pressing-include");
+  _fcPress = {
+    key, button: e.button, fired: false, at: 0,
+    timer: setTimeout(() => { // held long enough
+      _fcPress.timer = 0; _fcPress.fired = true; _fcPress.at = Date.now();
+      if (right) fcToggleMark(key, "festivo"); else fcToggleInclude(key);
+      fcMarked();
+    }, FC_HOLD_MS),
+  };
+}
+function fcPressEnd(e, key) {
+  if (e.button !== _fcPress.button || _fcPress.key !== key || !_fcPress.timer) return; // already a hold, or not ours
+  clearTimeout(_fcPress.timer);
+  _fcPress.timer = 0;
+  fcToggleMark(key, e.button === 2 ? "promo" : "pay"); fcMarked(); // short press
+}
+function fcPressCancel() {
+  if (_fcPress.timer) clearTimeout(_fcPress.timer);
+  _fcPress.timer = 0;
+  document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => el.classList.remove("pressing-festivo", "pressing-include"));
+}
+// The right button is handled with pointer events above; here we only stop the browser's menu.
+function fcCalRight(e) { e.preventDefault(); }
 
 function fcModelNow() {
   return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory, _fc.history || []);
 }
 
+// One option: a switch (the option) plus, indented underneath, the settings that belong to it
 function fcSwitch(id, label, checked, onchange, extra = "") {
   return `
-    <label class="switch-row">
-      <span>${label}</span>
-      <span class="toggle"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} onchange="${onchange}"><span class="toggle-slider"></span></span>
-    </label>${extra}`;
+    <div class="fc-opt">
+      <label class="switch-row">
+        <span>${label}</span>
+        <span class="toggle"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} onchange="${onchange}"><span class="toggle-slider"></span></span>
+      </label>${extra ? `<div class="fc-sub${checked ? "" : " off"}">${extra}</div>` : ""}
+    </div>`;
 }
 function fcNum(label, value, key, min, max, step, suffix) {
   return `
     <div class="fc-num-row">
       <span>${label}</span>
-      <span><input type="text" inputmode="decimal" value="${value}" onchange="fcSetNum('${key}', this.value, ${min}, ${max})" onfocus="this.select()">${suffix ? " " + suffix : ""}</span>
+      <span class="fc-field"><input type="text" inputmode="decimal" value="${value}" onchange="fcSetNum('${key}', this.value, ${min}, ${max})" onfocus="this.select()"><span class="fc-unit">${suffix || ""}</span></span>
     </div>`;
 }
 
@@ -5083,7 +5274,8 @@ function fcCalendarHTML(m) {
   if (!_fc.cal) _fc.cal = m ? new Date(m.start.getFullYear(), m.start.getMonth(), 1, 12) : new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12);
   const first = _fc.cal;
   const month = first.getMonth();
-  const obs = new Set(m ? m.observed.filter(d => d.included).map(d => d.key) : []);
+  const obsDay = {};
+  (m ? m.observed : []).forEach(d => { obsDay[d.key] = d; });
   const fut = new Set(m ? m.remaining.map(d => d.key) : []);
   const todayKey = fcKey(new Date());
   let cells = "";
@@ -5093,9 +5285,11 @@ function fcCalendarHTML(m) {
     const key = fcKey(new Date(first.getFullYear(), month, d, 12));
     const cls = ["fc-day",
       p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "", p.festivoDays.includes(key) ? "is-festivo" : "",
-      obs.has(key) ? "obs" : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
-    const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("tag")}</span>` : "");
-    cells += `<button class="${cls}" onclick="fcCalTap('${key}')" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
+      obsDay[key] ? (obsDay[key].included ? "obs" : "off") : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
+    const od = obsDay[key];
+    const tip = od ? ` title="${esc(`${fcLabel(key)} · ${od.sales} ${od.sales === 1 ? "venta" : "ventas"} · ×${od.f.toFixed(2)} · ${od.included ? "incluido en el cálculo" : "fuera del cálculo"}${od.today ? " (hoy, parcial)" : ""}`)}"` : "";
+    const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("discountTag")}</span>` : "");
+    cells += `<button class="${cls}"${tip} onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
   }
   const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return `
@@ -5109,10 +5303,10 @@ function fcCalendarHTML(m) {
       ${cells}
     </div>
     <div class="fc-legend">
-      <span><i class="lg obs"></i>Con ventas</span><span><i class="lg fut"></i>Por pronosticar</span>
-      <span><span class="fc-mark is-pay">${icon("bills")}</span>Quincena</span><span><span class="fc-mark is-promo">${icon("tag")}</span>Promoción</span><span><i class="lg is-festivo"></i>Festivo</span>
+      <span><i class="lg obs"></i>Con ventas</span><span><i class="lg off"></i>Fuera del cálculo</span><span><i class="lg fut"></i>Por pronosticar</span>
+      <span><span class="fc-mark is-pay">${icon("bills")}</span>Quincena</span><span><span class="fc-mark is-promo">${icon("discountTag")}</span>Promoción</span><span><i class="lg is-festivo"></i>Festivo</span>
     </div>
-    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>doble clic derecho</b>: festivo. Las marcas se guardan en la nube.</p>`;
+    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>izquierdo sostenido</b>: incluir o dejar fuera un día con ventas · <b>derecho sostenido</b>: festivo. Pasa el cursor sobre un día con ventas para ver su factor. Las marcas se guardan en la nube.</p>`;
 }
 
 function fcRender() {
@@ -5125,19 +5319,17 @@ function fcRender() {
     <div class="settings-card">
       <h3>${icon("sliders")} Opciones</h3>
       ${fcSwitch("fcWd", "Día de la semana", p.useWeekday, "fcSet('useWeekday', this.checked)",
-        p.useWeekday ? `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div><p class="fc-hint">Qué tan fuerte vende cada día frente a un día entre semana (1 = igual). Valores sugeridos: fin de semana ≈ 1.6 (alrededor del 61% de las visitas a plazas ocurren de lunes a viernes, datos de EE. UU.); el viernes, a medio camino. No encontré cifras publicadas por día para México.</p>` : "")}
-      ${fcSwitch("fcTrend", "Tendencia reciente", p.useTrend, "fcSet('useTrend', this.checked)",
-        `<p class="fc-hint">Activada, los días más recientes pesan más al calcular el ritmo normal de ventas (el primer día pesa 1, el segundo 1.5, el tercero 2…). Sirve si las ventas van cambiando durante el evento. Apagada, todos los días pesan igual.</p>`)}
+        `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div>`)}
+      ${fcSwitch("fcTrend", "Tendencia reciente", p.useTrend, "fcSet('useTrend', this.checked)")}
       ${fcSwitch("fcPay", "Quincena", p.usePayday, "fcSet('usePayday', this.checked)",
-        p.usePayday ? fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario"}. No hay un estudio publicado de la quincena en México; usé el extremo bajo de lo que reportan otros estudios.</p>` : "")}
+        fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%"))}
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
-        p.usePromo ? fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario"}. Si marcas todos los días del evento, el efecto se cancela (todos suben igual): solo cambia el resultado cuando algún día no está marcado.</p>` : "")}
-      ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)",
-        p.useFestivo ? `<p class="fc-hint">${p.festivoDays.length ? "Festivos marcados: " + p.festivoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días festivos en el calendario"}. Un día festivo se calcula como día de fin de semana (promedio de sábado y domingo) aunque caiga entre semana.</p>` : "")}
-      <div class="fc-sep"></div>
-      ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
-      <p class="fc-hint">Piezas extra que se suman al pronóstico por si se vende más de lo esperado. Con 10%, si el cálculo dice 40, se propone 44. Más margen: menos riesgo de quedarte sin producto, pero más de que sobre.</p>
-      ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+        fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%"))}
+      ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
+      <div class="fc-opt fc-calc">
+        ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
+        ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+      </div>
       <button class="btn-secondary fc-reset" onclick="fcResetSuggested()">Restablecer valores sugeridos</button>
     </div>`;
 
@@ -5147,12 +5339,6 @@ function fcRender() {
   if (!m) {
     body = `<div class="settings-card"><p class="fc-empty">Aún no hay ventas ni eventos guardados para calcular un pronóstico.</p></div>`;
   } else {
-    const chips = m.observed.map(d => `
-      <button class="fc-chip ${d.included ? "on" : ""}" onclick="fcToggleDay('${d.key}', ${d.included})">
-        <b>${fcLabel(d.key)}</b>
-        <span>${d.sales} ${d.sales === 1 ? "venta" : "ventas"}${d.today ? " · hoy, parcial" : ""}</span>
-        <span>×${d.f.toFixed(2)}</span>
-      </button>`).join("");
     const head = `
       <tr>
         <th class="l">Producto</th>
@@ -5160,7 +5346,9 @@ function fcRender() {
         ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}</th>`).join("")}
         <th>Necesario</th><th>Hay</th><th class="make">Hacer</th>
       </tr>`;
-    const rows = m.rows.map(r => `
+    const cols = 4 + m.observed.length + m.remaining.length;
+    let lastCat = null;
+    const rows = m.rows.map(r => `${r.cat !== lastCat ? (lastCat = r.cat, `<tr class="fc-cat"><td colspan="${cols}">${r.cat ? catHTML(r.cat) : "Otros"}</td></tr>`) : ""}
       <tr>
         <td class="l">${esc(r.name)}</td>
         ${r.sold.map((v, i) => `<td class="${m.observed[i].included ? "" : "off"}">${v}</td>`).join("")}
@@ -5172,15 +5360,11 @@ function fcRender() {
     const range = m.remaining.length ? m.remaining.map(d => fcLabel(d.key)).join(" · ") : "";
     body = `
       <div class="settings-card">
-        <h3>${icon("receipt")} Días con ventas</h3>
-        ${m.observed.length ? `<div class="fc-chips">${chips}</div>` : `<p class="fc-empty">Este evento aún no tiene ventas; el pronóstico usa solo los eventos guardados.</p>`}
-        <p class="fc-hint">Toca un día para incluirlo o dejarlo fuera del cálculo. El factor (×) es lo que pesa ese día frente a uno normal.</p>
-      </div>
-      <div class="settings-card">
         <div class="fc-table-head">
           <h3>${icon("flame")} Propuesta${range ? ` <small>para ${esc(range)}</small>` : ""}</h3>
           ${m.remaining.length && m.rows.length ? `<button class="btn-brand btn-icon fc-copy" onclick="fcCopy()">${icon("clipboard")} Copiar lista</button>` : ""}
         </div>
+        ${!m.observed.length ? `<p class="fc-hint" style="margin-top:0;">Este evento aún no tiene ventas; el pronóstico usa solo los eventos guardados.</p>` : ""}
         ${!m.used.length && !m.histDays ? `<p class="fc-empty">Incluye al menos un día con ventas.</p>`
           : !m.remaining.length ? `<p class="fc-empty">No quedan días por pronosticar. Sube la duración del evento si todavía faltan días.</p>`
           : `<p class="fc-total">${m.totalMake} ${m.totalMake === 1 ? "pieza" : "piezas"} por hacer</p>
@@ -5204,7 +5388,7 @@ function fcRender() {
       (<a href="https://escholarship.org/content/qt95f078fj/qt95f078fj.pdf?t=smzq6r" target="_blank" rel="noopener">eScholarship</a>). Por eso puse +10% y −10%, el extremo bajo.</p>
       <p class="fc-hint">Estas cifras vienen de resúmenes de los estudios; confírmalas antes de tomarlas como exactas. Tus propios datos pesan más: con más días de ventas, el pronóstico depende cada vez menos de estos factores.</p>
     </details>`;
-  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}${hist}${sources}`;
+  root.innerHTML = `<div class="fc-top">${options}<div class="fc-side">${calendar}</div></div>${body}${hist}${sources}`;
 }
 
 function fcHistoryHTML(m) {
@@ -5278,8 +5462,13 @@ function fcDeleteEvent(id) {
 function fcCopy() {
   const m = fcModelNow();
   if (!m) return;
-  const lines = m.rows.filter(r => r.make > 0).map(r => `• ${r.name}: ${r.make}`);
-  const text = `Producción sugerida para ${m.remaining.map(d => fcLabel(d.key)).join(" y ")}\n${lines.join("\n")}`;
+  const lines = [];
+  let lastCat = null;
+  m.rows.filter(r => r.make > 0).forEach(r => {
+    if (r.cat !== lastCat) { lastCat = r.cat; lines.push((lines.length ? "\n" : "") + (r.cat ? catName(r.cat) : "Otros") + ":"); }
+    lines.push(`• ${r.name}: ${r.make}`);
+  });
+  const text = `Producción sugerida para ${m.remaining.map(d => fcLabel(d.key)).join(" y ")}\n\n${lines.join("\n")}`;
   const done = () => showToast("Lista copiada", "check");
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => showToast("No se pudo copiar"));
   else showToast("No se pudo copiar");
