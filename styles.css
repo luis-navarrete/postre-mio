@@ -32,6 +32,16 @@ html, body {
   min-height: 100%;
 }
 
+/* Pulling the page down (iOS rubber band) reveals the canvas above the page: make that part teal like the header.
+   The grey page colour is painted as an image that extends far below the page, so only the top shows teal. */
+html {
+  background-color: var(--brand);
+  background-image: linear-gradient(var(--bg), var(--bg));
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: 100% calc(100% + 400vh);
+}
+
 /* Caja keeps fixed panes that scroll on their own; other pages scroll the document
    so iOS's tap-the-status-bar-to-scroll-to-top works */
 body.no-page-scroll {
