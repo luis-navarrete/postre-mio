@@ -2119,7 +2119,8 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-sources p { margin: 10px 0 0; }
 .fc-sources a { color: var(--brand-dark); }
 
-.fc-day.is-festivo { box-shadow: inset 0 -4px 0 var(--purple); }
+.fc-day { transition: box-shadow 0.45s linear; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.fc-day.is-festivo, .fc-day.pressing { box-shadow: inset 0 -4px 0 var(--purple); }
 .fc-legend .lg.is-festivo { background: var(--purple); border-radius: 3px; }
 .fc-name { width: 190px !important; text-align: left !important; }
 .fc-save-ev { width: 100% !important; margin: 10px 0 0 !important; font-size: 13px; }

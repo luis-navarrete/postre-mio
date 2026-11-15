@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.19.2";
-const APP_UPDATED = "2026-11-16T00:00Z";
+const APP_VERSION = "1.19.3";
+const APP_UPDATED = "2026-11-16T12:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5034,29 +5034,45 @@ function fcResetSuggested() {
 }
 function fcToggleDay(key, included) { _fc.prefs.override[key] = !included; fcSavePrefs(); fcRender(); }
 function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.getMonth() + delta, 1, 12); fcRender(); }
-// Calendar clicks: left = payday (quincena), right = promotion, double right = festivo.
+// Calendar clicks: left click = payday (quincena), right click = promotion, holding the left button = festivo.
 // Each one turns its option on when a day gets marked.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
+const FC_HOLD_MS = 500;
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
   if (p[list].length) p[flag] = true;
 }
-function fcCalTap(key) { fcToggleMark(key, "pay"); fcSavePrefs(); fcSyncMeta(); fcRender(); }
-let _fcLastRight = { key: "", t: 0 };
+function fcMarked() { fcSavePrefs(); fcSyncMeta(); fcRender(); }
+let _fcPress = { timer: 0, fired: false, key: "", at: 0 };
+function fcPressStart(e, key) {
+  if (e.button !== 0) return; // only the left button (or a finger)
+  fcPressCancel();
+  e.currentTarget.classList.add("pressing");
+  _fcPress = {
+    key, fired: false, at: 0,
+    timer: setTimeout(() => { // held long enough: festivo
+      _fcPress.timer = 0; _fcPress.fired = true; _fcPress.at = Date.now();
+      fcToggleMark(key, "festivo"); fcMarked();
+    }, FC_HOLD_MS),
+  };
+}
+function fcPressEnd(e, key) {
+  if (e.button !== 0 || _fcPress.key !== key || !_fcPress.timer) return; // already handled as a hold, or not ours
+  clearTimeout(_fcPress.timer);
+  _fcPress.timer = 0;
+  fcToggleMark(key, "pay"); fcMarked(); // short press: quincena
+}
+function fcPressCancel() {
+  if (_fcPress.timer) clearTimeout(_fcPress.timer);
+  _fcPress.timer = 0;
+  document.querySelectorAll(".fc-day.pressing").forEach(el => el.classList.remove("pressing"));
+}
 function fcCalRight(e, key) {
   e.preventDefault();
-  const now = Date.now();
-  if (_fcLastRight.key === key && now - _fcLastRight.t < 450) {
-    // second right click: undo the promotion toggle of the first one and toggle festivo instead
-    _fcLastRight = { key: "", t: 0 };
-    fcToggleMark(key, "promo");
-    fcToggleMark(key, "festivo");
-  } else {
-    _fcLastRight = { key, t: now };
-    fcToggleMark(key, "promo");
-  }
-  fcSavePrefs(); fcSyncMeta(); fcRender();
+  // a long press on a touch screen also fires "contextmenu": that one is the festivo hold, not a promotion
+  if (_fcPress.timer || (_fcPress.fired && Date.now() - _fcPress.at < 1500)) return;
+  fcToggleMark(key, "promo"); fcMarked();
 }
 
 function fcModelNow() {
@@ -5095,7 +5111,7 @@ function fcCalendarHTML(m) {
       p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "", p.festivoDays.includes(key) ? "is-festivo" : "",
       obs.has(key) ? "obs" : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
     const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("tag")}</span>` : "");
-    cells += `<button class="${cls}" onclick="fcCalTap('${key}')" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
+    cells += `<button class="${cls}" onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
   }
   const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return `
@@ -5112,7 +5128,7 @@ function fcCalendarHTML(m) {
       <span><i class="lg obs"></i>Con ventas</span><span><i class="lg fut"></i>Por pronosticar</span>
       <span><span class="fc-mark is-pay">${icon("bills")}</span>Quincena</span><span><span class="fc-mark is-promo">${icon("tag")}</span>Promoción</span><span><i class="lg is-festivo"></i>Festivo</span>
     </div>
-    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>doble clic derecho</b>: festivo. Las marcas se guardan en la nube.</p>`;
+    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>clic izquierdo sostenido</b>: festivo. Las marcas se guardan en la nube.</p>`;
 }
 
 function fcRender() {
