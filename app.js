@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.23.9";
-const APP_UPDATED = "2026-11-18T11:00Z";
+const APP_VERSION = "1.24.0";
+const APP_UPDATED = "2026-11-18T12:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -4973,6 +4973,7 @@ const FC_DEFAULTS = {
   useTrend: true,
   usePayday: false, paydays: [], payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip,
   usePromo: false, promoDays: [], promoBoost: FC_SUGGESTED.promoBoost,
+  fillToday: true,    // the rest of today counts as a day to fill, for products that have already sold out
   useFestivo: false, festivoDays: [], // holiday / long weekend: a day that sells like a weekend day
   useHistory: true,                   // learn from events saved in earlier years/events
   eventName: "",
@@ -4989,7 +4990,7 @@ function fcLoadPrefs() {
   const base = { ...FC_DEFAULTS, weekdayF: { ...FC_DEFAULTS.weekdayF } };
   if (saved.v !== FC_VERSION) {
     // numbers saved by an older version were rough guesses: keep switches, marked days and the like, not the factors
-    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "useFestivo", "festivoDays", "useHistory", "eventName"]
+    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "fillToday", "useFestivo", "festivoDays", "useHistory", "eventName"]
       .forEach(k => { if (saved[k] !== undefined) base[k] = saved[k]; });
     return base;
   }
@@ -5091,7 +5092,8 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
   const remaining = [];
   for (let d = lastUsed ? fcAddDays(lastUsed, 1) : start; d <= end; d = fcAddDays(d, 1)) {
     if (fcKey(d) < todayKey) continue; // days already gone with no sales are not forecast
-    remaining.push({ key: fcKey(d), date: d, ...fcDayFactor(d, p) });
+    if (fcKey(d) === todayKey && !p.fillToday) continue; // the rest of today is not a day to fill
+    remaining.push({ key: fcKey(d), date: d, today: fcKey(d) === todayKey, ...fcDayFactor(d, p) });
   }
 
   const names = new Set();
@@ -5107,13 +5109,16 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
     const histRate = histDenom > 0 ? histDays.reduce((t, h) => t + (h.d.units[name] || 0), 0) / histDenom : 0;
     const den = denom + (histDenom > 0 ? histW : 0);
     const base = den > 0 ? (num + (histDenom > 0 ? histW * histRate : 0)) / den : 0;
+    const soldOut = (stock[name] ?? 0) === 0;
     const perDay = remaining.map(r => {
+      // the rest of today only matters for a product that has already sold out (what is in stock covers it otherwise)
+      if (r.today && !soldOut) return null;
       let v = base * r.f;
       // today's sales so far are already out of the stock count
-      if (todayObs && !todayObs.included && r.key === todayKey) v = Math.max(0, v - (todayObs.units[name] || 0));
+      if (r.today && todayObs && !todayObs.included) v = Math.max(0, v - (todayObs.units[name] || 0));
       return v;
     });
-    const total = perDay.reduce((t, v) => t + v, 0) * (1 + p.margin / 100);
+    const total = perDay.reduce((t, v) => t + (v || 0), 0) * (1 + p.margin / 100);
     const need = Math.ceil(total - 1e-9);
     const have = (stock[name] ?? 0) + (frozen[name] ?? 0);
     return { name, cat: order[name] ? order[name].cat : "", base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
@@ -5497,6 +5502,7 @@ function fcRender() {
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
         fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%"))}
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
+      ${fcSwitch("fcToday", "Resto de hoy para productos agotados", p.fillToday, "fcSet('fillToday', this.checked)")}
       <div class="fc-opt fc-calc">
         ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
         <div class="fc-num-row"><span>Fechas del evento</span><button class="fc-range-btn" onclick="fcOpenRange()">${fcRangeLabel()}</button></div>
@@ -5514,7 +5520,7 @@ function fcRender() {
       <tr>
         <th class="l">Producto</th>
         ${m.observed.map(d => `<th class="${d.included ? "" : "off"}">${fcLabel(d.key)}</th>`).join("")}
-        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}</th>`).join("")}
+        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}${d.today ? " <small>(resto)</small>" : ""}</th>`).join("")}
         <th>Necesario</th><th>Hay</th><th class="make">Hacer</th>
       </tr>`;
     const cols = 4 + m.observed.length + m.remaining.length;
@@ -5523,7 +5529,7 @@ function fcRender() {
       <tr>
         <td class="l">${esc(r.name)}</td>
         ${r.sold.map((v, i) => `<td class="${m.observed[i].included ? "" : "off"}">${v}</td>`).join("")}
-        ${r.perDay.map(v => `<td class="fut">${v.toFixed(1)}</td>`).join("")}
+        ${r.perDay.map(v => `<td class="fut">${v === null ? "–" : v.toFixed(1)}</td>`).join("")}
         <td>${r.need}</td>
         <td>${r.stock}${r.frozen ? ` <small>+${r.frozen}${icon("snowflake")}</small>` : ""}</td>
         <td class="make"><span class="${r.make ? "pill" : "pill zero"}">${r.make}</span></td>
