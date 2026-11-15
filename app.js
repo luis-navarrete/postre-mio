@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.1";
-const APP_UPDATED = "2026-11-19T10:00Z";
+const APP_VERSION = "1.30.2";
+const APP_UPDATED = "2026-11-19T11:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3228,9 +3228,9 @@ function openCorrectionModal() {
       <div class="corr-row">
         <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}<span class="corr-sold" id="corr-s-${i}"></span></small></div>
         <div class="corr-step">
-          <button class="corr-btn" id="corr-m-${i}" onclick="corrStep(${i}, -1)" aria-label="Quitar" ${_corrStart[r.key] <= 0 ? "disabled" : ""}>−</button>
+          <button class="corr-btn" id="corr-m-${i}" ${CORR_HOLD_ATTRS(i, -1)} aria-label="Quitar" ${_corrStart[r.key] <= 0 ? "disabled" : ""}>−</button>
           <span class="corr-qty" id="corr-q-${i}">${_corrStart[r.key]}</span>
-          <button class="corr-btn" id="corr-p-${i}" onclick="corrStep(${i}, 1)" aria-label="Agregar" disabled>+</button>
+          <button class="corr-btn" id="corr-p-${i}" ${CORR_HOLD_ATTRS(i, 1)} aria-label="Agregar" disabled>+</button>
         </div>
       </div>`;
   }).join("");
@@ -3267,6 +3267,16 @@ function openCorrectionModal() {
     </div>
   `);
   document.getElementById("modalContent").classList.add("modal-split");
+}
+
+// Press and hold −/+ to keep counting, like the inventory buttons (shares stopHold)
+const CORR_HOLD_ATTRS = (i, delta) => `style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;" onpointerdown="startCorrHold(${i}, ${delta})" onpointerup="stopHold()" onpointerleave="stopHold()" onpointercancel="stopHold()" oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"`;
+function startCorrHold(i, delta) {
+  stopHold();
+  corrStep(i, delta);
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => corrStep(i, delta), 80);
+  }, 500);
 }
 
 function corrStep(i, delta) {
