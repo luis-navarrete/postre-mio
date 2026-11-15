@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.21.0";
-const APP_UPDATED = "2026-11-17T01:00Z";
+const APP_VERSION = "1.22.1";
+const APP_UPDATED = "2026-11-17T17:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -89,19 +89,38 @@ function vibrate(pattern) {
 }
 
 let _audioCtx;
+// Browsers (Safari especially) keep an AudioContext "suspended" until it is resumed from a user action,
+// so every click first makes sure it is running, then plays the beep.
 function playClick() {
   vibrate(8);
-  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = _audioCtx.createOscillator();
-  const gain = _audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(_audioCtx.destination);
-  osc.frequency.value = 1200;
-  gain.gain.setValueAtTime(0.08, _audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.06);
-  osc.start(_audioCtx.currentTime);
-  osc.stop(_audioCtx.currentTime + 0.06);
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx;
+    const beep = () => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 1200;
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.06);
+    };
+    if (ctx.state === "running") beep();
+    else ctx.resume().then(beep).catch(() => {});
+  } catch (e) {
+    console.warn("click sound unavailable:", e);
+  }
 }
+// Unlock the audio on the very first touch / click / key so the first PIN digit already sounds
+["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, function unlock() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state !== "running") _audioCtx.resume().catch(() => {});
+  } catch (e) {}
+  document.removeEventListener(ev, unlock);
+}, { once: true, capture: true }));
 
 function pinBackspace() {
   if (_pinValue.length === 0) return;
@@ -4946,7 +4965,9 @@ const FC_DEFAULTS = {
   useHistory: true,                   // learn from events saved in earlier years/events
   eventName: "",
   margin: 10,
-  eventDays: 4,
+  eventDays: 4,        // default length when no end date has been picked
+  eventStart: "",      // "" = automatic (first day with sales, or today)
+  eventEnd: "",        // "" = start + eventDays - 1
   override: {}, // day key -> true/false: include/exclude an observed day (default: all but today)
 };
 
@@ -4956,7 +4977,7 @@ function fcLoadPrefs() {
   const base = { ...FC_DEFAULTS, weekdayF: { ...FC_DEFAULTS.weekdayF } };
   if (saved.v !== FC_VERSION) {
     // numbers saved by an older version were rough guesses: keep switches, marked days and the like, not the factors
-    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "useFestivo", "festivoDays", "useHistory", "eventName"]
+    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "useFestivo", "festivoDays", "useHistory", "eventName"]
       .forEach(k => { if (saved[k] !== undefined) base[k] = saved[k]; });
     return base;
   }
@@ -5031,8 +5052,11 @@ function fcMenuOrder() {
 // sales: every sale of the event (archive + the open day). stock/frozen: { key: n }. history: saved events.
 function fcModel(sales, p, now, stock, frozen, history = []) {
   const byDay = fcGroupByDay(sales);
-  const keys = Object.keys(byDay).sort();
+  const allKeys = Object.keys(byDay).sort();
   const todayKey = fcKey(now);
+  // The event starts on the picked day (it must be a day with sales) or on the first day with sales
+  const startKey = allKeys.length ? (allKeys.includes(p.eventStart) ? p.eventStart : allKeys[0]) : null;
+  const keys = startKey ? allKeys.filter(k => k >= startKey) : [];
 
   // Past events: each past day counts as (units ÷ that day's factor); together they act as extra
   // half-weight days (at most 4 days' worth) when working out the normal-day rate.
@@ -5049,8 +5073,8 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
   });
   const used = observed.filter(d => d.included);
 
-  const start = observed.length ? observed[0].date : fcDate(todayKey);
-  const end = fcAddDays(start, Math.max(1, p.eventDays) - 1);
+  const start = observed.length ? observed[0].date : fcDate(p.eventStart || todayKey);
+  const end = p.eventEnd && p.eventEnd >= fcKey(start) ? fcDate(p.eventEnd) : fcAddDays(start, Math.max(1, p.eventDays) - 1);
   const lastUsed = used.length ? used[used.length - 1].date : null;
   const remaining = [];
   for (let d = lastUsed ? fcAddDays(lastUsed, 1) : start; d <= end; d = fcAddDays(d, 1)) {
@@ -5206,6 +5230,10 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
+// Two outline halves that start together at the top centre and meet at the bottom centre
+const FC_DRAW_SVG = '<svg class="fc-draw" viewBox="0 0 100 100" aria-hidden="true">' +
+  '<path pathLength="1" d="M50 1.5H86a12.5 12.5 0 0 1 12.5 12.5V86a12.5 12.5 0 0 1-12.5 12.5H50"/>' +
+  '<path pathLength="1" d="M50 1.5H14A12.5 12.5 0 0 0 1.5 14V86A12.5 12.5 0 0 0 14 98.5H50"/></svg>';
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
@@ -5223,7 +5251,14 @@ function fcPressStart(e, key) {
   if (e.button !== 0 && e.button !== 2) return;
   fcPressCancel();
   const right = e.button === 2;
-  e.currentTarget.classList.add(right ? "pressing-festivo" : "pressing-include");
+  const el = e.currentTarget;
+  if (right) {
+    el.classList.add("pressing-festivo");
+  } else if (el.classList.contains("obs") || el.classList.contains("off")) {
+    // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
+    el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
+    el.insertAdjacentHTML("beforeend", FC_DRAW_SVG);
+  }
   _fcPress = {
     key, button: e.button, fired: false, at: 0,
     timer: setTimeout(() => { // held long enough
@@ -5242,10 +5277,95 @@ function fcPressEnd(e, key) {
 function fcPressCancel() {
   if (_fcPress.timer) clearTimeout(_fcPress.timer);
   _fcPress.timer = 0;
-  document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => el.classList.remove("pressing-festivo", "pressing-include"));
+  document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => {
+    el.classList.remove("pressing-festivo", "pressing-include", "draw", "erase");
+    el.querySelectorAll(".fc-draw").forEach(n => n.remove());
+  });
 }
 // The right button is handled with pointer events above; here we only stop the browser's menu.
 function fcCalRight(e) { e.preventDefault(); }
+
+// ── Event dates: pick a start and an end day on a calendar, like choosing flight dates ──
+const fcLongLabel = k => { const d = fcDate(k); return `${FC_DAYS[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString("es-MX", { month: "short" }).replace(".", "")}`; };
+// Days with sales of the current event (the start can only be one of them while an event is going on)
+function fcSalesKeys() { return Object.keys(fcGroupByDay(_fc.sales || [])).sort(); }
+function fcEventRange() {
+  const m = fcModelNow();
+  if (m) return { start: fcKey(m.start), end: fcKey(m.end) };
+  const p = _fc.prefs, start = p.eventStart || fcKey(new Date());
+  return { start, end: p.eventEnd && p.eventEnd >= start ? p.eventEnd : fcKey(fcAddDays(fcDate(start), Math.max(1, p.eventDays) - 1)) };
+}
+function fcRangeLabel() {
+  const r = fcEventRange();
+  return `${fcLongLabel(r.start)} <span class="fc-arrow">→</span> ${fcLongLabel(r.end)}`;
+}
+
+let _fcRg = null;
+function fcOpenRange() {
+  const r = fcEventRange();
+  _fcRg = { start: r.start, end: r.end, step: "done", cal: new Date(fcDate(r.start).getFullYear(), fcDate(r.start).getMonth(), 1, 12), sales: fcSalesKeys() };
+  openCompactModal(`
+    <div class="modal-head">
+      <div class="modal-head-main"><h3 style="width:auto;">Fechas del evento</h3></div>
+      <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
+    </div>
+    <div class="modal-scroll"><div id="fcRangeBody"></div><div class="modal-spacer"></div></div>
+  `);
+  document.getElementById("modalContent").classList.add("modal-split");
+  fcRangeRender();
+}
+function fcRangeRender() {
+  const g = _fcRg, first = g.cal, restricted = g.sales.length > 0;
+  const startOk = k => !restricted || g.sales.includes(k); // while an event is going on, it can only start on a day with sales
+  let cells = "";
+  for (let i = 0; i < first.getDay(); i++) cells += `<span class="fc-rg-day blank"></span>`;
+  for (let d = 1, n = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate(); d <= n; d++) {
+    const key = fcKey(new Date(first.getFullYear(), first.getMonth(), d, 12));
+    const isStart = key === g.start, isEnd = g.end && key === g.end;
+    const inRange = g.end && key > g.start && key < g.end;
+    // choosing the start: only allowed days; choosing the end: any day from the start on
+    const disabled = g.step === "end" && key < g.start && !startOk(key);
+    cells += `<button class="fc-rg-day${isStart ? " rg-start" : ""}${isEnd ? " rg-end" : ""}${inRange ? " rg-in" : ""}${restricted && g.sales.includes(key) ? " rg-sales" : ""}"${disabled ? " disabled" : ""} onclick="fcRangeTap('${key}')">${d}</button>`;
+  }
+  const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  document.getElementById("fcRangeBody").innerHTML = `
+    <div class="fc-rg-sum">
+      <div class="${g.step === "end" ? "" : "on"}"><small>Inicio</small><b>${fcLongLabel(g.start)}</b></div>
+      <span class="fc-arrow">→</span>
+      <div class="${g.step === "end" ? "on" : ""}"><small>Fin</small><b>${g.end ? fcLongLabel(g.end) : "Elige"}</b></div>
+    </div>
+    <p class="fc-hint" style="margin:0 0 8px;">${g.step === "end"
+      ? "Ahora elige el día final."
+      : (restricted ? "Toca un día para cambiar el inicio. Solo se puede empezar en un día con ventas (marcados)." : "Toca un día para cambiar el inicio.")}</p>
+    <div class="fc-cal-head">
+      <button class="fc-nav" onclick="fcRangeNav(-1)" aria-label="Mes anterior">${icon("chevronRight")}</button>
+      <strong>${esc(title)}</strong>
+      <button class="fc-nav next" onclick="fcRangeNav(1)" aria-label="Mes siguiente">${icon("chevronRight")}</button>
+    </div>
+    <div class="fc-cal">${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}${cells}</div>
+    <button class="btn-brand" style="margin-top:12px;" onclick="fcRangeSave()" ${g.end ? "" : "disabled"}>Aceptar</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>`;
+}
+function fcRangeNav(delta) { _fcRg.cal = new Date(_fcRg.cal.getFullYear(), _fcRg.cal.getMonth() + delta, 1, 12); fcRangeRender(); }
+function fcRangeTap(key) {
+  const g = _fcRg;
+  if (g.step !== "end" || key < g.start) {              // (re)start the selection
+    if (g.sales.length && !g.sales.includes(key)) { showToast("Solo se puede empezar en un día con ventas"); return; }
+    g.start = key; g.end = ""; g.step = "end";
+  } else {                                              // end day (same day = a one-day event)
+    g.end = key; g.step = "done";
+  }
+  fcRangeRender();
+}
+function fcRangeSave() {
+  const g = _fcRg;
+  if (!g || !g.end) return;
+  _fc.prefs.eventStart = g.start;
+  _fc.prefs.eventEnd = g.end;
+  fcSavePrefs();
+  closeModal();
+  fcRender();
+}
 
 function fcModelNow() {
   return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory, _fc.history || []);
@@ -5328,7 +5448,7 @@ function fcRender() {
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
       <div class="fc-opt fc-calc">
         ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
-        ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+        <div class="fc-num-row"><span>Fechas del evento</span><button class="fc-range-btn" onclick="fcOpenRange()">${fcRangeLabel()}</button></div>
       </div>
       <button class="btn-secondary fc-reset" onclick="fcResetSuggested()">Restablecer valores sugeridos</button>
     </div>`;
