@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.23.7";
-const APP_UPDATED = "2026-11-18T09:00Z";
+const APP_VERSION = "1.23.8";
+const APP_UPDATED = "2026-11-18T10:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5242,6 +5242,7 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
+const FC_ANIM_DELAY = 150; // a quick press (shorter than this) shows no animation; keep the css durations = HOLD - DELAY
 // The dashed outline of a day left out of the calculation, drawn as an svg of the cell's exact size. The same
 // function is used for the resting state and for the press animation, so the dashes are identical in both.
 function fcDotsPath(W, H) {
@@ -5287,23 +5288,28 @@ function fcToggleInclude(key) {
   _fc.prefs.override[key] = !d.included;
 }
 function fcMarked() { fcSavePrefs(); fcSyncMeta(); fcRender(); }
-let _fcPress = { timer: 0, fired: false, key: "", at: 0, button: -1 };
+let _fcPress = { timer: 0, anim: 0, fired: false, key: "", at: 0, button: -1 };
 function fcPressStart(e, key) {
   if (e.button !== 0 && e.button !== 2) return;
   fcPressCancel();
   const right = e.button === 2;
   const el = e.currentTarget;
-  if (right) {
-    el.classList.add("pressing-festivo");
-  } else if (el.classList.contains("obs") || el.classList.contains("off")) {
-    // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
-    el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
-    const box = el.getBoundingClientRect();
-    // a left-out day already carries its dashed outline (fc-outline); a day being left out gets it from this svg
-    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height, !el.querySelector(".fc-outline")));
-  }
+  // The animation only begins once the press has lasted FC_ANIM_DELAY ms, so a quick click shows nothing;
+  // it then runs for the rest of the hold (FC_HOLD_MS - FC_ANIM_DELAY) and the action fires as it ends.
+  const anim = setTimeout(() => {
+    _fcPress.anim = 0;
+    if (right) {
+      el.classList.add("pressing-festivo");
+    } else if (el.classList.contains("obs") || el.classList.contains("off")) {
+      // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
+      el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
+      const box = el.getBoundingClientRect();
+      // a left-out day already carries its dashed outline (fc-outline); a day being left out gets it from this svg
+      el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height, !el.querySelector(".fc-outline")));
+    }
+  }, FC_ANIM_DELAY);
   _fcPress = {
-    key, button: e.button, fired: false, at: 0,
+    key, button: e.button, fired: false, at: 0, anim,
     timer: setTimeout(() => { // held long enough
       _fcPress.timer = 0; _fcPress.fired = true; _fcPress.at = Date.now();
       if (right) fcToggleMark(key, "festivo"); else fcToggleInclude(key);
@@ -5314,12 +5320,14 @@ function fcPressStart(e, key) {
 function fcPressEnd(e, key) {
   if (e.button !== _fcPress.button || _fcPress.key !== key || !_fcPress.timer) return; // already a hold, or not ours
   clearTimeout(_fcPress.timer);
-  _fcPress.timer = 0;
+  clearTimeout(_fcPress.anim);
+  _fcPress.timer = 0; _fcPress.anim = 0;
   fcToggleMark(key, e.button === 2 ? "promo" : "pay"); fcMarked(); // short press
 }
 function fcPressCancel() {
   if (_fcPress.timer) clearTimeout(_fcPress.timer);
-  _fcPress.timer = 0;
+  if (_fcPress.anim) clearTimeout(_fcPress.anim);
+  _fcPress.timer = 0; _fcPress.anim = 0;
   document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => {
     el.classList.remove("pressing-festivo", "pressing-include", "draw", "erase");
     el.querySelectorAll(".fc-draw").forEach(n => n.remove());
