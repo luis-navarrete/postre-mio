@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.27.3";
-const APP_UPDATED = "2026-11-18T22:00Z";
+const APP_VERSION = "1.28.0";
+const APP_UPDATED = "2026-11-18T23:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2940,6 +2940,51 @@ function wheelValue(id) {
   return col ? col.children[wheelIndex(col)].dataset.v : null;
 }
 
+// ── Gifts inside the edit-sale modal ──
+// Staged in the modal and applied together with the rest of the edit when "Guardar" is pressed.
+let _editGifts = null;
+
+// Every product as something that can be gifted: flavours (Mini pastel maceta, Pan de muerto…) are separate rows
+function giftChoices() {
+  const out = [];
+  menu.forEach(cat => cat.items.forEach(item => {
+    const ex = ITEM_EXTRAS[item.name];
+    if (ex && (VARIANT_PRODUCTS[item.name] || ITEM_EXTRAS_ALWAYS_KEEP.has(item.name))) {
+      ex.forEach(e => out.push({ cat: cat.category, label: `${item.name} · ${e.name}`,
+        item: { name: item.name, price: item.price + e.price, extra: { name: e.name, price: e.price, ...(VARIANT_PRODUCTS[item.name] ? { variant: e.name } : {}) } } }));
+    } else {
+      out.push({ cat: cat.category, label: item.name, item: { name: item.name, price: item.price, extra: null } });
+    }
+  }));
+  return out;
+}
+
+function editGiftsHTML() {
+  const g = _editGifts;
+  const sale = (_historyData || []).find(s => s._id === g.saleId);
+  const giftLabel = i => esc(i.name) + (i.extra ? ` · ${esc(i.extra.name)}` : "");
+  const existing = (sale.items || []).map((it, idx) => ({ it, idx })).filter(x => x.it.gift).map(({ it, idx }) => {
+    const gone = g.remove.has(idx);
+    return `<div class="eg-row${gone ? " gone" : ""}"><span>${icon('gift')} ${giftLabel(it)}</span>
+      <button class="corr-btn" onclick="toggleRemoveGift(${idx})" aria-label="${gone ? "Restaurar" : "Quitar"}">${gone ? "↺" : "×"}</button></div>`;
+  }).join("");
+  const staged = g.add.map((it, i) => `<div class="eg-row"><span>${icon('gift')} ${giftLabel(it)} <small>nuevo</small></span>
+      <button class="corr-btn" onclick="unstageGift(${i})" aria-label="Quitar">×</button></div>`).join("");
+  let picker = "";
+  if (g.open) {
+    let last = null;
+    picker = `<div class="eg-picker">${giftChoices().map((c, i) => `${c.cat !== last ? (last = c.cat, `<div class="corr-cat">${catHTML(c.cat)}</div>`) : ""}
+      <button class="gift-row" onclick="stageGift(${i})"><span>${esc(c.label)}</span><small>STOCK: ${productStock(c.item.name)}</small></button>`).join("")}</div>`;
+  }
+  return `${existing}${staged}
+    <button class="btn-secondary btn-icon eg-add" onclick="toggleEditGiftPicker()">${icon('gift')} ${g.open ? "Cerrar lista" : "Añadir regalo"}</button>${picker}`;
+}
+function renderEditGifts() { const el = document.getElementById("edit-gifts"); if (el) el.innerHTML = editGiftsHTML(); }
+function toggleEditGiftPicker() { _editGifts.open = !_editGifts.open; renderEditGifts(); }
+function stageGift(i) { _editGifts.add.push(giftChoices()[i].item); _editGifts.open = false; renderEditGifts(); }
+function unstageGift(i) { _editGifts.add.splice(i, 1); renderEditGifts(); }
+function toggleRemoveGift(idx) { _editGifts.remove.has(idx) ? _editGifts.remove.delete(idx) : _editGifts.remove.add(idx); renderEditGifts(); }
+
 function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
@@ -2964,6 +3009,8 @@ function openEditSale(saleId) {
       ${use24 ? "" : wheelColHTML("edit-ampm", [{ v: "am", label: "a.m." }, { v: "pm", label: "p.m." }], isPm ? 1 : 0)}
     </div>`;
 
+  _editGifts = { saleId, add: [], remove: new Set(), open: false };
+
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(dateText(sale, use24))}</p>
@@ -2982,6 +3029,9 @@ function openEditSale(saleId) {
       <label>Hora</label>
       <div id="edit-time" data-original="${saleTime}">${wheelHTML}</div>
       ` : ''}
+
+      <label>Regalos</label>
+      <div id="edit-gifts">${editGiftsHTML()}</div>
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
@@ -3182,7 +3232,32 @@ async function confirmEditSale(saleId) {
     }
   }
 
+  // Gifts added / removed in the modal: the sale's items and its "Regalo" promotion are rebuilt (the total does not
+  // change: a gift is an item plus an equal discount) and the stock follows.
+  const g = _editGifts;
+  if (sale && g && g.saleId === saleId && (g.add.length || g.remove.size)) {
+    const stockMoves = {};
+    const keep = [];
+    (sale.items || []).forEach((it, idx) => {
+      if (g.remove.has(idx)) { const k = stockKey(it); stockMoves[k] = (stockMoves[k] || 0) + 1; } else keep.push(it);
+    });
+    g.add.forEach(it => { keep.push({ name: it.name, price: it.price, extra: it.extra ? { ...it.extra } : null, gift: true }); const k = stockKey(it); stockMoves[k] = (stockMoves[k] || 0) - 1; });
+    const gifts = keep.filter(i => i.gift);
+    const promos = (sale.promos || []).filter(p => !p.gift);
+    if (gifts.length) promos.push({ name: GIFT_PROMO.name, discount: gifts.reduce((t, i) => t + i.price, 0), freeCount: gifts.length, freeItemName: [...new Set(gifts.map(i => i.name))].join(", "), raffleEntries: 0, gift: true });
+    updates.items = keep;
+    updates.promos = promos;
+    for (const [k, delta] of Object.entries(stockMoves)) {            // delta > 0: gift removed (back to stock), < 0: gift added
+      if (!delta) continue;
+      inventory[k] = Math.max(0, (inventory[k] || 0) + delta);
+      (delta > 0 ? DataStore.incrementStock(k, delta) : DataStore.reduceStock(k, -delta)).catch(() => {});
+    }
+    saveInventory();
+    renderProducts();
+  }
+
   await DataStore.updateSale(saleId, updates);
+  _editGifts = null;
   closeModal();
   showToast("Venta actualizada", "check");
   await renderHistoryFromFirestore();

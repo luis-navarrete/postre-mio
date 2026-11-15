@@ -2273,3 +2273,11 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
   #rotateGuard p { margin: 8px 0 0; font-size: 20px; font-weight: 700; }
   #rotateGuard small { font-size: 14px; opacity: 0.9; }
 }
+
+/* gifts inside the edit-sale modal */
+.eg-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+.eg-row .icon { width: 14px; height: 14px; vertical-align: -2px; color: var(--green); }
+.eg-row small { color: var(--text-muted); font-size: 10px; }
+.eg-row.gone span { text-decoration: line-through; opacity: 0.5; }
+.eg-add { width: 100%; margin-top: 8px !important; font-size: 13px; }
+.eg-picker { max-height: 220px; overflow-y: auto; margin-top: 8px; padding: 0 8px; background: var(--bg); border-radius: 10px; }
