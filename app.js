@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.31.2";
-const APP_UPDATED = "2026-11-19T17:00Z";
+const APP_VERSION = "1.32.0";
+const APP_UPDATED = "2026-11-19T18:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2933,10 +2933,10 @@ function syncModeFabs() {
   }
   const edit = document.getElementById("editFab");
   if (edit) edit.classList.toggle("active", editModeActive);
-  // "+" (corrective entry) only while editing Historial
+  // the adjustment button only while editing Historial, and not once the day already has its adjustment
   const add = document.getElementById("historyAddFab");
   const historyOpen = document.getElementById("historyPage").style.display !== "none";
-  if (add) add.style.display = historyOpen && editModeActive ? "flex" : "none";
+  if (add) add.style.display = historyOpen && editModeActive && !hasAdjustToday(_historyData) ? "flex" : "none";
 }
 
 function toggleItemHidden(name) {
@@ -3148,6 +3148,7 @@ function editCalPick(key) { _editDate.key = key; _editDate.open = false; renderE
 function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
+  if (isAdjustSale(sale)) { openCorrectionModal(sale); return; }   // an adjustment edits its products and its date only
 
   // Time of day on one wheel picker (hour, minutes, a.m./p.m.), whatever the device's own clock setting
   const when = sale.isoDate ? new Date(sale.isoDate) : null;
@@ -3187,7 +3188,6 @@ function openEditSale(saleId) {
           <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
           <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
           <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
-          ${sale.method === 'adjust' ? `<option value="adjust" data-icon="sliders" selected>Ajuste</option>` : ""}
         </select>
       </div>${resetBtn("method")}</div>
 
@@ -3248,9 +3248,18 @@ let _corrStart = {};   // inventory at opening, per product
 let _corrLeft = {};    // what is left now (what the user counts)
 let _corrTotalTouched = false;
 
-function corrRowList() {
+// The "Ajuste" is its own kind of entry: the payment method "adjust" belongs only to it
+const isAdjustSale = s => !!s && s.method === "adjust";
+const hasAdjustToday = data => (data || []).some(isAdjustSale);
+
+// keepKeys: products that must be listed even if hidden (an adjustment being edited that already has them)
+function corrRowList(keepKeys = null) {
   const rows = [];
-  visibleMenu().forEach(cat => cat.items.forEach(item => { // hidden products are left out
+  const hiddenNow = getHiddenItems();
+  menu.forEach(cat => cat.items.forEach(item => {
+    const hiddenItem = hiddenNow.includes(item.name); // hidden products are left out
+    if (hiddenItem && !keepKeys) return;
+    const before = rows.length;
     if (VARIANT_PRODUCTS[item.name]) {
       // each flavour has its own stock and its own full price
       (ITEM_EXTRAS[item.name] || []).forEach(e => rows.push({
@@ -3260,6 +3269,7 @@ function corrRowList() {
     } else {
       rows.push({ cat: cat.category, key: item.name, label: item.name, item: { name: item.name, price: item.price, extra: null } });
     }
+    if (hiddenItem) { for (let n = rows.length - 1; n >= before; n--) if (!keepKeys.has(rows[n].key)) rows.splice(n, 1); }
   }));
   return rows;
 }
@@ -3270,55 +3280,70 @@ function corrDayOptions() {
   return [...days].sort().reverse();
 }
 
-function openCorrectionModal() {
-  _corrRows = corrRowList();
+let _corrEdit = null;   // the adjustment being edited (null: adding a new one)
+
+// sale = an existing adjustment to edit (only its products and its date can change), or nothing to add one
+function openCorrectionModal(sale = null) {
+  _corrEdit = sale;
+  const oldSold = {};
+  (sale ? sale.items || [] : []).forEach(it => { const k = stockKey(it); oldSold[k] = (oldSold[k] || 0) + 1; });
+  _corrRows = corrRowList(sale ? new Set(Object.keys(oldSold)) : null);
   _corrQty = {};
   _corrStart = {};
   _corrLeft = {};
-  _corrRows.forEach(r => { _corrStart[r.key] = Math.max(0, inventory[r.key] ?? 0); _corrLeft[r.key] = _corrStart[r.key]; });
+  // editing: the stock before this adjustment was taken off = what is in stock now + what the adjustment took
+  _corrRows.forEach(r => {
+    _corrLeft[r.key] = Math.max(0, inventory[r.key] ?? 0);
+    _corrQty[r.key] = oldSold[r.key] || 0;
+    _corrStart[r.key] = _corrLeft[r.key] + _corrQty[r.key];
+  });
   _corrTotalTouched = false;
   const days = corrDayOptions();
+  const curDay = sale && sale.isoDate ? fcKey(new Date(sale.isoDate)) : null;
+  if (curDay && !days.includes(curDay)) days.push(curDay);
   const dayOpts = days.map(k => {
     const d = fcDate(k);
-    return `<option value="${k}">${esc(d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }))}</option>`;
+    return `<option value="${k}"${k === curDay ? " selected" : ""}>${esc(d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }))}</option>`;
   }).join("");
   let lastCat = null;
   const rowsHTML = _corrRows.map((r, i) => {
     const head = r.cat !== lastCat ? (lastCat = r.cat, `<div class="corr-cat">${catHTML(r.cat)}</div>`) : "";
     return `${head}
       <div class="corr-row">
-        <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}<span class="corr-sold" id="corr-s-${i}"></span></small></div>
+        <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}<span class="corr-sold" id="corr-s-${i}">${corrSoldText(_corrQty[r.key])}</span></small></div>
         <div class="corr-step">
-          <button class="corr-btn" id="corr-m-${i}" ${CORR_HOLD_ATTRS(i, -1)} aria-label="Quitar" ${_corrStart[r.key] <= 0 ? "disabled" : ""}>−</button>
-          <span class="corr-qty" id="corr-q-${i}">${_corrStart[r.key]}</span>
-          <button class="corr-btn" id="corr-p-${i}" ${CORR_HOLD_ATTRS(i, 1)} aria-label="Agregar" disabled>+</button>
+          <button class="corr-btn" id="corr-m-${i}" ${CORR_HOLD_ATTRS(i, -1)} aria-label="Quitar" ${_corrLeft[r.key] <= 0 ? "disabled" : ""}>−</button>
+          <span class="corr-qty" id="corr-q-${i}">${_corrLeft[r.key]}</span>
+          <button class="corr-btn" id="corr-p-${i}" ${CORR_HOLD_ATTRS(i, 1)} aria-label="Agregar" ${_corrLeft[r.key] >= _corrStart[r.key] ? "disabled" : ""}>+</button>
         </div>
       </div>`;
   }).join("");
 
   openCompactModal(`
     <div class="modal-head">
-      <div class="modal-head-main"><h3 style="width:auto;">Corrección</h3></div>
+      <div class="modal-head-main"><h3 style="width:auto;">${sale ? "Editar ajuste" : "Corrección"}</h3></div>
       <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
     </div>
     <div class="modal-scroll">
-      <p class="corr-intro">Cuenta cuánto te queda de cada producto. Lo que falte respecto al inventario se registra como una sola venta no registrada.</p>
+      <p class="corr-intro">${sale ? "Cambia cuánto te queda de cada producto o el día del ajuste. El inventario se corrige con la diferencia." : "Cuenta cuánto te queda de cada producto. Lo que falte respecto al inventario se registra como un solo ajuste."}</p>
       <div class="promo-form">
         <label>Día</label>
         <select id="corr-day">${dayOpts}</select>
       </div>
       ${rowsHTML}
-      <div class="promo-form" style="margin-top:12px;">
+      ${sale ? "" : `<div class="promo-form" style="margin-top:12px;">
         <label>Total ($)</label>
         <input id="corr-total" type="number" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="_corrTotalTouched = true">
-      </div>
-      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:12px;">Guardar corrección</button>
+      </div>`}
+      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:12px;">${sale ? "Guardar" : "Guardar corrección"}</button>
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
       <div class="modal-spacer corr-spacer"></div>
     </div>
   `);
   document.getElementById("modalContent").classList.add("modal-split");
 }
+
+const corrSoldText = n => n ? ` · ${n} ${n === 1 ? "vendido" : "vendidos"}` : "";
 
 // Press and hold −/+ to keep counting, like the inventory buttons (shares stopHold)
 const CORR_HOLD_ATTRS = (i, delta) => `style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;" onpointerdown="startCorrHold(${i}, ${delta})" onpointerup="stopHold()" onpointerleave="stopHold()" onpointercancel="stopHold()" oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"`;
@@ -3335,16 +3360,74 @@ function corrStep(i, delta) {
   _corrLeft[key] = Math.min(_corrStart[key], Math.max(0, _corrLeft[key] + delta));
   _corrQty[key] = _corrStart[key] - _corrLeft[key];
   document.getElementById("corr-q-" + i).textContent = _corrLeft[key];
-  document.getElementById("corr-s-" + i).textContent = _corrQty[key] ? ` · ${_corrQty[key]} ${_corrQty[key] === 1 ? "vendido" : "vendidos"}` : "";
+  document.getElementById("corr-s-" + i).textContent = corrSoldText(_corrQty[key]);
   document.getElementById("corr-m-" + i).disabled = _corrLeft[key] <= 0;
   document.getElementById("corr-p-" + i).disabled = _corrLeft[key] >= _corrStart[key];
-  if (!_corrTotalTouched) {
+  const totalEl = document.getElementById("corr-total");
+  if (totalEl && !_corrTotalTouched) {
     const total = _corrRows.reduce((t, r) => t + (_corrQty[r.key] || 0) * r.item.price, 0);
-    document.getElementById("corr-total").value = total.toFixed(2);
+    totalEl.value = total.toFixed(2);
+  }
+}
+
+// A day's date for an adjustment: today = now; an earlier day = just before midnight (it has no time of its own)
+function corrWhen(dayKey) {
+  let when = new Date();
+  if (dayKey !== fcKey(when)) { when = fcDate(dayKey); when.setHours(23, 59, 59, 0); }
+  return when;
+}
+
+// Editing an adjustment: only its products (what is left) and its date change; the stock follows the difference
+async function saveAdjustEdit() {
+  const sale = _corrEdit;
+  const items = [];
+  _corrRows.forEach(r => { for (let n = 0; n < (_corrQty[r.key] || 0); n++) items.push({ ...r.item, extra: r.item.extra ? { ...r.item.extra } : null }); });
+  if (!items.length) { showToast("Un ajuste necesita al menos un producto (para quitarlo, bórralo)"); return; }
+  const oldCount = {}, newCount = {};
+  (sale.items || []).forEach(i => { const k = stockKey(i); oldCount[k] = (oldCount[k] || 0) + 1; });
+  items.forEach(i => { const k = stockKey(i); newCount[k] = (newCount[k] || 0) + 1; });
+  const sameProducts = Object.keys({ ...oldCount, ...newCount }).every(k => (oldCount[k] || 0) === (newCount[k] || 0));
+  const updates = {};
+  if (!sameProducts) {
+    updates.items = items;
+    updates.total = items.reduce((t, i) => t + i.price, 0);   // the total is just the products' prices
+  }
+  const dayKey = document.getElementById("corr-day").value;
+  if (!sale.isoDate || dayKey !== fcKey(new Date(sale.isoDate))) {
+    const when = corrWhen(dayKey);
+    updates.isoDate = when.toISOString();
+    updates.date = when.toLocaleString();
+  }
+  if (!Object.keys(updates).length) { closeModal(); return; }
+
+  const btn = document.getElementById("corrSaveBtn");
+  btn.disabled = true;
+  showSpinner();
+  try {
+    await DataStore.updateSale(sale._id, updates);
+    for (const k of Object.keys({ ...oldCount, ...newCount })) {
+      const delta = (oldCount[k] || 0) - (newCount[k] || 0);   // > 0: fewer sold now, back to stock
+      if (!delta) continue;
+      inventory[k] = Math.max(0, (inventory[k] || 0) + delta);
+      (delta > 0 ? DataStore.incrementStock(k, delta) : DataStore.reduceStock(k, -delta)).catch(() => {});
+    }
+    saveInventory();
+    renderProducts();
+    closeModal();
+    showToast("Ajuste actualizado", "check");
+    hideSpinner();
+    await renderHistoryFromFirestore();
+  } catch (e) {
+    hideSpinner();
+    console.error("saveAdjustEdit failed:", e);
+    showToast("No se pudo guardar el ajuste");
+    btn.disabled = false;
   }
 }
 
 async function saveCorrection() {
+  if (_corrEdit) return saveAdjustEdit();
+  if (hasAdjustToday(_historyData)) { showToast("Ya hay un ajuste en este día"); return; }
   const items = [];
   _corrRows.forEach(r => { for (let n = 0; n < (_corrQty[r.key] || 0); n++) items.push({ ...r.item, extra: r.item.extra ? { ...r.item.extra } : null }); });
   if (!items.length) { showToast("Cuenta lo que queda: nada ha cambiado"); return; }
@@ -3353,15 +3436,13 @@ async function saveCorrection() {
   const method = "adjust"; // an adjustment, not a payment
   const dayKey = document.getElementById("corr-day").value;
 
-  // today: now; an earlier day: just before midnight, so it ends that day's list
-  let when = new Date();
-  if (dayKey !== fcKey(when)) { when = fcDate(dayKey); when.setHours(23, 59, 59, 0); }
+  const when = corrWhen(dayKey);
 
   const sale = {
     items, total, method,
     folio: dayKey === fcKey(new Date()) ? makeFolio() : formatFolio(when),
     date: when.toLocaleString(), isoDate: when.toISOString(),
-    note: "Corrección: ventas no registradas", correction: true,
+    correction: true,
   };
 
   const btn = document.getElementById("corrSaveBtn");
@@ -3467,12 +3548,16 @@ function renderHistoryWithData(data) {
       </div>
     `;
     updateCutBtnWithData(data);
+    syncModeFabs();
     return;
   }
 
-  data.forEach(sale => {
+  // the day's adjustment always goes first (newest first if there were ever several); the rest keep their order
+  const ordered = [...data.filter(isAdjustSale).sort((x, y) => String(y.isoDate || "").localeCompare(String(x.isoDate || ""))), ...data.filter(s => !isAdjustSale(s))];
+  ordered.forEach(sale => {
+    const isAdj = isAdjustSale(sale);
     const div = document.createElement("div");
-    div.className = "inventory-card";
+    div.className = "inventory-card" + (isAdj ? " adjust-card" : "");
 
     let itemsHTML = "";
     let rawTotal = 0;
@@ -3535,10 +3620,18 @@ function renderHistoryWithData(data) {
     const finalTotal = sale.total;
     const saleId = sale._id;
 
+    // an adjustment shows only its date (no time, no folio) and a small "Ajuste" tag
+    const headLeft = isAdj && sale.isoDate
+      ? new Date(sale.isoDate).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })
+      : dateText(sale, appSettings.use24hCards);
+    const headRight = isAdj
+      ? `<div class="adjust-tag">${icon('clipboardCheck')} Ajuste</div>`
+      : (sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">${esc(sale.folio)}</div>` : '');
+    const hideNote = isAdj;   // nothing else to add to an adjustment
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <div class="inv-name">${esc(dateText(sale, appSettings.use24hCards))}</div>
-        ${sale.folio ? `<div style="font-size:11px;color:var(--text-muted);">${esc(sale.folio)}</div>` : ''}
+        <div class="inv-name">${esc(headLeft)}</div>
+        ${headRight}
       </div>
 
       <div class="history-items">
@@ -3551,17 +3644,18 @@ function renderHistoryWithData(data) {
           ${editModeActive
             ? `<button class="history-action-btn active" onclick="openEditSale('${saleId}')">${icon('pencil')}</button>
                <button class="history-action-btn danger" onclick="deleteSale('${saleId}')">${icon('trash')}</button>`
-            : `<button class="history-action-btn${sale.note ? ' has-note' : ''}" onclick="openSaleNote('${saleId}')" title="Nota">${icon('note')}</button>
-               <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`}
+            : (hideNote ? "" : `<button class="history-action-btn${sale.note ? ' has-note' : ''}" onclick="openSaleNote('${saleId}')" title="Nota">${icon('note')}</button>
+               <button class="history-action-btn" onclick="generateTicket((_historyData.find(s=>s._id==='${saleId}')))">${icon('receipt')}</button>`)}
         </div>
       </div>
-      ${sale.note ? `<div class="history-note">${esc(sale.note)}</div>` : ''}
+      ${sale.note && !hideNote ? `<div class="history-note">${esc(sale.note)}</div>` : ''}
     `;
 
     container.appendChild(div);
   });
 
   updateCutBtnWithData(data);
+  syncModeFabs();   // the adjustment button hides once the day has its adjustment
 }
 
 // Inner HTML of the "Vendidos" block for a list of sales (used by History and by Archivo)
