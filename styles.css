@@ -2224,3 +2224,7 @@ body.has-savebar .toast { bottom: 96px; }
 .modal-content .fc-rg-day.rg-start { border-radius: 8px 0 0 8px; }
 .modal-content .fc-rg-day.rg-end { border-radius: 0 8px 8px 0; }
 .modal-content .fc-rg-day.rg-start.rg-end { border-radius: 8px; }
+
+/* amounts in the Día n modal: the $ stays put at the left of a fixed-width box, the digits are right-aligned */
+.mny { display: inline-flex; justify-content: space-between; gap: 4px; min-width: 82px; font-variant-numeric: tabular-nums; }
+.arch-sale-foot strong .mny, .arch-sale-foot strong .mny span, .arch-method .mny span { font-size: inherit; color: inherit; white-space: nowrap; }

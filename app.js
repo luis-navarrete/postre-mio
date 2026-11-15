@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.1";
-const APP_UPDATED = "2026-11-17T17:00Z";
+const APP_VERSION = "1.22.2";
+const APP_UPDATED = "2026-11-17T18:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3353,6 +3353,12 @@ const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumF
 const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 const pad2 = n => String(n).padStart(2, "0");
 // Archived days are numbered; the day still open in Historial has no number yet
+// Amount with the "$" pinned to the left of a fixed-width box and the digits right-aligned, so the
+// symbol stays in a straight column instead of moving with the amount
+function moneyPinned(n, sign = "") {
+  const v = (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `<span class="mny"><span class="mny-cur">${sign}$</span><span>${v}</span></span>`;
+}
 const dayLabel = n => n ? "Día " + n : "Día actual";
 
 // Corte de caja: closes the day. Every sale in Historial moves, intact, to Archivo
@@ -3480,10 +3486,10 @@ function archiveSaleHTML(sale) {
     <div class="arch-item">
       <b>${g.qty}×</b>
       <span>${esc(g.name)}${g.extra ? ` <i>+ ${esc(g.extra.name)}</i>` : ""}</span>
-      <span class="arch-item-price">${money(g.unit * g.qty)}</span>
+      <span class="arch-item-price">${moneyPinned(g.unit * g.qty)}</span>
     </div>`).join("");
   const promos = (sale.promos || []).map(p => `
-    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? "−" + money(p.discount) : ""}</span></div>`).join("");
+    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
   return `
     <div class="arch-sale">
       <div class="arch-sale-head">
@@ -3491,7 +3497,7 @@ function archiveSaleHTML(sale) {
         <span>${esc(METHOD_LABELS[sale.method] || "")}</span>
       </div>
       ${items}${promos}
-      <div class="arch-sale-foot"><span>${sale.note ? esc(sale.note) : ""}</span><strong>${money(sale.total)}</strong></div>
+      <div class="arch-sale-foot"><span>${sale.note ? esc(sale.note) : ""}</span><strong>${moneyPinned(sale.total)}</strong></div>
     </div>`;
 }
 
@@ -3499,7 +3505,7 @@ function openArchiveDay(dayNo) {
   const day = _archiveDays.find(d => d.dayNo === dayNo);
   if (!day) return;
   const methods = Object.entries(day.byMethod).filter(([, v]) => v > 0)
-    .map(([k, v]) => `<div class="arch-method"><em>${esc(METHOD_LABELS[k] || k)}</em><span>${money(v)}</span></div>`).join("");
+    .map(([k, v]) => `<div class="arch-method"><em>${esc(METHOD_LABELS[k] || k)}</em>${moneyPinned(v)}</div>`).join("");
   const mermas = day.mermas.length ? `
     <div class="arch-section-title">Mermas</div>
     ${day.mermas.map(m => {
