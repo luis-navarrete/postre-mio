@@ -2079,6 +2079,7 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-nav:not(.next) .icon { transform: scaleX(-1); }
 .fc-modes { display: flex; gap: 6px; margin-bottom: 8px; }
 .fc-modes button { flex: 1; width: auto !important; margin: 0 !important; padding: 7px 0; font-size: 13px; font-weight: 600; background: var(--btn-secondary-bg); color: var(--text-muted); border: none; border-radius: 8px; cursor: pointer; }
+.fc-modes button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 .fc-modes button.on.is-pay { background: var(--green); color: #fff; }
 .fc-modes button.on.is-promo { background: var(--orange); color: #fff; }
 .fc-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
@@ -2088,18 +2089,11 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-day.obs { background: var(--brand-light); border-color: var(--brand); }
 .fc-day.fut { border-color: var(--brand-dark); border-style: dashed; }
 .fc-day.today { font-weight: 800; text-decoration: underline; }
-.fc-day.is-pay::after, .fc-day.is-promo::before { content: ""; position: absolute; bottom: 4px; width: 7px; height: 7px; border-radius: 50%; }
-.fc-day.is-pay::after { background: var(--green); right: 30%; }
-.fc-day.is-promo::before { background: var(--orange); left: 30%; }
-.fc-day.is-pay.is-promo::after { right: 26%; }
-.fc-day.is-pay.is-promo::before { left: 26%; }
 .fc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
 .fc-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .fc-legend .lg { width: 11px; height: 11px; border-radius: 3px; border: 2px solid transparent; display: inline-block; }
 .fc-legend .lg.obs { background: var(--brand-light); border-color: var(--brand); }
 .fc-legend .lg.fut { border-color: var(--brand-dark); border-style: dashed; }
-.fc-legend .lg.is-pay { background: var(--green); border-radius: 50%; }
-.fc-legend .lg.is-promo { background: var(--orange); border-radius: 50%; }
 
 .fc-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .fc-chip { width: auto !important; margin: 0 !important; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 8px 12px; background: var(--bg); color: var(--text-muted); border: 2px solid transparent; border-radius: 10px; font-size: 12px; cursor: pointer; text-align: left; }
@@ -2148,3 +2142,13 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-tag.out { background: var(--red); }
 .fc-ev-del { width: auto !important; margin: 0 !important; padding: 6px !important; background: transparent; border: none; color: var(--text-muted); cursor: pointer; line-height: 0; flex-shrink: 0; }
 .fc-ev-del .icon { width: 18px; height: 18px; }
+
+/* calendar markers: stack of bills (payday, green) and discount tag (promotion, orange) */
+.fc-marks { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; justify-content: center; gap: 4px; line-height: 0; pointer-events: none; }
+.fc-mark { display: inline-flex; line-height: 0; }
+.fc-mark .icon { width: 15px; height: 15px; stroke-width: 2.2; }
+.fc-mark.is-pay { color: var(--green); }
+.fc-mark.is-promo { color: var(--orange); }
+.fc-legend .fc-mark .icon { width: 14px; height: 14px; }
+.fc-legend span { gap: 4px; }
+.fc-modes button .icon { width: 14px; height: 14px; vertical-align: -2px; }
