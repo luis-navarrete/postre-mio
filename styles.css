@@ -2146,3 +2146,6 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-mark.is-promo { color: var(--orange); }
 .fc-legend .fc-mark .icon { width: 14px; height: 14px; }
 .fc-legend span { gap: 4px; }
+
+.fc-table tr.fc-cat td { text-align: left; padding: 14px 10px 6px; font-size: 12px; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--card-bg); }
+.fc-table tr.fc-cat .icon { width: 14px; height: 14px; vertical-align: -2px; }

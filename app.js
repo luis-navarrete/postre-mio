@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.19.3";
-const APP_UPDATED = "2026-11-16T12:00Z";
+const APP_VERSION = "1.19.4";
+const APP_UPDATED = "2026-11-16T14:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -4863,6 +4863,15 @@ function fcEventPrefs(p, ev) {
   return { ...p, paydays: ev.paydays || [], promoDays: ev.promoDays || [], festivoDays: ev.festivoDays || [] };
 }
 
+// Products in the same order as Inventario: menu categories in order, items in menu order (variants expanded)
+function fcMenuOrder() {
+  const order = {};
+  menu.forEach((cat, ci) => cat.items.forEach((it, ii) => stockNamesFor(it.name).forEach((k, vi) => {
+    order[k] = { ci, pos: ii * 10 + vi, cat: cat.category };
+  })));
+  return order;
+}
+
 // sales: every sale of the event (archive + the open day). stock/frozen: { key: n }. history: saved events.
 function fcModel(sales, p, now, stock, frozen, history = []) {
   const byDay = fcGroupByDay(sales);
@@ -4900,6 +4909,7 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
   const weight = i => (p.useTrend ? 1 + 0.5 * i : 1);
   const denom = used.reduce((t, d, i) => t + weight(i) * d.f, 0);
 
+  const order = fcMenuOrder();
   const rows = [...names].map(name => {
     const num = used.reduce((t, d, i) => t + weight(i) * (d.units[name] || 0), 0);
     const histRate = histDenom > 0 ? histDays.reduce((t, h) => t + (h.d.units[name] || 0), 0) / histDenom : 0;
@@ -4914,8 +4924,11 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
     const total = perDay.reduce((t, v) => t + v, 0) * (1 + p.margin / 100);
     const need = Math.ceil(total - 1e-9);
     const have = (stock[name] ?? 0) + (frozen[name] ?? 0);
-    return { name, base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
-  }).sort((a, b) => b.make - a.make || b.need - a.need || a.name.localeCompare(b.name, "es"));
+    return { name, cat: order[name] ? order[name].cat : "", base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
+  }).sort((a, b) => {
+    const oa = order[a.name], ob = order[b.name];
+    return (oa ? oa.ci : 999) - (ob ? ob.ci : 999) || (oa ? oa.pos : 0) - (ob ? ob.pos : 0) || a.name.localeCompare(b.name, "es");
+  });
 
   return { observed, used, remaining, rows, start, end, histDays: histDays.length, histW, totalMake: rows.reduce((t, r) => t + r.make, 0) };
 }
@@ -5176,7 +5189,9 @@ function fcRender() {
         ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}</th>`).join("")}
         <th>Necesario</th><th>Hay</th><th class="make">Hacer</th>
       </tr>`;
-    const rows = m.rows.map(r => `
+    const cols = 4 + m.observed.length + m.remaining.length;
+    let lastCat = null;
+    const rows = m.rows.map(r => `${r.cat !== lastCat ? (lastCat = r.cat, `<tr class="fc-cat"><td colspan="${cols}">${r.cat ? catHTML(r.cat) : "Otros"}</td></tr>`) : ""}
       <tr>
         <td class="l">${esc(r.name)}</td>
         ${r.sold.map((v, i) => `<td class="${m.observed[i].included ? "" : "off"}">${v}</td>`).join("")}
@@ -5294,8 +5309,13 @@ function fcDeleteEvent(id) {
 function fcCopy() {
   const m = fcModelNow();
   if (!m) return;
-  const lines = m.rows.filter(r => r.make > 0).map(r => `• ${r.name}: ${r.make}`);
-  const text = `Producción sugerida para ${m.remaining.map(d => fcLabel(d.key)).join(" y ")}\n${lines.join("\n")}`;
+  const lines = [];
+  let lastCat = null;
+  m.rows.filter(r => r.make > 0).forEach(r => {
+    if (r.cat !== lastCat) { lastCat = r.cat; lines.push((lines.length ? "\n" : "") + (r.cat ? catName(r.cat) : "Otros") + ":"); }
+    lines.push(`• ${r.name}: ${r.make}`);
+  });
+  const text = `Producción sugerida para ${m.remaining.map(d => fcLabel(d.key)).join(" y ")}\n\n${lines.join("\n")}`;
   const done = () => showToast("Lista copiada", "check");
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => showToast("No se pudo copiar"));
   else showToast("No se pudo copiar");
