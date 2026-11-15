@@ -32,19 +32,10 @@ html, body {
   min-height: 100%;
 }
 
-/* Pulling the page down (iOS rubber band) reveals the canvas above the page: make that part teal like the header.
-   The grey page colour is painted as an image that extends far below the page, so only the top shows teal. */
-html {
-  background-color: var(--brand);
-  background-image: linear-gradient(var(--bg), var(--bg));
-  background-repeat: no-repeat;
-  background-position: 0 0;
-  background-size: 100% calc(100% + 400vh);
-}
 
-/* Caja keeps fixed panes that scroll on their own; other pages scroll the document
-   so iOS's tap-the-status-bar-to-scroll-to-top works */
-body.no-page-scroll {
+/* The header stays put: the page never scrolls itself, each page scrolls inside its own area under the header
+   (so pulling down / up only moves the content, never the header). */
+body {
   overflow: hidden;
   height: 100dvh;
 }
@@ -1854,8 +1845,6 @@ body.has-savebar .toast { bottom: 96px; }
 .stats-chip b { color: var(--text); flex-shrink: 0; font-variant-numeric: tabular-nums; }
 
 /* Pages that scroll with the document (so iOS can scroll them to the top) */
-.page.page-flow { height: auto; overflow: visible; }
-.page.page-flow .page-content { height: auto; overflow: visible; }
 
 /* Full-color receipt icon: larger than the single-color ones so its detail reads */
 .icon-receipt { width: 1.2em; height: 1.2em; vertical-align: middle; }
@@ -2263,8 +2252,46 @@ body.has-savebar .toast { bottom: 96px; }
    corner follows the device's corner curve (a rough guess per device class); on a computer it keeps a small blank gap. */
 @media (pointer: coarse) {
   :root { --screen-corner: 18px; }                                            /* iPad */
-  .cart-last { margin: 8px -14px -14px 0; border-radius: 8px 0 var(--screen-corner) 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .cart-last { margin: 8px -14px -14px 0; border-radius: 8px 0 var(--screen-corner) 8px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
 }
 @media (pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px) {
-  :root { --screen-corner: 47px; }                                            /* iPhone */
+  :root { --screen-corner: 56px; }                                            /* iPhone (the biggest corner, so nothing is ever cut off) */
 }
+
+/* viewport-fit=cover lets the page use the whole screen (needed for the curved corner button); keep the content out of the notch when the phone is sideways */
+body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); box-sizing: border-box; }
+
+/* Phone held sideways: the app is made for portrait, so cover it with a "turn your phone" message.
+   (Phones only: a short landscape touch screen. iPads and computers are not affected.) */
+#rotateGuard { display: none; }
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
+  #rotateGuard {
+    position: fixed; inset: 0; z-index: 20000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: var(--brand); color: #fff; text-align: center;
+  }
+  #rotateGuard p { margin: 8px 0 0; font-size: 20px; font-weight: 700; }
+  #rotateGuard small { font-size: 14px; opacity: 0.9; }
+}
+
+/* gifts inside the edit-sale modal */
+.eg-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+.eg-row .icon { width: 14px; height: 14px; vertical-align: -2px; color: var(--green); }
+.eg-row small { color: var(--text-muted); font-size: 10px; }
+.eg-row.gone span { text-decoration: line-through; opacity: 0.5; }
+.eg-add { width: 100%; margin-top: 8px !important; font-size: 13px; }
+.eg-picker { max-height: 220px; overflow-y: auto; margin-top: 8px; padding: 0 8px; background: var(--bg); border-radius: 10px; }
+
+/* date of a sale in the edit modal */
+.edit-date-btn { width: 100% !important; text-align: left; padding: 10px 12px !important; font-size: 14px !important; }
+.edit-date-btn small { color: var(--brand-dark); font-size: 11px; margin-left: 6px; }
+.edit-cal { margin-top: 8px; padding: 8px; background: var(--bg); border-radius: 10px; }
+
+.eg-label { display: block; margin-top: 4px; }
+
+/* restore (↺) button to the right of each entry of the edit-sale modal */
+.ef-row { display: flex; align-items: center; gap: 8px; }
+.ef-main { flex: 1; min-width: 0; }
+.modal-content .ef-reset { width: 36px; height: 36px; margin: 0; padding: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--btn-secondary-bg); color: var(--text); border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
+.ef-reset .icon { width: 16px; height: 16px; }
+.modal-content .ef-reset:disabled { opacity: 0.3; cursor: not-allowed; }

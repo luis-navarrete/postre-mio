@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.26.2";
-const APP_UPDATED = "2026-11-18T17:00Z";
+const APP_VERSION = "1.28.3";
+const APP_UPDATED = "2026-11-19T02:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -662,6 +662,7 @@ const _ICON_PATHS = {
   discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><g transform="rotate(45 12.5 12.5)"><path d="M10.3 16.1L14.7 8.9"/><circle cx="9.3" cy="9.7" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.7" cy="15.3" r="1.25" fill="currentColor" stroke="none"/></g>',
   sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  rotateCcw: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
   receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
@@ -1463,7 +1464,8 @@ function showFinalStep(total, method, change, amount) {
       discount: a.discount,
       freeCount: a.freeCount || 0,
       freeItemName: a.freeItemName || "",
-      raffleEntries: a.raffleEntries || 0
+      raffleEntries: a.raffleEntries || 0,
+      gift: a.promo.id === "gift"
     }))
   };
 
@@ -1964,6 +1966,7 @@ function showPage(page) {
 
   document.body.classList.toggle("no-page-scroll", page === "pos");
   window.scrollTo(0, 0);
+  document.querySelectorAll(".page-content").forEach(el => { el.scrollTop = 0; }); // every page scrolls inside itself
 
   const pageEl = document.getElementById(
     { pos: "posPage", inventory: "inventoryPage", history: "historyPage", archive: "archivePage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage", forecast: "forecastPage" }[page]
@@ -2938,6 +2941,150 @@ function wheelValue(id) {
   return col ? col.children[wheelIndex(col)].dataset.v : null;
 }
 
+// ── Gifts inside the edit-sale modal ──
+// Staged in the modal and applied together with the rest of the edit when "Guardar" is pressed.
+let _editGifts = null;
+
+// Every product as something that can be gifted: flavours (Mini pastel maceta, Pan de muerto…) are separate rows
+function giftChoices() {
+  const out = [];
+  menu.forEach(cat => cat.items.forEach(item => {
+    const ex = ITEM_EXTRAS[item.name];
+    if (ex && (VARIANT_PRODUCTS[item.name] || ITEM_EXTRAS_ALWAYS_KEEP.has(item.name))) {
+      ex.forEach(e => out.push({ cat: cat.category, label: `${item.name} · ${e.name}`,
+        item: { name: item.name, price: item.price + e.price, extra: { name: e.name, price: e.price, ...(VARIANT_PRODUCTS[item.name] ? { variant: e.name } : {}) } } }));
+    } else {
+      out.push({ cat: cat.category, label: item.name, item: { name: item.name, price: item.price, extra: null } });
+    }
+  }));
+  return out;
+}
+
+function editGiftsHTML() {
+  const g = _editGifts;
+  const sale = (_historyData || []).find(s => s._id === g.saleId);
+  const giftLabel = i => esc(i.name) + (i.extra ? ` · ${esc(i.extra.name)}` : "");
+  const existing = (sale.items || []).map((it, idx) => ({ it, idx })).filter(x => x.it.gift).map(({ it, idx }) => {
+    const gone = g.remove.has(idx);
+    return `<div class="eg-row${gone ? " gone" : ""}"><span>${icon('gift')} ${giftLabel(it)}</span>
+      <button class="corr-btn" onclick="toggleRemoveGift(${idx})" aria-label="${gone ? "Restaurar" : "Quitar"}">${gone ? "↺" : "×"}</button></div>`;
+  }).join("");
+  const staged = g.add.map((it, i) => `<div class="eg-row"><span>${icon('gift')} ${giftLabel(it)} <small>nuevo</small></span>
+      <button class="corr-btn" onclick="unstageGift(${i})" aria-label="Quitar">×</button></div>`).join("");
+  let picker = "";
+  if (g.open) {
+    let last = null;
+    picker = `<div class="eg-picker">${giftChoices().map((c, i) => `${c.cat !== last ? (last = c.cat, `<div class="corr-cat">${catHTML(c.cat)}</div>`) : ""}
+      <button class="gift-row" onclick="stageGift(${i})"><span>${esc(c.label)}</span><small>STOCK: ${productStock(c.item.name)}</small></button>`).join("")}</div>`;
+  }
+  const any = existing || staged;
+  return `${any ? `<label class="eg-label">Regalos</label>${existing}${staged}` : ""}
+    <button class="btn-secondary btn-icon eg-add" onclick="toggleEditGiftPicker()">${icon('gift')} ${g.open ? "Cerrar lista" : "Añadir regalo"}</button>${picker}`;
+}
+function renderEditGifts() { const el = document.getElementById("edit-gifts"); if (el) el.innerHTML = editGiftsHTML(); }
+function toggleEditGiftPicker() { _editGifts.open = !_editGifts.open; renderEditGifts(); }
+function stageGift(i) { _editGifts.add.push(giftChoices()[i].item); _editGifts.open = false; renderEditGifts(); }
+function unstageGift(i) { _editGifts.add.splice(i, 1); renderEditGifts(); }
+function toggleRemoveGift(idx) { _editGifts.remove.has(idx) ? _editGifts.remove.delete(idx) : _editGifts.remove.add(idx); renderEditGifts(); }
+
+// ── Restore buttons of the edit-sale modal: a small ↺ right of each entry, disabled (dimmed) while the value is unchanged ──
+let _editOrig = null;
+const resetBtn = (field) => `<button class="ef-reset" id="reset-${field}" onclick="resetEditField('${field}')" disabled aria-label="Restaurar" title="Restaurar">${icon('rotateCcw')}</button>`;
+function updateEditResets() {
+  const o = _editOrig, tot = document.getElementById("edit-total");
+  if (!o || !tot) return;
+  const set = (field, dirty) => { const b = document.getElementById("reset-" + field); if (b) b.disabled = !dirty; };
+  set("total", !(parseFloat(tot.value) === o.total));
+  set("method", document.getElementById("edit-method").value !== o.method);
+  if (_editDate) set("date", _editDate.key !== _editDate.original);
+  if (_editTime) { const v = editTimeValues(); set("time", !(v.h * 60 + v.m === _editTime.original)); }
+}
+function resetEditField(field) {
+  const o = _editOrig;
+  if (field === "total") document.getElementById("edit-total").value = o.total.toFixed(2);
+  else if (field === "method") document.getElementById("edit-method").value = o.method;
+  else if (field === "date") { _editDate.key = _editDate.original; _editDate.open = false; renderEditDate(); }
+  else if (field === "time") {
+    _editTime.h = Math.floor(_editTime.original / 60); _editTime.m = _editTime.original % 60;
+    const panel = document.getElementById("edit-time-panel");
+    if (panel && !panel.classList.contains("hidden")) positionEditWheels();
+    document.getElementById("edit-time-btn").innerHTML = editTimeLabel();
+  }
+  updateEditResets();
+}
+
+// ── Time of the sale (edit-sale modal): a button; the wheel only opens while the time is being edited ──
+let _editTime = null;
+function editTimeLabel() {
+  const t = _editTime;
+  const d = new Date(2000, 0, 1, t.h, t.m);
+  const txt = appSettings.use24hEditor ? `${pad2(t.h)}:${pad2(t.m)}` : fmtTime12(d);
+  return `${esc(txt)}${t.h * 60 + t.m !== t.original ? " <small>(cambiada)</small>" : ""}`;
+}
+// current hour / minutes: read from the wheel while it is open, else from the saved state
+function editTimeValues() {
+  const panel = document.getElementById("edit-time-panel");
+  if (panel && !panel.classList.contains("hidden")) {
+    const ampm = wheelValue("edit-ampm");
+    const hv = parseInt(wheelValue("edit-hour"), 10);
+    return { h: ampm ? (hv % 12) + (ampm === "pm" ? 12 : 0) : hv, m: parseInt(wheelValue("edit-min"), 10) };
+  }
+  return { h: _editTime.h, m: _editTime.m };
+}
+// put every wheel column on the saved time (a hidden element cannot hold a scroll position)
+function positionEditWheels() {
+  const t = _editTime, use24 = !!appSettings.use24hEditor;
+  const set = (id, idx) => { const col = document.getElementById(id); if (col) { col.scrollTop = idx * WHEEL_ITEM; [...col.children].forEach((el, i) => el.classList.toggle("sel", i === idx)); } };
+  set("edit-hour", use24 ? t.h : (t.h % 12 || 12) - 1);
+  set("edit-min", t.m);
+  set("edit-ampm", t.h >= 12 ? 1 : 0);
+}
+function toggleEditTime() {
+  const panel = document.getElementById("edit-time-panel");
+  if (!panel) return;
+  if (panel.classList.contains("hidden")) {
+    panel.classList.remove("hidden");
+    positionEditWheels();
+  } else {
+    const v = editTimeValues();
+    if (!isNaN(v.h) && !isNaN(v.m)) { _editTime.h = v.h; _editTime.m = v.m; }
+    panel.classList.add("hidden");
+    document.getElementById("edit-time-btn").innerHTML = editTimeLabel();
+  }
+  updateEditResets();
+}
+
+// ── Date of the sale (edit-sale modal): an inline month calendar under the "Fecha" button ──
+let _editDate = null;
+const editDateLabel = key => { const d = fcDate(key); return `${FC_DAYS[d.getDay()]} ${d.getDate()} ${d.toLocaleDateString("es-MX", { month: "short" }).replace(".", "")} ${d.getFullYear()}`; };
+function editDateHTML() {
+  const g = _editDate;
+  let cal = "";
+  if (g.open) {
+    const first = g.cal;
+    let cells = "";
+    for (let i = 0; i < first.getDay(); i++) cells += `<span class="fc-rg-day blank"></span>`;
+    for (let d = 1, n = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate(); d <= n; d++) {
+      const key = fcKey(new Date(first.getFullYear(), first.getMonth(), d, 12));
+      cells += `<button class="fc-rg-day${key === g.key ? " rg-start rg-end" : ""}" onclick="editCalPick('${key}')">${d}</button>`;
+    }
+    const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+    cal = `<div class="edit-cal">
+      <div class="fc-cal-head">
+        <button class="fc-nav" onclick="editCalNav(-1)" aria-label="Mes anterior">${icon("chevronRight")}</button>
+        <strong>${esc(title)}</strong>
+        <button class="fc-nav next" onclick="editCalNav(1)" aria-label="Mes siguiente">${icon("chevronRight")}</button>
+      </div>
+      <div class="fc-cal">${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}${cells}</div>
+    </div>`;
+  }
+  return `<div class="ef-row"><div class="ef-main"><button class="fc-range-btn edit-date-btn" onclick="toggleEditCal()">${esc(editDateLabel(g.key))}${g.key !== g.original ? " <small>(cambiada)</small>" : ""}</button></div>${resetBtn("date")}</div>${cal}`;
+}
+function renderEditDate() { const el = document.getElementById("edit-date"); if (el) { el.innerHTML = editDateHTML(); updateEditResets(); } }
+function toggleEditCal() { _editDate.open = !_editDate.open; renderEditDate(); }
+function editCalNav(delta) { const c = _editDate.cal; _editDate.cal = new Date(c.getFullYear(), c.getMonth() + delta, 1, 12); renderEditDate(); }
+function editCalPick(key) { _editDate.key = key; _editDate.open = false; renderEditDate(); }
+
 function openEditSale(saleId) {
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (!sale) return;
@@ -2962,29 +3109,48 @@ function openEditSale(saleId) {
       ${use24 ? "" : wheelColHTML("edit-ampm", [{ v: "am", label: "a.m." }, { v: "pm", label: "p.m." }], isPm ? 1 : 0)}
     </div>`;
 
+  _editGifts = { saleId, add: [], remove: new Set(), open: false };
+  _editOrig = { total: parseFloat(sale.total), method: sale.method };
+  _editTime = when ? { h: when.getHours(), m: when.getMinutes(), original: when.getHours() * 60 + when.getMinutes() } : null;
+  if (when) { const k = fcKey(when); _editDate = { key: k, original: k, open: false, cal: new Date(when.getFullYear(), when.getMonth(), 1, 12) }; } else _editDate = null;
+
   openCompactModal(`
     <h3 style="margin-top:0;">${icon('pencil')} Editar venta</h3>
     <p style="font-size:12px;color:var(--text-muted);margin:0 0 12px;">Folio: ${esc(sale.folio || '—')} · ${esc(dateText(sale, use24))}</p>
     <div class="promo-form">
       <label>Total ($)</label>
-      <input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()">
+      <div class="ef-row"><div class="ef-main"><input id="edit-total" type="number" inputmode="decimal" value="${parseFloat(sale.total).toFixed(2)}" onfocus="this.select()"></div>${resetBtn("total")}</div>
 
       <label>Método de pago</label>
-      <select id="edit-method">
-        <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
-        <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
-        <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
-      </select>
+      <div class="ef-row"><div class="ef-main">
+        <select id="edit-method">
+          <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
+          <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
+          <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
+        </select>
+      </div>${resetBtn("method")}</div>
 
       ${saleTime ? `
+      <label>Fecha</label>
+      <div id="edit-date">${editDateHTML()}</div>
+
       <label>Hora</label>
-      <div id="edit-time" data-original="${saleTime}">${wheelHTML}</div>
+      <div id="edit-time" data-original="${saleTime}">
+        <div class="ef-row"><div class="ef-main"><button class="fc-range-btn edit-date-btn" id="edit-time-btn" onclick="toggleEditTime()">${editTimeLabel()}</button></div>${resetBtn("time")}</div>
+        <div id="edit-time-panel" class="hidden" style="margin-top:8px;">${wheelHTML}</div>
+      </div>
       ` : ''}
+
+      <div id="edit-gifts">${editGiftsHTML()}</div>
     </div>
     <button class="btn-brand" onclick="confirmEditSale('${saleId}')" style="margin-top:14px;">Guardar</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `);
-  initWheels(document.getElementById("modalContent"));
+  const mc = document.getElementById("modalContent");
+  initWheels(mc);
+  mc.oninput = mc.onchange = updateEditResets;
+  if (!mc._editScroll) { mc._editScroll = true; mc.addEventListener("scroll", e => { if (e.target.classList && e.target.classList.contains("wheel-col")) updateEditResets(); }, true); }
+  updateEditResets();
 }
 
 function openSaleNote(saleId) {
@@ -3163,24 +3329,49 @@ async function confirmEditSale(saleId) {
 
   const updates = { total, method };
 
-  // Change only the time of day; the sale keeps its date and seconds.
+  // Change the day and / or the time of day; the sale keeps its seconds.
   const timeInput = document.getElementById("edit-time");
   const sale = (_historyData || []).find(s => s._id === saleId);
   if (timeInput && sale && sale.isoDate) {
-    const ampm = wheelValue("edit-ampm");
-    const hv = parseInt(wheelValue("edit-hour"), 10);
-    const h = ampm ? (hv % 12) + (ampm === "pm" ? 12 : 0) : hv;
-    const m = parseInt(wheelValue("edit-min"), 10);
+    const { h, m } = editTimeValues();
     if (isNaN(h) || isNaN(m)) { showToast("Hora inválida"); return; }
-    if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original) {
+    const dayKey = _editDate ? _editDate.key : fcKey(new Date(sale.isoDate));
+    if (`${pad2(h)}:${pad2(m)}` !== timeInput.dataset.original || (_editDate && dayKey !== _editDate.original)) {
       const d = new Date(sale.isoDate);
+      const [yy, mm, dd] = dayKey.split("-").map(Number);
+      d.setFullYear(yy, mm - 1, dd);
       d.setHours(h, m);
       updates.isoDate = d.toISOString();
       updates.date = d.toLocaleString();
     }
   }
 
+  // Gifts added / removed in the modal: the sale's items and its "Regalo" promotion are rebuilt (the total does not
+  // change: a gift is an item plus an equal discount) and the stock follows.
+  const g = _editGifts;
+  if (sale && g && g.saleId === saleId && (g.add.length || g.remove.size)) {
+    const stockMoves = {};
+    const keep = [];
+    (sale.items || []).forEach((it, idx) => {
+      if (g.remove.has(idx)) { const k = stockKey(it); stockMoves[k] = (stockMoves[k] || 0) + 1; } else keep.push(it);
+    });
+    g.add.forEach(it => { keep.push({ name: it.name, price: it.price, extra: it.extra ? { ...it.extra } : null, gift: true }); const k = stockKey(it); stockMoves[k] = (stockMoves[k] || 0) - 1; });
+    const gifts = keep.filter(i => i.gift);
+    const promos = (sale.promos || []).filter(p => !p.gift);
+    if (gifts.length) promos.push({ name: GIFT_PROMO.name, discount: gifts.reduce((t, i) => t + i.price, 0), freeCount: gifts.length, freeItemName: [...new Set(gifts.map(i => i.name))].join(", "), raffleEntries: 0, gift: true });
+    updates.items = keep;
+    updates.promos = promos;
+    for (const [k, delta] of Object.entries(stockMoves)) {            // delta > 0: gift removed (back to stock), < 0: gift added
+      if (!delta) continue;
+      inventory[k] = Math.max(0, (inventory[k] || 0) + delta);
+      (delta > 0 ? DataStore.incrementStock(k, delta) : DataStore.reduceStock(k, -delta)).catch(() => {});
+    }
+    saveInventory();
+    renderProducts();
+  }
+
   await DataStore.updateSale(saleId, updates);
+  _editGifts = null;
   closeModal();
   showToast("Venta actualizada", "check");
   await renderHistoryFromFirestore();
@@ -3260,8 +3451,7 @@ function renderHistoryWithData(data) {
           </div>
         `;
       } else {
-        let label = `${icon('tag')} ${esc(p.name)}`;
-        if (p.freeCount) label += ` (+${p.freeCount} gratis)`;
+        const label = promoLineLabel(p.name, p.gift, p.freeCount);
         itemsHTML += `
           <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:12px;color:var(--green);padding:2px 0;">
             <span></span>
@@ -3347,16 +3537,17 @@ function updateStatsJump() {
   if (!btn || !stats) return;
   let show = false;
   if (document.getElementById("historyPage").style.display !== "none" && stats.style.display !== "none") {
-    show = stats.getBoundingClientRect().top > window.innerHeight - 8;
+    const sc = document.querySelector("#historyPage .page-content");
+    show = stats.getBoundingClientRect().top > sc.getBoundingClientRect().bottom - 8;
   }
   btn.classList.toggle("show", show);
 }
 
 function scrollToStats() {
   const stats = document.getElementById("historyStats");
-  const header = document.querySelector(".header");
-  const top = stats.getBoundingClientRect().top + window.scrollY - (header ? header.offsetHeight : 0) - 10;
-  window.scrollTo({ top, behavior: "smooth" });
+  const sc = document.querySelector("#historyPage .page-content");
+  const top = stats.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 10;
+  sc.scrollTo({ top, behavior: "smooth" });
 }
 
 function updateCutBtnWithData(data) {
@@ -3537,7 +3728,7 @@ function archiveSaleHTML(sale) {
       <span class="arch-item-price">${moneyPinned(g.unit * g.qty)}</span>
     </div>`).join("");
   const promos = (sale.promos || []).map(p => `
-    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
+    <div class="arch-item arch-promo"><b></b><span>${p.gift ? icon('gift') : icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
   return `
     <div class="arch-sale">
       <div class="arch-sale-head">
@@ -3916,6 +4107,12 @@ function itemMatchesScope(item, promo) {
 // item in the cart is discounted by its own price. Gifts never count towards (nor get discounted by) other promotions.
 const GIFT_PROMO = { id: "gift", name: "Regalo", active: true, scope: "any", scopeValue: "", triggerQty: 1, type: "free_item", value: 1 };
 
+// Label of a promotion line: a gift reads "[gift icon] Regalo"; other free-item promos keep "(+n gratis)"
+function promoLineLabel(name, isGift, freeCount) {
+  if (isGift) return `${icon('gift')} ${esc(name)}`;
+  return `${icon('tag')} ${esc(name)}${freeCount ? ` (+${freeCount} gratis)` : ""}`;
+}
+
 function applyPromotions(allItems) {
   const applied = [];
   const gifts = allItems.filter(i => i.gift);
@@ -4048,9 +4245,7 @@ function renderCart() {
     if (a.raffleEntries) {
       line.innerHTML = `<span>${icon('ticket')} ${esc(a.promo.name)} (×${a.raffleEntries})</span><span style="color:var(--green);">¡Rifa!</span>`;
     } else {
-      let label = `${icon('tag')} ${esc(a.promo.name)}`;
-      if (a.freeCount) label += ` (+${a.freeCount} gratis)`;
-      line.innerHTML = `<span>${label}</span><span>−$${a.discount.toFixed(2)}</span>`;
+      line.innerHTML = `<span>${promoLineLabel(a.promo.name, a.promo.id === "gift", a.freeCount)}</span><span>−$${a.discount.toFixed(2)}</span>`;
     }
     frag.appendChild(line);
   });
@@ -4790,7 +4985,7 @@ async function confirmSaveAsPending() {
       total: finalTotal,
       promos: appliedPromos
         .filter(a => a.discount > 0 || a.raffleEntries)
-        .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0 }))
+        .map(a => ({ name: a.promo.name, discount: a.discount, freeCount: a.freeCount || 0, freeItemName: a.freeItemName || "", raffleEntries: a.raffleEntries || 0, gift: a.promo.id === "gift" }))
     };
 
     for (const item of order.items) {
@@ -4988,7 +5183,7 @@ function sharePending(id) {
 }
 
 // History: show/hide the "go to stats" button as the page scrolls or changes size
-window.addEventListener("scroll", updateStatsJump, { passive: true });
+document.querySelector("#historyPage .page-content").addEventListener("scroll", updateStatsJump, { passive: true });
 window.addEventListener("resize", updateStatsJump);
 if (window.ResizeObserver) new ResizeObserver(updateStatsJump).observe(document.getElementById("historyList"));
 
@@ -5739,6 +5934,13 @@ window.matchMedia("(hover: hover) and (pointer: fine)").addEventListener("change
   const el = document.getElementById(id);
   if (el) el.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 });
+
+// Phones: ask the browser to stay in portrait (works on Android; iOS ignores it, so #rotateGuard covers the app there)
+try {
+  if (Math.min(screen.width, screen.height) < 500 && screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock("portrait-primary").catch(() => {});
+  }
+} catch (e) {}
 
 // Fill static icon placeholders in index.html
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });
