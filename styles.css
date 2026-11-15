@@ -2130,10 +2130,10 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-sources a { color: var(--brand-dark); }
 
 .fc-day { transition: box-shadow 0.45s linear; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-/* festivo bar along the top (the icons live at the bottom): fills left to right while holding on a normal day, drains while holding on a festivo day */
-.fc-day::before { content: ""; position: absolute; inset: -2px; border-radius: 9px; box-shadow: inset 0 9px 0 var(--purple); clip-path: inset(0 100% 0 0); transition: clip-path 0.35s linear; pointer-events: none; }
+/* festivo bar along the top (the icons live at the bottom): fills top to bottom while holding on a normal day, drains back up while holding on a festivo day */
+.fc-day::before { content: ""; position: absolute; inset: -2px -2px auto -2px; height: 20px; border-radius: 9px; box-shadow: inset 0 9px 0 var(--purple); clip-path: inset(0 0 100% 0); transition: clip-path 0.35s linear; pointer-events: none; }
 .fc-day.is-festivo::before, .fc-day.pressing-festivo::before { clip-path: inset(0 0 0 0); }
-.fc-day.is-festivo.pressing-festivo::before { clip-path: inset(0 100% 0 0); }
+.fc-day.is-festivo.pressing-festivo::before { clip-path: inset(0 0 100% 0); }
 /* while the full line is drawn (or erased) the cell's own border is hidden and the same svg draws the dashed outline
    behind it, so the line and the dashes share exactly the same geometry */
 .fc-day.pressing-include { border-color: transparent !important; }
