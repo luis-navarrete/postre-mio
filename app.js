@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.19.4";
-const APP_UPDATED = "2026-11-16T14:00Z";
+const APP_VERSION = "1.19.5";
+const APP_UPDATED = "2026-11-16T15:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5172,7 +5172,7 @@ function fcRender() {
 
   const calendar = `<div class="settings-card"><h3>${icon("calendar")} Calendario</h3>${fcCalendarHTML(m)}</div>`;
 
-  let body;
+  let body, daysCard = "";
   if (!m) {
     body = `<div class="settings-card"><p class="fc-empty">Aún no hay ventas ni eventos guardados para calcular un pronóstico.</p></div>`;
   } else {
@@ -5201,12 +5201,13 @@ function fcRender() {
         <td class="make"><span class="${r.make ? "pill" : "pill zero"}">${r.make}</span></td>
       </tr>`).join("");
     const range = m.remaining.length ? m.remaining.map(d => fcLabel(d.key)).join(" · ") : "";
-    body = `
+    daysCard = `
       <div class="settings-card">
         <h3>${icon("receipt")} Días con ventas</h3>
         ${m.observed.length ? `<div class="fc-chips">${chips}</div>` : `<p class="fc-empty">Este evento aún no tiene ventas; el pronóstico usa solo los eventos guardados.</p>`}
         <p class="fc-hint">Toca un día para incluirlo o dejarlo fuera del cálculo. El factor (×) es lo que pesa ese día frente a uno normal.</p>
-      </div>
+      </div>`;
+    body = `
       <div class="settings-card">
         <div class="fc-table-head">
           <h3>${icon("flame")} Propuesta${range ? ` <small>para ${esc(range)}</small>` : ""}</h3>
@@ -5235,7 +5236,7 @@ function fcRender() {
       (<a href="https://escholarship.org/content/qt95f078fj/qt95f078fj.pdf?t=smzq6r" target="_blank" rel="noopener">eScholarship</a>). Por eso puse +10% y −10%, el extremo bajo.</p>
       <p class="fc-hint">Estas cifras vienen de resúmenes de los estudios; confírmalas antes de tomarlas como exactas. Tus propios datos pesan más: con más días de ventas, el pronóstico depende cada vez menos de estos factores.</p>
     </details>`;
-  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}${hist}${sources}`;
+  root.innerHTML = `<div class="fc-top">${options}<div class="fc-side">${calendar}${daysCard}</div></div>${body}${hist}${sources}`;
 }
 
 function fcHistoryHTML(m) {
