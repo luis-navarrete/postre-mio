@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.23.1";
-const APP_UPDATED = "2026-11-18T03:00Z";
+const APP_VERSION = "1.23.2";
+const APP_UPDATED = "2026-11-18T04:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5242,12 +5242,21 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
-// Two outline halves that start together at the top centre and meet at the bottom centre.
-// On a festivo day a darker purple copy, clipped to the top band, is laid over the part that crosses the festivo cap.
-const FC_DRAW_PATHS = '<path pathLength="1" d="M50 1.5H86a12.5 12.5 0 0 1 12.5 12.5V86a12.5 12.5 0 0 1-12.5 12.5H50"/>' +
-  '<path pathLength="1" d="M50 1.5H14A12.5 12.5 0 0 0 1.5 14V86A12.5 12.5 0 0 0 14 98.5H50"/>';
-const fcDrawSvg = festivo => '<svg class="fc-draw" viewBox="0 0 100 100" aria-hidden="true">' + FC_DRAW_PATHS +
-  (festivo ? '<defs><clipPath id="fcCapClip"><rect x="-5" y="-5" width="110" height="19"/></clipPath></defs><g class="fc-draw-cap" clip-path="url(#fcCapClip)">' + FC_DRAW_PATHS + '</g>' : '') + '</svg>';
+// Two outline halves that start together at the top centre and meet at the bottom centre. The svg is drawn in real
+// pixels at the cell's exact size (border box, 9px corners, 2px line) so the line lies exactly on the cell's border.
+// On a festivo day a darker purple copy, clipped to the festivo cap's own crescent shape, is laid over the part that
+// crosses the cap, so the two line up exactly.
+const FC_CAP = 9; // px, thickness of the festivo cap (keep in sync with the ::before box-shadow in styles.css)
+function fcDrawSvg(festivo, W, H) {
+  const R = 9, r = R - 1, mx = (W / 2).toFixed(2), w = W.toFixed(2), h = H.toFixed(2);
+  const paths = `<path pathLength="1" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${mx}"/>` +
+    `<path pathLength="1" d="M${mx} 1H${1 + r}a${r} ${r} 0 0 0-${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 0 ${r} ${r}H${mx}"/>`;
+  const box = dy => `M0 ${R + dy}a${R} ${R} 0 0 1 ${R} -${R}H${(W - R).toFixed(2)}a${R} ${R} 0 0 1 ${R} ${R}V${(H - R + dy).toFixed(2)}a${R} ${R} 0 0 1 -${R} ${R}H${R}a${R} ${R} 0 0 1 -${R} -${R}Z`;
+  const cap = festivo
+    ? `<defs><clipPath id="fcCapClip"><path clip-rule="evenodd" d="${box(0)} ${box(FC_CAP)}"/></clipPath></defs><g class="fc-draw-cap" clip-path="url(#fcCapClip)">${paths}</g>`
+    : "";
+  return `<svg class="fc-draw" viewBox="0 0 ${w} ${h}" aria-hidden="true">${paths}${cap}</svg>`;
+}
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
@@ -5271,7 +5280,8 @@ function fcPressStart(e, key) {
   } else if (el.classList.contains("obs") || el.classList.contains("off")) {
     // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
     el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
-    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo")));
+    const box = el.getBoundingClientRect();
+    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height));
   }
   _fcPress = {
     key, button: e.button, fired: false, at: 0,

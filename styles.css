@@ -2137,7 +2137,7 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-day.pressing-include { border-color: transparent !important; }
 .fc-draw { position: absolute; left: -2px; top: -2px; width: calc(100% + 4px); height: calc(100% + 4px); pointer-events: none; overflow: visible; }
 .fc-draw .fc-draw-cap path { stroke: #4a2fc2; }
-.fc-draw path { fill: none; stroke: var(--brand-dark); stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; }
+.fc-draw path { fill: none; stroke: var(--brand-dark); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 1; }
 .fc-day.draw .fc-draw path { stroke-dashoffset: 1; animation: fcDraw 0.5s linear forwards; }
 .fc-day.erase .fc-draw path { stroke-dashoffset: 0; animation: fcErase 0.5s linear forwards; }
 @keyframes fcDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
