@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.3";
-const APP_UPDATED = "2026-11-17T19:00Z";
+const APP_VERSION = "1.22.4";
+const APP_UPDATED = "2026-11-17T20:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -940,6 +940,12 @@ const ITEM_EXTRAS_STEP2 = {
 // canela's "Natural", which is the default/no-extra state and can be omitted.
 const ITEM_EXTRAS_ALWAYS_KEEP = new Set(["Mini pastel maceta"]);
 
+// A product whose extras choice is a flavour (Mini pastel maceta, Pan de muerto, and any future product added to
+// ITEM_EXTRAS_ALWAYS_KEEP or VARIANT_PRODUCTS) shows it as "Red velvet"; a paid add-on shows "+ Nutella".
+const isFlavorProduct = name => ITEM_EXTRAS_ALWAYS_KEEP.has(name) || !!VARIANT_PRODUCTS[name];
+const extraText = (itemName, extraName) => (isFlavorProduct(itemName) ? "" : "+ ") + extraName;
+const extraInline = (itemName, extraName) => itemName + (isFlavorProduct(itemName) ? " · " : " + ") + extraName; // plain text
+
 const ITEM_EXTRAS_LABEL = {
   "Rol de canela": "Elige el betún:",
   "Pan de muerto": "Elige el relleno:",
@@ -1587,7 +1593,7 @@ function generateTicket(sale) {
       ${info.extra ? `
       <tr style="font-size:10px;opacity:0.8;">
         <td></td>
-        <td style="padding-left:8px;">+ ${esc(info.extra.name)}</td>
+        <td style="padding-left:8px;">${esc(extraText(info.name, info.extra.name))}</td>
         <td style="width:8px;text-align:right;padding-right:0;">$</td>
         <td style="text-align:right;padding-left:2px;">${info.extra.price.toFixed(2)}</td>
         <td colspan="2" style="text-align:right;padding-left:2px;font-style:italic;">(incl.)</td>
@@ -3191,7 +3197,7 @@ function renderHistoryWithData(data) {
       itemsHTML += `
         <div style="display:grid;grid-template-columns:20px 1fr 58px 58px;gap:4px;font-size:13px;padding:3px 0;">
           <span style="text-align:center;">${info.qty}</span>
-          <span>${esc(info.name)}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">+ ${esc(info.extra.name)}</span>` : ''}</span>
+          <span>${esc(info.name)}${info.extra ? `<br><span style="font-size:11px;color:var(--purple);">${esc(extraText(info.name, info.extra.name))}</span>` : ''}</span>
           <span style="text-align:right;">$${info.price.toFixed(2)}</span>
           <span style="text-align:right;">$${subtotal.toFixed(2)}</span>
         </div>
@@ -3485,7 +3491,7 @@ function archiveSaleHTML(sale) {
   const items = groupSaleItems(sale).map(g => `
     <div class="arch-item">
       <b>${g.qty}×</b>
-      <span>${esc(g.name)}${g.extra ? ` <i>+ ${esc(g.extra.name)}</i>` : ""}</span>
+      <span>${esc(g.name)}${g.extra ? ` <i>${esc(extraText(g.name, g.extra.name))}</i>` : ""}</span>
       <span class="arch-item-price">${moneyPinned(g.unit * g.qty)}</span>
     </div>`).join("");
   const promos = (sale.promos || []).map(p => `
@@ -3604,7 +3610,7 @@ function buildArchiveWorkbook(days, mermas) {
       const [fecha, hora] = saleDateTime(sale);
       const counts = {};
       (sale.items || []).forEach(i => { const n = currentProductName(i.name); counts[n] = (counts[n] || 0) + 1; });
-      const detalle = groupSaleItems(sale).map(g => `${g.qty}× ${g.name}${g.extra ? " + " + g.extra.name : ""}`).join(", ");
+      const detalle = groupSaleItems(sale).map(g => `${g.qty}× ${g.extra ? extraInline(g.name, g.extra.name) : g.name}`).join(", ");
       const promos = (sale.promos || []).map(p => p.name + (p.discount > 0 ? ` (−${money(p.discount)})` : "") + (p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : "")).join("; ");
       rows.push([
         sale.folio || "", fecha, hora, METHOD_LABELS[sale.method] || sale.method || "",
@@ -4826,7 +4832,7 @@ async function renderPending() {
   list.forEach(order => {
     const grouped = {};
     order.items.forEach(item => {
-      const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+      const key = item.extra ? extraInline(item.name, item.extra.name) : item.name;
       grouped[key] = (grouped[key] || 0) + 1;
     });
     const summary = Object.entries(grouped)
@@ -4887,7 +4893,7 @@ function sharePending(id) {
 
   const grouped = {};
   order.items.forEach(item => {
-    const key = item.name + (item.extra ? ' + ' + item.extra.name : '');
+    const key = item.extra ? extraInline(item.name, item.extra.name) : item.name;
     grouped[key] = { qty: (grouped[key]?.qty || 0) + 1, price: item.price };
   });
 
