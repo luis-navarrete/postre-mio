@@ -33,9 +33,9 @@ html, body {
 }
 
 
-/* The header stays put: the page never scrolls itself, each page scrolls inside its own area under the header
-   (so pulling down / up only moves the content, never the header). */
-body {
+/* The header is fixed (it never moves when the page is pulled), and the pages scroll the document itself so iOS's
+   tap-the-status-bar-to-scroll-to-top works. Caja keeps fixed panes (products and cart scroll on their own). */
+body.no-page-scroll {
   overflow: hidden;
   height: 100dvh;
 }
@@ -102,8 +102,10 @@ button:active { opacity: 0.75; }
 
 /* ── HEADER ────────────────────────────── */
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 1000;
   width: 100%;
   background: var(--brand);
@@ -2275,7 +2277,13 @@ body.has-savebar .toast { bottom: 96px; }
 }
 
 /* viewport-fit=cover lets the page use the whole screen (needed for the curved corner button); keep the content out of the notch when the phone is sideways */
-body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); box-sizing: border-box; }
+body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); padding-top: var(--header-h, 100px); box-sizing: border-box; }
+/* header is fixed: the header itself ignores the body's side padding */
+.header { margin: 0; }
+
+/* Pages that scroll with the document (so iOS can scroll them to the top) */
+.page.page-flow { height: auto; overflow: visible; }
+.page.page-flow .page-content { height: auto; overflow: visible; }
 
 /* Phone held sideways: the app is made for portrait, so cover it with a "turn your phone" message.
    (Phones only: a short landscape touch screen. iPads and computers are not affected.) */
@@ -2311,3 +2319,8 @@ body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-are
 .modal-content .ef-reset { width: 36px; height: 36px; margin: 0; padding: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--brand); color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; }
 .ef-reset .icon { width: 16px; height: 16px; }
 .modal-content .ef-reset:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Historial: the day's adjustment */
+.adjust-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--brand-dark); }
+.adjust-tag .icon { width: 13px; height: 13px; }
+.inventory-card.adjust-card { border-left: 3px solid var(--brand); }
