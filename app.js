@@ -11,12 +11,33 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.4";
-const APP_UPDATED = "2026-11-19T13:00Z";
+const APP_VERSION = "1.30.5";
+const APP_UPDATED = "2026-11-19T14:00Z";
 
 const STORE_ID = "postremio_main";
 
-{ const v = document.getElementById("authVersion"); if (v) v.textContent = "v" + APP_VERSION; }
+// Press and hold the version on the PIN screen for 3 seconds to update the app (same as Ajustes > Actualizar),
+// so there is no need to log in just to pick up a new release.
+{
+  const v = document.getElementById("authVersion");
+  if (v) {
+    v.textContent = "v" + APP_VERSION;
+    let timer = null;
+    const stop = () => { clearTimeout(timer); timer = null; v.classList.remove("holding"); };
+    v.addEventListener("pointerdown", () => {
+      stop();
+      v.classList.add("holding");
+      timer = setTimeout(() => {
+        timer = null;
+        v.textContent = "Actualizando…";
+        try { navigator.vibrate && navigator.vibrate(60); } catch (e) {}
+        refreshApp();
+      }, 3000);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(ev => v.addEventListener(ev, stop));
+    v.addEventListener("contextmenu", e => e.preventDefault());
+  }
+}
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();

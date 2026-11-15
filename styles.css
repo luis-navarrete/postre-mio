@@ -1311,14 +1311,18 @@ button:active { opacity: 0.75; }
 
 .auth-version {
   position: absolute;
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  left: 0;
-  right: 0;
+  bottom: calc(4px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 20px;   /* a comfortable target for the 3-second press that updates the app */
   text-align: center;
   font-size: 11px;
   color: rgba(255,255,255,0.45);
-  pointer-events: none;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  touch-action: manipulation;
+  transition: color 3s linear;
 }
+.auth-version.holding { color: rgba(255,255,255,0.95); }   /* slowly brightens while it is held */
 
 .auth-error {
   min-height: 34px;
