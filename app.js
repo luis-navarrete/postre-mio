@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.28.3";
-const APP_UPDATED = "2026-11-19T02:00Z";
+const APP_VERSION = "1.28.4";
+const APP_UPDATED = "2026-11-19T03:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3728,7 +3728,7 @@ function archiveSaleHTML(sale) {
       <span class="arch-item-price">${moneyPinned(g.unit * g.qty)}</span>
     </div>`).join("");
   const promos = (sale.promos || []).map(p => `
-    <div class="arch-item arch-promo"><b></b><span>${p.gift ? icon('gift') : icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
+    <div class="arch-item arch-promo"><b></b><span>${icon('tag')} ${esc(p.name)}${p.raffleEntries ? ` (rifa ×${p.raffleEntries})` : ""}</span><span class="arch-item-price">${p.discount > 0 ? moneyPinned(p.discount, "−") : ""}</span></div>`).join("");
   return `
     <div class="arch-sale">
       <div class="arch-sale-head">
@@ -4107,10 +4107,9 @@ function itemMatchesScope(item, promo) {
 // item in the cart is discounted by its own price. Gifts never count towards (nor get discounted by) other promotions.
 const GIFT_PROMO = { id: "gift", name: "Regalo", active: true, scope: "any", scopeValue: "", triggerQty: 1, type: "free_item", value: 1 };
 
-// Label of a promotion line: a gift reads "[gift icon] Regalo"; other free-item promos keep "(+n gratis)"
+// Label of a promotion line ("[tag icon] name"): a gift reads just "Regalo"; other free-item promos keep "(+n gratis)"
 function promoLineLabel(name, isGift, freeCount) {
-  if (isGift) return `${icon('gift')} ${esc(name)}`;
-  return `${icon('tag')} ${esc(name)}${freeCount ? ` (+${freeCount} gratis)` : ""}`;
+  return `${icon('tag')} ${esc(name)}${!isGift && freeCount ? ` (+${freeCount} gratis)` : ""}`;
 }
 
 function applyPromotions(allItems) {
