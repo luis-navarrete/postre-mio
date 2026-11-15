@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.24.1";
-const APP_UPDATED = "2026-11-18T13:00Z";
+const APP_VERSION = "1.25.0";
+const APP_UPDATED = "2026-11-18T14:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -4973,6 +4973,7 @@ const FC_DEFAULTS = {
   useTrend: true,
   usePayday: false, paydays: [], payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip,
   usePromo: false, promoDays: [], promoBoost: FC_SUGGESTED.promoBoost,
+  closeHour: 21,      // the stand closes at this hour: the rest of today runs from the last sale to then
   fillToday: true,    // the rest of today counts as a day to fill (what the stock cannot cover today runs out)
   useFestivo: false, festivoDays: [], // holiday / long weekend: a day that sells like a weekend day
   useHistory: true,                   // learn from events saved in earlier years/events
@@ -4990,7 +4991,7 @@ function fcLoadPrefs() {
   const base = { ...FC_DEFAULTS, weekdayF: { ...FC_DEFAULTS.weekdayF } };
   if (saved.v !== FC_VERSION) {
     // numbers saved by an older version were rough guesses: keep switches, marked days and the like, not the factors
-    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "fillToday", "useFestivo", "festivoDays", "useHistory", "eventName"]
+    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays", "eventStart", "eventEnd", "fillToday", "closeHour", "useFestivo", "festivoDays", "useHistory", "eventName"]
       .forEach(k => { if (saved[k] !== undefined) base[k] = saved[k]; });
     return base;
   }
@@ -5036,7 +5037,9 @@ function fcGroupByDay(sales) {
   sales.forEach(s => {
     if (!s.isoDate) return;
     const k = fcKey(new Date(s.isoDate));
-    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0, total: 0 };
+    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0, total: 0, first: Infinity, last: -Infinity };
+    const at = new Date(s.isoDate).getTime();
+    day.first = Math.min(day.first, at); day.last = Math.max(day.last, at);
     day.sales++;
     day.total += parseFloat(s.total) || 0;
     (s.items || []).forEach(i => {
@@ -5060,6 +5063,17 @@ function fcMenuOrder() {
     order[k] = { ci, pos: ii * 10 + vi, cat: cat.category };
   })));
   return order;
+}
+
+// Share of today still to come: from the time of today's last sale to the closing hour, out of the whole selling
+// window (first sale today to closing). No sales yet today: the whole day. Past closing time: nothing.
+function fcTodayLeft(todayObs, p, now) {
+  const close = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime() + (Number(p.closeHour) || 21) * 3600000;
+  if (now.getTime() >= close) return 0;
+  if (!todayObs || !isFinite(todayObs.first)) return 1;
+  const window = close - todayObs.first;
+  if (window <= 0) return 0;
+  return Math.min(1, Math.max(0, (close - todayObs.last) / window));
 }
 
 // sales: every sale of the event (archive + the open day). stock/frozen: { key: n }. history: saved events.
@@ -5093,7 +5107,8 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
   for (let d = lastUsed ? fcAddDays(lastUsed, 1) : start; d <= end; d = fcAddDays(d, 1)) {
     if (fcKey(d) < todayKey) continue; // days already gone with no sales are not forecast
     if (fcKey(d) === todayKey && !p.fillToday) continue; // the rest of today is not a day to fill
-    remaining.push({ key: fcKey(d), date: d, today: fcKey(d) === todayKey, ...fcDayFactor(d, p) });
+    const isToday = fcKey(d) === todayKey;
+    remaining.push({ key: fcKey(d), date: d, today: isToday, frac: isToday ? fcTodayLeft(observed.find(o => o.today), p, now) : 1, ...fcDayFactor(d, p) });
   }
 
   const names = new Set();
@@ -5112,10 +5127,7 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
     const perDay = remaining.map(r => {
       // today's demand is served from the stock first (so the stock is subtracted once, below); whatever the stock
       // cannot cover, i.e. what runs out today, ends up in "make"
-      let v = base * r.f;
-      // today's sales so far are already out of the stock count
-      if (r.today && todayObs && !todayObs.included) v = Math.max(0, v - (todayObs.units[name] || 0));
-      return v;
+      return base * r.f * r.frac; // frac = share of today still to come (1 for the other days)
     });
     const total = perDay.reduce((t, v) => t + (v || 0), 0) * (1 + p.margin / 100);
     const need = Math.ceil(total - 1e-9);
@@ -5501,7 +5513,8 @@ function fcRender() {
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
         fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%"))}
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
-      ${fcSwitch("fcToday", "Resto de hoy: reponer lo que se agote", p.fillToday, "fcSet('fillToday', this.checked)")}
+      ${fcSwitch("fcToday", "Resto de hoy: reponer lo que se agote", p.fillToday, "fcSet('fillToday', this.checked)",
+        fcNum("Hora de cierre", p.closeHour, "closeHour", 0, 24, 1, "h"))}
       <div class="fc-opt fc-calc">
         ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
         <div class="fc-num-row"><span>Fechas del evento</span><button class="fc-range-btn" onclick="fcOpenRange()">${fcRangeLabel()}</button></div>
@@ -5519,7 +5532,7 @@ function fcRender() {
       <tr>
         <th class="l">Producto</th>
         ${m.observed.map(d => `<th class="${d.included ? "" : "off"}">${fcLabel(d.key)}</th>`).join("")}
-        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}${d.today ? " <small>(resto)</small>" : ""}</th>`).join("")}
+        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}${d.today ? ` <small>(resto ${Math.round(d.frac * 100)}%)</small>` : ""}</th>`).join("")}
         <th>Necesario</th><th>Hay</th><th class="make">Hacer</th>
       </tr>`;
     const cols = 4 + m.observed.length + m.remaining.length;
