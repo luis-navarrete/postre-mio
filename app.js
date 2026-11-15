@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.24.0";
-const APP_UPDATED = "2026-11-18T12:00Z";
+const APP_VERSION = "1.24.1";
+const APP_UPDATED = "2026-11-18T13:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -4973,7 +4973,7 @@ const FC_DEFAULTS = {
   useTrend: true,
   usePayday: false, paydays: [], payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip,
   usePromo: false, promoDays: [], promoBoost: FC_SUGGESTED.promoBoost,
-  fillToday: true,    // the rest of today counts as a day to fill, for products that have already sold out
+  fillToday: true,    // the rest of today counts as a day to fill (what the stock cannot cover today runs out)
   useFestivo: false, festivoDays: [], // holiday / long weekend: a day that sells like a weekend day
   useHistory: true,                   // learn from events saved in earlier years/events
   eventName: "",
@@ -5109,10 +5109,9 @@ function fcModel(sales, p, now, stock, frozen, history = []) {
     const histRate = histDenom > 0 ? histDays.reduce((t, h) => t + (h.d.units[name] || 0), 0) / histDenom : 0;
     const den = denom + (histDenom > 0 ? histW : 0);
     const base = den > 0 ? (num + (histDenom > 0 ? histW * histRate : 0)) / den : 0;
-    const soldOut = (stock[name] ?? 0) === 0;
     const perDay = remaining.map(r => {
-      // the rest of today only matters for a product that has already sold out (what is in stock covers it otherwise)
-      if (r.today && !soldOut) return null;
+      // today's demand is served from the stock first (so the stock is subtracted once, below); whatever the stock
+      // cannot cover, i.e. what runs out today, ends up in "make"
       let v = base * r.f;
       // today's sales so far are already out of the stock count
       if (r.today && todayObs && !todayObs.included) v = Math.max(0, v - (todayObs.units[name] || 0));
@@ -5502,7 +5501,7 @@ function fcRender() {
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
         fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%"))}
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)")}
-      ${fcSwitch("fcToday", "Resto de hoy para productos agotados", p.fillToday, "fcSet('fillToday', this.checked)")}
+      ${fcSwitch("fcToday", "Resto de hoy: reponer lo que se agote", p.fillToday, "fcSet('fillToday', this.checked)")}
       <div class="fc-opt fc-calc">
         ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
         <div class="fc-num-row"><span>Fechas del evento</span><button class="fc-range-btn" onclick="fcOpenRange()">${fcRangeLabel()}</button></div>
