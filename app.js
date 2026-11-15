@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.19.1";
-const APP_UPDATED = "2026-11-15T23:00Z";
+const APP_VERSION = "1.19.2";
+const APP_UPDATED = "2026-11-16T00:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -597,7 +597,7 @@ const _ICON_PATHS = {
   bread:    '<path d="M5 11a4 4 0 0 1 0-8h14a4 4 0 0 1 0 8v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/>',
   banknote: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
   coins:    '<circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18"/><path d="M7 6h1v4"/><path d="m16.7 13.9.7.7-2.8 2.8"/>',
-  tag:      '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
+  tag:      '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><path d="M16.5 10.5l-6 6"/><circle cx="11" cy="11" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/>',
   gift:     '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
   ticket:   '<path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/><path d="M13 8.5v.01M13 12v.01M13 15.5v.01"/>',
   check:    '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
@@ -5034,13 +5034,28 @@ function fcResetSuggested() {
 }
 function fcToggleDay(key, included) { _fc.prefs.override[key] = !included; fcSavePrefs(); fcRender(); }
 function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.getMonth() + delta, 1, 12); fcRender(); }
-function fcCalMode(mode) { _fc.mode = mode; fcRender(); }
-// Tap a day: mark/unmark it as payday or promotion (and switch that option on)
-function fcCalTap(key) {
-  const p = _fc.prefs;
-  const [list, flag] = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] }[_fc.mode];
+// Calendar clicks: left = payday (quincena), right = promotion, double right = festivo.
+// Each one turns its option on when a day gets marked.
+const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
+function fcToggleMark(key, kind) {
+  const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
   if (p[list].length) p[flag] = true;
+}
+function fcCalTap(key) { fcToggleMark(key, "pay"); fcSavePrefs(); fcSyncMeta(); fcRender(); }
+let _fcLastRight = { key: "", t: 0 };
+function fcCalRight(e, key) {
+  e.preventDefault();
+  const now = Date.now();
+  if (_fcLastRight.key === key && now - _fcLastRight.t < 450) {
+    // second right click: undo the promotion toggle of the first one and toggle festivo instead
+    _fcLastRight = { key: "", t: 0 };
+    fcToggleMark(key, "promo");
+    fcToggleMark(key, "festivo");
+  } else {
+    _fcLastRight = { key, t: now };
+    fcToggleMark(key, "promo");
+  }
   fcSavePrefs(); fcSyncMeta(); fcRender();
 }
 
@@ -5080,7 +5095,7 @@ function fcCalendarHTML(m) {
       p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "", p.festivoDays.includes(key) ? "is-festivo" : "",
       obs.has(key) ? "obs" : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
     const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("tag")}</span>` : "");
-    cells += `<button class="${cls}" onclick="fcCalTap('${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
+    cells += `<button class="${cls}" onclick="fcCalTap('${key}')" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
   }
   const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return `
@@ -5088,11 +5103,6 @@ function fcCalendarHTML(m) {
       <button class="fc-nav" onclick="fcCalNav(-1)" aria-label="Mes anterior">${icon("chevronRight")}</button>
       <strong>${esc(title)}</strong>
       <button class="fc-nav next" onclick="fcCalNav(1)" aria-label="Mes siguiente">${icon("chevronRight")}</button>
-    </div>
-    <div class="fc-modes">
-      <button class="${_fc.mode === "pay" ? "on is-pay" : ""}" onclick="fcCalMode('pay')">${icon("bills")} Quincena</button>
-      <button class="${_fc.mode === "promo" ? "on is-promo" : ""}" onclick="fcCalMode('promo')">${icon("tag")} Promoción</button>
-      <button class="${_fc.mode === "festivo" ? "on is-festivo" : ""}" onclick="fcCalMode('festivo')">Festivo</button>
     </div>
     <div class="fc-cal">
       ${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}
@@ -5102,7 +5112,7 @@ function fcCalendarHTML(m) {
       <span><i class="lg obs"></i>Con ventas</span><span><i class="lg fut"></i>Por pronosticar</span>
       <span><span class="fc-mark is-pay">${icon("bills")}</span>Quincena</span><span><span class="fc-mark is-promo">${icon("tag")}</span>Promoción</span><span><i class="lg is-festivo"></i>Festivo</span>
     </div>
-    <p class="fc-hint">Toca un día para marcarlo como ${{ pay: "día de pago", promo: "día de promoción", festivo: "día festivo" }[_fc.mode]}. Las marcas se guardan en la nube.</p>`;
+    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>doble clic derecho</b>: festivo. Las marcas se guardan en la nube.</p>`;
 }
 
 function fcRender() {
