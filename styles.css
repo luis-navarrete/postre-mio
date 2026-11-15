@@ -2123,3 +2123,9 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-table .make { text-align: center; }
 .fc-table .pill { display: inline-block; min-width: 34px; padding: 3px 10px; border-radius: 12px; background: var(--brand-dark); color: #fff; font-weight: 800; text-align: center; }
 .fc-table .pill.zero { background: transparent; color: var(--text-muted); font-weight: 600; }
+
+.fc-reset { width: 100% !important; margin-top: 10px !important; font-size: 13px; }
+.fc-sources { margin-top: 12px; font-size: 13px; line-height: 1.5; }
+.fc-sources summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+.fc-sources p { margin: 10px 0 0; }
+.fc-sources a { color: var(--brand-dark); }

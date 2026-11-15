@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.18.1";
-const APP_UPDATED = "2026-11-15T19:00Z";
+const APP_VERSION = "1.18.2";
+const APP_UPDATED = "2026-11-15T20:30Z";
 
 const STORE_ID = "postremio_main";
 
@@ -4724,12 +4724,23 @@ window.addEventListener("beforeunload", e => {
 // Need = Σ remaining days × (1 + safety margin); make = need − stock − frozen.
 
 const FC_DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+// Suggested values (see the "Fuentes" card on the page for where they come from and how solid each one is):
+//  - weekday: ~61% of mall visits happen Mon-Fri (US data) => a weekend day ≈ 1.6× a weekday; Friday halfway (assumption)
+//  - promotion: Buen Fin foot traffic ≈ +49% vs the previous three weekends (Pogen, 2024 projection)
+//  - payday: no published Mexican estimate; the low end of what studies report (+10% on payday and the day after,
+//    −10% the two days before)
+const FC_VERSION = 2;
+const FC_SUGGESTED = {
+  weekdayF: { 0: 1.6, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1.2, 6: 1.6 }, // Sun..Sat
+  payBoost: 10, payDip: 10, promoBoost: 49,
+};
 const FC_DEFAULTS = {
+  v: FC_VERSION,
   useWeekday: true,
-  weekdayF: { 0: 1.05, 1: 0.8, 2: 0.8, 3: 0.8, 4: 0.85, 5: 1, 6: 1.2 }, // Sun..Sat, assumptions: editable
+  weekdayF: { ...FC_SUGGESTED.weekdayF },
   useTrend: true,
-  usePayday: false, paydays: [], payBoost: 15, payDip: 10,
-  usePromo: false, promoDays: [], promoBoost: 25,
+  usePayday: false, paydays: [], payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip,
+  usePromo: false, promoDays: [], promoBoost: FC_SUGGESTED.promoBoost,
   margin: 10,
   eventDays: 4,
   override: {}, // day key -> true/false: include/exclude an observed day (default: all but today)
@@ -4738,7 +4749,14 @@ const FC_DEFAULTS = {
 function fcLoadPrefs() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem("forecastPrefs") || "{}") || {}; } catch (e) {}
-  return { ...FC_DEFAULTS, ...saved, weekdayF: { ...FC_DEFAULTS.weekdayF, ...(saved.weekdayF || {}) } };
+  const base = { ...FC_DEFAULTS, weekdayF: { ...FC_DEFAULTS.weekdayF } };
+  if (saved.v !== FC_VERSION) {
+    // numbers saved by an older version were rough guesses: keep switches, marked days and the like, not the factors
+    ["useWeekday", "useTrend", "usePayday", "usePromo", "paydays", "promoDays", "override", "margin", "eventDays"]
+      .forEach(k => { if (saved[k] !== undefined) base[k] = saved[k]; });
+    return base;
+  }
+  return { ...base, ...saved, weekdayF: { ...base.weekdayF, ...(saved.weekdayF || {}) } };
 }
 let _fc = { prefs: fcLoadPrefs(), sales: null, cal: null, mode: "pay" };
 function fcSavePrefs() { try { localStorage.setItem("forecastPrefs", JSON.stringify(_fc.prefs)); } catch (e) {} }
@@ -4873,6 +4891,10 @@ function fcSetWd(i, val) {
   if (isFinite(n)) _fc.prefs.weekdayF[i] = Math.min(3, Math.max(0.1, n));
   fcSavePrefs(); fcRender();
 }
+function fcResetSuggested() {
+  Object.assign(_fc.prefs, { weekdayF: { ...FC_SUGGESTED.weekdayF }, payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip, promoBoost: FC_SUGGESTED.promoBoost });
+  fcSavePrefs(); fcRender();
+}
 function fcToggleDay(key, included) { _fc.prefs.override[key] = !included; fcSavePrefs(); fcRender(); }
 function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.getMonth() + delta, 1, 12); fcRender(); }
 function fcCalMode(mode) { _fc.mode = mode; fcRender(); }
@@ -4954,15 +4976,18 @@ function fcRender() {
     <div class="settings-card">
       <h3>${icon("sliders")} Opciones</h3>
       ${fcSwitch("fcWd", "Día de la semana", p.useWeekday, "fcSet('useWeekday', this.checked)",
-        p.useWeekday ? `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div><p class="fc-hint">Qué tan fuerte vende cada día frente a un día normal (1 = normal). Son valores supuestos: ajústalos.</p>` : "")}
-      ${fcSwitch("fcTrend", "Tendencia reciente (los últimos días pesan más)", p.useTrend, "fcSet('useTrend', this.checked)")}
+        p.useWeekday ? `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div><p class="fc-hint">Qué tan fuerte vende cada día frente a un día entre semana (1 = igual). Valores sugeridos: fin de semana ≈ 1.6 (alrededor del 61% de las visitas a plazas ocurren de lunes a viernes, datos de EE. UU.); el viernes, a medio camino. No encontré cifras publicadas por día para México.</p>` : "")}
+      ${fcSwitch("fcTrend", "Tendencia reciente", p.useTrend, "fcSet('useTrend', this.checked)",
+        `<p class="fc-hint">Activada, los días más recientes pesan más al calcular el ritmo normal de ventas (el primer día pesa 1, el segundo 1.5, el tercero 2…). Sirve si las ventas van cambiando durante el evento. Apagada, todos los días pesan igual.</p>`)}
       ${fcSwitch("fcPay", "Quincena", p.usePayday, "fcSet('usePayday', this.checked)",
-        p.usePayday ? fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario."}</p>` : "")}
+        p.usePayday ? fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario"}. No hay un estudio publicado de la quincena en México; usé el extremo bajo de lo que reportan otros estudios.</p>` : "")}
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
-        p.usePromo ? fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario."}</p>` : "")}
+        p.usePromo ? fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario"}. Si marcas todos los días del evento, el efecto se cancela (todos suben igual): solo cambia el resultado cuando algún día no está marcado.</p>` : "")}
       <div class="fc-sep"></div>
       ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
+      <p class="fc-hint">Piezas extra que se suman al pronóstico por si se vende más de lo esperado. Con 10%, si el cálculo dice 40, se propone 44. Más margen: menos riesgo de quedarte sin producto, pero más de que sobre.</p>
       ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+      <button class="btn-secondary fc-reset" onclick="fcResetSuggested()">Restablecer valores sugeridos</button>
     </div>`;
 
   const calendar = `<div class="settings-card"><h3>${icon("calendar")} Calendario</h3>${fcCalendarHTML(m)}</div>`;
@@ -5013,7 +5038,21 @@ function fcRender() {
       </div>`;
   }
 
-  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}`;
+  const sources = `
+    <details class="settings-card fc-sources">
+      <summary>Fuentes de los valores sugeridos</summary>
+      <p><b>Día de la semana.</b> Entre el 60% y el 63% de las visitas a plazas ocurre de lunes a viernes
+      (<a href="https://capitaloneshopping.com/research/mall-foot-traffic-statistics/" target="_blank" rel="noopener">Capital One Shopping</a>: 60.9% en plazas cerradas;
+      <a href="https://chainstoreage.com/placerai-gen-z-consumers-fueling-2026s-shopping-center-traffic" target="_blank" rel="noopener">Placer.ai</a>: 60.8–62.8%). Son datos de EE. UU.: cinco días hábiles se reparten ≈61% (≈12% cada uno) y el fin de semana ≈39% (≈19.5% cada día), o sea ≈1.6×. No encontré una distribución por día para México, y la proporción cambia según el año y el tipo de plaza. El valor del viernes es un punto medio supuesto.</p>
+      <p><b>Promoción (Buen Fin).</b> Pogen proyectó para el Buen Fin 2024 un aumento de ≈49% en la afluencia nacional frente a los tres fines de semana anteriores
+      (<a href="https://elclubdelretail.substack.com/p/140-15nov2024" target="_blank" rel="noopener">El Club del Retail</a>). Es afluencia, no ventas de un puesto, y es una proyección; otros reportes regionales dan cifras distintas.</p>
+      <p><b>Quincena.</b> No hay un estudio publicado que mida el efecto de la quincena en tiendas de México. Lo más cercano: el gasto sube el día de pago y se mantiene alto varios días
+      (<a href="https://www.sciencedaily.com/releases/2014/07/140710141549.htm" target="_blank" rel="noopener">Gelman et al., Science 2014</a>; gran parte son pagos recurrentes), la respuesta varía mucho entre estudios, desde pocos puntos porcentuales hasta ≈40%
+      (<a href="https://econpapers.repec.org/RePEc:oup:rfinst:v:31:y:2018:i:11:p:4398-4446." target="_blank" rel="noopener">Olafsson y Pagel, 2018</a>), y en beneficiarios de PROSPERA el consumo de comida chatarra fue 10–40% menor la semana previa al pago
+      (<a href="https://escholarship.org/content/qt95f078fj/qt95f078fj.pdf?t=smzq6r" target="_blank" rel="noopener">eScholarship</a>). Por eso puse +10% y −10%, el extremo bajo.</p>
+      <p class="fc-hint">Estas cifras vienen de resúmenes de los estudios; confírmalas antes de tomarlas como exactas. Tus propios datos pesan más: con más días de ventas, el pronóstico depende cada vez menos de estos factores.</p>
+    </details>`;
+  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}${sources}`;
 }
 
 function fcCopy() {
