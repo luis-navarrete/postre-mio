@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.18.0";
-const APP_UPDATED = "2026-11-15T18:00Z";
+const APP_VERSION = "1.18.1";
+const APP_UPDATED = "2026-11-15T19:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -109,6 +109,22 @@ function pinBackspace() {
   _pinValue = _pinValue.slice(0, -1);
   pinDots.forEach((dot, i) => dot.classList.toggle("filled", i < _pinValue.length));
 }
+
+// Physical keyboard (e.g. an iPad keyboard): digits type the PIN, Backspace deletes, Escape clears.
+document.addEventListener("keydown", e => {
+  const gate = document.getElementById("authGate");
+  if (!gate || getComputedStyle(gate).display === "none") return; // only on the login screen
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^[0-9]$/.test(e.key)) {
+    e.preventDefault();
+    if (!e.repeat) pinKey(e.key);
+  } else if (e.key === "Backspace") {
+    e.preventDefault();
+    pinBackspace();
+  } else if (e.key === "Escape") {
+    clearPin();
+  }
+});
 
 function getPin() {
   return _pinValue;
