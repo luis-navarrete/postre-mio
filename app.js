@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.21.0";
-const APP_UPDATED = "2026-11-17T01:00Z";
+const APP_VERSION = "1.21.1";
+const APP_UPDATED = "2026-11-17T12:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -89,19 +89,38 @@ function vibrate(pattern) {
 }
 
 let _audioCtx;
+// Browsers (Safari especially) keep an AudioContext "suspended" until it is resumed from a user action,
+// so every click first makes sure it is running, then plays the beep.
 function playClick() {
   vibrate(8);
-  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const osc = _audioCtx.createOscillator();
-  const gain = _audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(_audioCtx.destination);
-  osc.frequency.value = 1200;
-  gain.gain.setValueAtTime(0.08, _audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.06);
-  osc.start(_audioCtx.currentTime);
-  osc.stop(_audioCtx.currentTime + 0.06);
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx;
+    const beep = () => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 1200;
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.06);
+    };
+    if (ctx.state === "running") beep();
+    else ctx.resume().then(beep).catch(() => {});
+  } catch (e) {
+    console.warn("click sound unavailable:", e);
+  }
 }
+// Unlock the audio on the very first touch / click / key so the first PIN digit already sounds
+["pointerdown", "keydown"].forEach(ev => document.addEventListener(ev, function unlock() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state !== "running") _audioCtx.resume().catch(() => {});
+  } catch (e) {}
+  document.removeEventListener(ev, unlock);
+}, { once: true, capture: true }));
 
 function pinBackspace() {
   if (_pinValue.length === 0) return;
