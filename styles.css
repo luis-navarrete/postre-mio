@@ -2122,6 +2122,8 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-table .l { text-align: left; font-weight: 600; }
 .fc-table .off { opacity: 0.4; }
 .fc-table .fut { background: var(--brand-light); color: var(--text); }
+.fc-table th.fc-today-h { text-align: center; }
+.fc-table th.fc-today-h small { font-size: 10px; font-weight: 700; color: var(--brand-dark); }
 .fc-table td small { color: var(--text-muted); }
 .fc-table td small .icon { width: 11px; height: 11px; vertical-align: -1px; }
 .fc-table .make { text-align: center; }
