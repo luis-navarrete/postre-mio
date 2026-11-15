@@ -2093,7 +2093,7 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-day.blank { background: none; border: none; cursor: default; }
 .fc-day.obs { background: var(--brand-light); border-color: var(--brand); }
 .fc-day.fut { border-color: var(--brand-dark); border-style: dashed; }
-.fc-day.today { font-weight: 800; text-decoration: underline; }
+.fc-day.today .fc-n { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--text); color: var(--card-bg); font-weight: 700; }
 .fc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
 .fc-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .fc-legend .lg { width: 11px; height: 11px; border-radius: 3px; border: 2px solid transparent; display: inline-block; }
@@ -2204,7 +2204,8 @@ body.has-savebar .toast { bottom: 96px; }
 .fc-unit { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 13px; font-weight: 400; color: var(--text-muted); pointer-events: none; }
 
 /* a day with sales that is left out of the calculation */
-.fc-day.off { border-color: var(--text-muted); border-style: dashed; color: var(--text-muted); text-decoration: line-through; }
+.fc-day.off { border-color: var(--text-muted); border-style: dashed; color: var(--text-muted); }
+.fc-day.off .fc-n { text-decoration: line-through; }
 .fc-legend .lg.off { border-color: var(--text-muted); border-style: dashed; }
 
 /* Event dates picker */

@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.8";
-const APP_UPDATED = "2026-11-18T00:00Z";
+const APP_VERSION = "1.22.9";
+const APP_UPDATED = "2026-11-18T01:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5421,7 +5421,7 @@ function fcCalendarHTML(m) {
     const od = obsDay[key];
     const tip = od ? ` title="${esc(`${fcLabel(key)} · ${od.sales} ${od.sales === 1 ? "venta" : "ventas"} · ×${od.f.toFixed(2)} · ${od.included ? "incluido en el cálculo" : "fuera del cálculo"}${od.today ? " (hoy, parcial)" : ""}`)}"` : "";
     const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("discountTag")}</span>` : "");
-    cells += `<button class="${cls}"${tip} onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
+    cells += `<button class="${cls}"${tip} onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')"><span class="fc-n">${d}</span>${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
   }
   const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return `
