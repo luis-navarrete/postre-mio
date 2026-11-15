@@ -2131,7 +2131,7 @@ body.has-savebar .toast { bottom: 96px; }
 
 .fc-day { transition: box-shadow 0.45s linear; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 /* festivo bar along the top (the icons live at the bottom): fills left to right while holding on a normal day, drains while holding on a festivo day */
-.fc-day::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--purple); border-radius: 7px 7px 0 0; transform: scaleX(0); transform-origin: left; transition: transform 0.5s linear; pointer-events: none; }
+.fc-day::before { content: ""; position: absolute; left: -2px; right: -2px; top: -2px; height: 11px; background: linear-gradient(to bottom, var(--purple) 0 6px, transparent 6px); border-radius: 9px 9px 0 0; transform: scaleX(0); transform-origin: left; transition: transform 0.5s linear; pointer-events: none; }
 .fc-day.is-festivo::before, .fc-day.pressing-festivo::before { transform: scaleX(1); }
 .fc-day.is-festivo.pressing-festivo::before { transform: scaleX(0); }
 .fc-day.pressing-include { border-color: transparent !important; }
