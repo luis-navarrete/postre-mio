@@ -525,6 +525,10 @@ button:active { opacity: 0.75; }
 }
 
 .edit-inv-label { font-size: 13px; color: var(--text-muted); }
+/* Hornear: the extra line to bake a frozen product as its alternative (Cinnamon Roll → Fresa Pink Sugar) */
+.bake-as { margin-top: 8px; }
+.bake-as .edit-inv-label { color: var(--brand-dark); font-weight: 600; }
+.bake-as .edit-inv-label .icon { width: 12px; height: 12px; vertical-align: -1px; }
 
 .edit-inv-controls {
   display: flex;

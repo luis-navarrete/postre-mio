@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.5";
-const APP_UPDATED = "2026-11-19T14:00Z";
+const APP_VERSION = "1.31.0";
+const APP_UPDATED = "2026-11-19T15:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2591,6 +2591,10 @@ async function saveInventoryFromModal() {
 }
 
 let _bakeSelections = {};
+let _bakeAs = {};   // frozen product -> units to bake as its alternative (see BAKE_AS)
+
+// Some frozen dough can be baked as another product: frozen Cinnamon Roll cookies can become Fresa Pink Sugar
+const BAKE_AS = { "Cinnamon Roll": "Fresa Pink Sugar" };
 
 function openBakeModal() {
   const hiddenItems = getHiddenItems();
@@ -2598,7 +2602,8 @@ function openBakeModal() {
   if (available.length === 0) return;
 
   _bakeSelections = {};
-  available.forEach(name => { _bakeSelections[name] = 0; });
+  _bakeAs = {};
+  available.forEach(name => { _bakeSelections[name] = 0; if (BAKE_AS[name] && !hiddenItems.includes(BAKE_AS[name])) _bakeAs[name] = 0; });
 
   renderBakeModalBody();
 }
@@ -2609,12 +2614,15 @@ function renderBakeModalBody() {
     const qty = _bakeSelections[name] ?? 0;
     const safeName = name.replace(/'/g, "\\'");
     const safeId = name.replace(/[^a-zA-Z0-9]/g, '-');
+    const asName = _bakeAs[name] !== undefined ? BAKE_AS[name] : null;
+    const asQty = asName ? _bakeAs[name] : 0;
+    const holdAttrs = (delta, asFlag) => `style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;" onpointerdown="startBakeHold('${safeName}', ${delta}, ${asFlag})" onpointerup="stopHold()" onpointerleave="stopHold()" oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"`;
     return `
       <div class="edit-inv-row">
         <div class="edit-inv-line">
           <span class="edit-inv-label">${esc(name)}</span>
           <div class="edit-inv-controls">
-            <span class="bake-frozen${frozen - qty === 0 ? ' zero' : ''}" id="bk-frozen-${safeId}" title="Congelados disponibles"><span>${frozen - qty}</span>${icon('snowflake')}</span>
+            <span class="bake-frozen${frozen - qty - asQty === 0 ? ' zero' : ''}" id="bk-frozen-${safeId}" title="Congelados disponibles"><span>${frozen - qty - asQty}</span>${icon('snowflake')}</span>
             <button
               style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;"
               onpointerdown="startBakeHold('${safeName}', -1)" onpointerup="stopHold()" onpointerleave="stopHold()"
@@ -2628,6 +2636,15 @@ function renderBakeModalBody() {
             >+</button>
           </div>
         </div>
+        ${asName ? `
+        <div class="edit-inv-line bake-as">
+          <span class="edit-inv-label">${icon('chevronRight')} Como ${esc(asName)}</span>
+          <div class="edit-inv-controls">
+            <button ${holdAttrs(-1, true)}>−</button>
+            <span class="edit-inv-qty" id="bk-as-${safeId}">${asQty}</span>
+            <button ${holdAttrs(1, true)}>+</button>
+          </div>
+        </div>` : ""}
       </div>
     `;
   }).join('');
@@ -2645,17 +2662,21 @@ function renderBakeModalBody() {
 
 let _bakeHoldInterval = null;
 
-function startBakeHold(name, delta) {
-  adjustBakeQty(name, delta);
+function startBakeHold(name, delta, asAlt = false) {
+  adjustBakeQty(name, delta, asAlt);
   holdTimer = setTimeout(() => {
-    _bakeHoldInterval = setInterval(() => adjustBakeQty(name, delta), 80);
+    _bakeHoldInterval = setInterval(() => adjustBakeQty(name, delta, asAlt), 80);
   }, 500);
 }
 
-function adjustBakeQty(name, delta) {
-  const max = frozenInventory[name] ?? 0;
-  const current = _bakeSelections[name] ?? 0;
-  _bakeSelections[name] = Math.max(0, Math.min(max, current + delta));
+// asAlt: the units baked as the alternative product (BAKE_AS); both counts share the frozen stock
+function adjustBakeQty(name, delta, asAlt = false) {
+  const frozen = frozenInventory[name] ?? 0;
+  if (asAlt) {
+    _bakeAs[name] = Math.max(0, Math.min(frozen - (_bakeSelections[name] ?? 0), (_bakeAs[name] ?? 0) + delta));
+  } else {
+    _bakeSelections[name] = Math.max(0, Math.min(frozen - (_bakeAs[name] ?? 0), (_bakeSelections[name] ?? 0) + delta));
+  }
   refreshBakeModalQty(name);
 }
 
@@ -2666,38 +2687,54 @@ function refreshBakeModalQty(name) {
   const el = document.getElementById('bk-qty-' + safeId);
   const qty = _bakeSelections[name] ?? 0;
   if (el) el.textContent = qty;
+  const asEl = document.getElementById('bk-as-' + safeId);
+  if (asEl) asEl.textContent = _bakeAs[name] ?? 0;
   // frozen stock left after what is selected to bake
   const frozenEl = document.getElementById('bk-frozen-' + safeId);
   if (frozenEl) {
-    const left = (frozenInventory[name] ?? 0) - qty;
+    const left = (frozenInventory[name] ?? 0) - qty - (_bakeAs[name] ?? 0);
     frozenEl.firstElementChild.textContent = left;
     frozenEl.classList.toggle('zero', left === 0);
   }
 }
 
 async function confirmBakeAll() {
-  const changes = Object.entries(_bakeSelections).filter(([, qty]) => qty > 0);
+  const changes = Object.entries(_bakeSelections).filter(([name, qty]) => qty > 0 || (_bakeAs[name] ?? 0) > 0);
   closeModal();
   if (changes.length === 0) return;
 
   const bakeDate = new Date().toLocaleString();
   const bakeIso = new Date().toISOString();
 
+  const summaryParts = [];
   for (const [name, qty] of changes) {
-    frozenInventory[name] = (frozenInventory[name] ?? 0) - qty;
+    const asQty = _bakeAs[name] ?? 0, asName = BAKE_AS[name];
+    frozenInventory[name] = (frozenInventory[name] ?? 0) - qty - asQty;
     originalFrozenInventory[name] = frozenInventory[name];
     updatedFrozenItems.delete(name);
     await DataStore.setFrozenStock(name, frozenInventory[name]);
-    inventory[name] = (inventory[name] ?? 0) + qty;
-    originalInventory[name] = inventory[name];
-    updatedItems.delete(name);
-    await DataStore.setStock(name, inventory[name]);
-    await DataStore.addRestock({ date: bakeDate, isoDate: bakeIso, name, qty, source: 'bake' });
+    if (qty > 0) {
+      inventory[name] = (inventory[name] ?? 0) + qty;
+      originalInventory[name] = inventory[name];
+      updatedItems.delete(name);
+      await DataStore.setStock(name, inventory[name]);
+      await DataStore.addRestock({ date: bakeDate, isoDate: bakeIso, name, qty, source: 'bake' });
+      summaryParts.push(`${qty} ${name}`);
+    }
+    if (asQty > 0 && asName) {
+      // frozen dough of this product baked as the alternative one: it goes to the alternative's stock
+      inventory[asName] = (inventory[asName] ?? 0) + asQty;
+      originalInventory[asName] = inventory[asName];
+      updatedItems.delete(asName);
+      await DataStore.setStock(asName, inventory[asName]);
+      await DataStore.addRestock({ date: bakeDate, isoDate: bakeIso, name: asName, qty: asQty, source: 'bake', from: name });
+      summaryParts.push(`${asQty} ${asName}`);
+    }
   }
 
   renderInventory();
   renderProducts();
-  const summary = changes.map(([name, qty]) => `${qty} ${name}`).join(', ');
+  const summary = summaryParts.join(', ');
   showToast(`${summary} pasados al inventario`);
 }
 
@@ -4594,7 +4631,7 @@ function renderRestockLogWithData(log) {
     return `
     <div class="restock-entry${marked ? ' marked' : ''}${_restockEditing ? ' editing' : ''}">
       <div>
-        <div style="font-weight:600;">${entry.source === 'bake' ? icon('flame') + ' ' : ''}${esc(entry.name)}</div>
+        <div style="font-weight:600;">${entry.source === 'bake' ? icon('flame') + ' ' : ''}${esc(entry.name)}${entry.from ? ` <small style="font-weight:500;color:var(--text-muted);">(congelada de ${esc(entry.from)})</small>` : ""}</div>
         <div style="font-size:11px;color:var(--text-muted);">${esc(dateText(entry))}</div>
       </div>
       <span class="restock-qty">+${entry.qty}</span>
