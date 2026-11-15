@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.2";
-const APP_UPDATED = "2026-11-17T18:00Z";
+const APP_VERSION = "1.22.3";
+const APP_UPDATED = "2026-11-17T19:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3357,7 +3357,7 @@ const pad2 = n => String(n).padStart(2, "0");
 // symbol stays in a straight column instead of moving with the amount
 function moneyPinned(n, sign = "") {
   const v = (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `<span class="mny"><span class="mny-cur">${sign}$</span><span>${v}</span></span>`;
+  return `<span class="mny"><span class="mny-cur">${sign ? `<span class="mny-sign">${sign}</span>` : ""}$</span><span>${v}</span></span>`;
 }
 const dayLabel = n => n ? "Día " + n : "Día actual";
 
