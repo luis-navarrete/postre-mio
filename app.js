@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.31.1";
-const APP_UPDATED = "2026-11-19T16:00Z";
+const APP_VERSION = "1.31.2";
+const APP_UPDATED = "2026-11-19T17:00Z";
 
 const STORE_ID = "postremio_main";
 
