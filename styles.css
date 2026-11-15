@@ -2160,3 +2160,7 @@ body.has-savebar .toast { bottom: 96px; }
 .corr-step { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .modal-content .corr-btn { width: 32px; height: 32px; margin: 0; padding: 0; border: none; border-radius: 8px; background: var(--btn-secondary-bg); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; }
 .corr-qty { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* an option that is switched off keeps its details, just dimmed */
+.fc-sub { transition: opacity 0.2s; }
+.fc-sub.off { opacity: 0.45; }

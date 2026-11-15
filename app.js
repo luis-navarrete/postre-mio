@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.20.0";
-const APP_UPDATED = "2026-11-16T18:00Z";
+const APP_VERSION = "1.20.1";
+const APP_UPDATED = "2026-11-16T19:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5253,7 +5253,7 @@ function fcSwitch(id, label, checked, onchange, extra = "") {
     <label class="switch-row">
       <span>${label}</span>
       <span class="toggle"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} onchange="${onchange}"><span class="toggle-slider"></span></span>
-    </label>${extra}`;
+    </label>${extra ? `<div class="fc-sub${checked ? "" : " off"}">${extra}</div>` : ""}`;
 }
 function fcNum(label, value, key, min, max, step, suffix) {
   return `
@@ -5310,15 +5310,15 @@ function fcRender() {
     <div class="settings-card">
       <h3>${icon("sliders")} Opciones</h3>
       ${fcSwitch("fcWd", "Día de la semana", p.useWeekday, "fcSet('useWeekday', this.checked)",
-        p.useWeekday ? `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div><p class="fc-hint">Qué tan fuerte vende cada día frente a un día entre semana (1 = igual). Valores sugeridos: fin de semana ≈ 1.6 (alrededor del 61% de las visitas a plazas ocurren de lunes a viernes, datos de EE. UU.); el viernes, a medio camino. No encontré cifras publicadas por día para México.</p>` : "")}
+        `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div><p class="fc-hint">Qué tan fuerte vende cada día frente a un día entre semana (1 = igual). Valores sugeridos: fin de semana ≈ 1.6 (alrededor del 61% de las visitas a plazas ocurren de lunes a viernes, datos de EE. UU.); el viernes, a medio camino. No encontré cifras publicadas por día para México.</p>`)}
       ${fcSwitch("fcTrend", "Tendencia reciente", p.useTrend, "fcSet('useTrend', this.checked)",
         `<p class="fc-hint">Activada, los días más recientes pesan más al calcular el ritmo normal de ventas (el primer día pesa 1, el segundo 1.5, el tercero 2…). Sirve si las ventas van cambiando durante el evento. Apagada, todos los días pesan igual.</p>`)}
       ${fcSwitch("fcPay", "Quincena", p.usePayday, "fcSet('usePayday', this.checked)",
-        p.usePayday ? fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario"}. No hay un estudio publicado de la quincena en México; usé el extremo bajo de lo que reportan otros estudios.</p>` : "")}
+        fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario"}. No hay un estudio publicado de la quincena en México; usé el extremo bajo de lo que reportan otros estudios.</p>`)}
       ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
-        p.usePromo ? fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario"}. Si marcas todos los días del evento, el efecto se cancela (todos suben igual): solo cambia el resultado cuando algún día no está marcado.</p>` : "")}
+        fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario"}. Si marcas todos los días del evento, el efecto se cancela (todos suben igual): solo cambia el resultado cuando algún día no está marcado.</p>`)}
       ${fcSwitch("fcFestivo", "Día festivo o puente", p.useFestivo, "fcSet('useFestivo', this.checked)",
-        p.useFestivo ? `<p class="fc-hint">${p.festivoDays.length ? "Festivos marcados: " + p.festivoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días festivos en el calendario"}. Un día festivo se calcula como día de fin de semana (promedio de sábado y domingo) aunque caiga entre semana.</p>` : "")}
+        `<p class="fc-hint">${p.festivoDays.length ? "Festivos marcados: " + p.festivoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días festivos en el calendario"}. Un día festivo se calcula como día de fin de semana (promedio de sábado y domingo) aunque caiga entre semana.</p>`)}
       <div class="fc-sep"></div>
       ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
       <p class="fc-hint">Piezas extra que se suman al pronóstico por si se vende más de lo esperado. Con 10%, si el cálculo dice 40, se propone 44. Más margen: menos riesgo de quedarte sin producto, pero más de que sobre.</p>
