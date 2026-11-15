@@ -340,6 +340,7 @@ button:active { opacity: 0.75; }
 
 /* ── CART ──────────────────────────────── */
 .cart {
+  container-type: inline-size; /* lets .btn-pending adapt to the cart's own width */
   width: 38%;
   background: var(--card-bg);
   padding: 14px;
@@ -374,6 +375,12 @@ button:active { opacity: 0.75; }
 .btn-pending { justify-content: flex-start; gap: 6px; font-size: 12px; padding: 9px 8px; font-weight: 600; line-height: 1.25; }
 .btn-pending .icon { width: 16px; height: 16px; flex-shrink: 0; }
 .btn-pending .btn-label { flex: 1; min-width: 0; text-align: left; text-wrap: balance; overflow-wrap: anywhere; }
+/* wide cart (computer, iPad): same size and centering as the other buttons, icon right before the text */
+@container (min-width: 210px) {
+  .btn-pending { justify-content: center; gap: 8px; font-size: 15px; font-weight: 500; padding: 12px 16px; line-height: normal; }
+  .btn-pending .icon { width: 18px; height: 18px; }
+  .btn-pending .btn-label { flex: none; text-align: center; }
+}
 
 .cart-items {
   overflow-y: auto;
