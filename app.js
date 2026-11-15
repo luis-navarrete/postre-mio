@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.9";
-const APP_UPDATED = "2026-11-18T01:00Z";
+const APP_VERSION = "1.23.0";
+const APP_UPDATED = "2026-11-18T02:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5242,10 +5242,12 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
-// Two outline halves that start together at the top centre and meet at the bottom centre
-const FC_DRAW_SVG = '<svg class="fc-draw" viewBox="0 0 100 100" aria-hidden="true">' +
-  '<path pathLength="1" d="M50 1.5H86a12.5 12.5 0 0 1 12.5 12.5V86a12.5 12.5 0 0 1-12.5 12.5H50"/>' +
-  '<path pathLength="1" d="M50 1.5H14A12.5 12.5 0 0 0 1.5 14V86A12.5 12.5 0 0 0 14 98.5H50"/></svg>';
+// Two outline halves that start together at the top centre and meet at the bottom centre.
+// On a festivo day a darker purple copy, clipped to the top band, is laid over the part that crosses the festivo cap.
+const FC_DRAW_PATHS = '<path pathLength="1" d="M50 1.5H86a12.5 12.5 0 0 1 12.5 12.5V86a12.5 12.5 0 0 1-12.5 12.5H50"/>' +
+  '<path pathLength="1" d="M50 1.5H14A12.5 12.5 0 0 0 1.5 14V86A12.5 12.5 0 0 0 14 98.5H50"/>';
+const fcDrawSvg = festivo => '<svg class="fc-draw" viewBox="0 0 100 100" aria-hidden="true">' + FC_DRAW_PATHS +
+  (festivo ? '<defs><clipPath id="fcCapClip"><rect x="-5" y="-5" width="110" height="19"/></clipPath></defs><g class="fc-draw-cap" clip-path="url(#fcCapClip)">' + FC_DRAW_PATHS + '</g>' : '') + '</svg>';
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
@@ -5269,7 +5271,7 @@ function fcPressStart(e, key) {
   } else if (el.classList.contains("obs") || el.classList.contains("off")) {
     // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
     el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
-    el.insertAdjacentHTML("beforeend", FC_DRAW_SVG);
+    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo")));
   }
   _fcPress = {
     key, button: e.button, fired: false, at: 0,

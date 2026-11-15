@@ -2131,11 +2131,12 @@ body.has-savebar .toast { bottom: 96px; }
 
 .fc-day { transition: box-shadow 0.45s linear; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 /* festivo bar along the top (the icons live at the bottom): fills left to right while holding on a normal day, drains while holding on a festivo day */
-.fc-day::before { content: ""; position: absolute; inset: -2px; border-radius: 9px; box-shadow: inset 0 6px 0 var(--purple); clip-path: inset(0 100% 0 0); transition: clip-path 0.5s linear; pointer-events: none; }
+.fc-day::before { content: ""; position: absolute; inset: -2px; border-radius: 9px; box-shadow: inset 0 9px 0 var(--purple); clip-path: inset(0 100% 0 0); transition: clip-path 0.5s linear; pointer-events: none; }
 .fc-day.is-festivo::before, .fc-day.pressing-festivo::before { clip-path: inset(0 0 0 0); }
 .fc-day.is-festivo.pressing-festivo::before { clip-path: inset(0 100% 0 0); }
 .fc-day.pressing-include { border-color: transparent !important; }
 .fc-draw { position: absolute; left: -2px; top: -2px; width: calc(100% + 4px); height: calc(100% + 4px); pointer-events: none; overflow: visible; }
+.fc-draw .fc-draw-cap path { stroke: #4a2fc2; }
 .fc-draw path { fill: none; stroke: var(--brand-dark); stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; }
 .fc-day.draw .fc-draw path { stroke-dashoffset: 1; animation: fcDraw 0.5s linear forwards; }
 .fc-day.erase .fc-draw path { stroke-dashoffset: 0; animation: fcErase 0.5s linear forwards; }
