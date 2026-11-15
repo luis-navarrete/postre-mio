@@ -641,6 +641,7 @@ button:active { opacity: 0.75; }
 .history-action-btn.has-note { background: var(--brand-light); color: var(--brand-dark); }
 
 #cutBtn button { background: var(--btn-danger-bg); color: var(--btn-danger-color); width: 100%; margin-top: 8px; }
+#cutBtn button.btn-brand { background: var(--btn-brand-bg); color: var(--btn-brand-color); }
 
 /* ── DELETE BUTTON ─────────────────────── */
 .delete-btn {

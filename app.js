@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.15";
-const APP_UPDATED = "2026-11-15T03:00Z";
+const APP_VERSION = "1.17.16";
+const APP_UPDATED = "2026-11-15T16:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3096,6 +3096,9 @@ function updateCutBtnWithData(data) {
   renderHistoryStats(data);
   const container = document.getElementById("cutBtn");
   if (data.length > 0) {
+    // get the exporter and the day's mermas ready so "Exportar día" can build the file right when tapped
+    loadXlsx();
+    DataStore.getMermas().then(m => { _openDayMermas = m; }).catch(() => {});
     container.style.display = "block";
   } else {
     container.style.display = "none";
@@ -3130,6 +3133,8 @@ function deleteSale(saleId) {
 const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 const pad2 = n => String(n).padStart(2, "0");
+// Archived days are numbered; the day still open in Historial has no number yet
+const dayLabel = n => n ? "Día " + n : "Día actual";
 
 // Corte de caja: closes the day. Every sale in Historial moves, intact, to Archivo
 // and Historial starts empty for the next day.
@@ -3357,11 +3362,11 @@ function buildArchiveWorkbook(days, mermas) {
   // ── Resumen ──
   const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia"]];
   days.forEach(d => sum.push([
-    "Día " + d.dayNo, d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
+    dayLabel(d.dayNo), d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
     d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0,
   ]));
   const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer"][i]] || 0), 0);
-  sum.push(["Total del evento", "", col(2), col(3), col(4), col(5), col(6)]);
+  sum.push([days.length > 1 ? "Total del evento" : "Total", "", col(2), col(3), col(4), col(5), col(6)]);
   const wsSum = XL.utils.aoa_to_sheet(sum);
   wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
   for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6]);
@@ -3405,7 +3410,7 @@ function buildArchiveWorkbook(days, mermas) {
     if (totalCell && last > 1) totalCell.f = `SUM(E2:E${last})`;
     ws["!cols"] = [{ wch: 15 }, { wch: 11 }, { wch: 9 }, { wch: 15 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 24 }, { wch: 24 }, { wch: 40 }, ...products.map(p => ({ wch: Math.max(6, Math.min(16, p.length)) }))];
     for (let r = 1; r < rows.length - 1; r++) setMoney(ws, r, moneyCols); // all but the final "Ventas" count
-    XL.utils.book_append_sheet(wb, ws, sheetName(`Día ${d.dayNo}${d.date ? " " + pad2(d.date.getDate()) + "-" + pad2(d.date.getMonth() + 1) : ""}`));
+    XL.utils.book_append_sheet(wb, ws, sheetName(`${dayLabel(d.dayNo)}${d.date ? " " + pad2(d.date.getDate()) + "-" + pad2(d.date.getMonth() + 1) : ""}`));
   });
 
   // ── Mermas (detail) ──
@@ -3413,7 +3418,7 @@ function buildArchiveWorkbook(days, mermas) {
     const dayOf = Object.fromEntries(days.map(d => [d.dayNo, d]));
     const mrows = [["Día", "Fecha", "Producto", "Motivo", "Cantidad"]];
     [...mermas].sort((a, b) => (a.dayNo || 0) - (b.dayNo || 0)).forEach(m => mrows.push([
-      "Día " + (m.dayNo || ""), dateText(m), m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
+      dayLabel(m.dayNo || 0), dateText(m), m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
     ]));
     const wsM = XL.utils.aoa_to_sheet(mrows);
     wsM["!cols"] = [{ wch: 8 }, { wch: 22 }, { wch: 36 }, { wch: 18 }, { wch: 10 }];
@@ -3422,17 +3427,11 @@ function buildArchiveWorkbook(days, mermas) {
   return wb;
 }
 
-// Called straight from a tap: everything here is synchronous so the share sheet still
-// counts as a user action on iOS.
-function exportArchive() {
-  if (!_archiveDays.length) { showToast("No hay días archivados"); return; }
-  if (!window.XLSX) {
-    loadXlsx().then(() => showToast("Listo. Toca Exportar otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
-    return;
-  }
-  const wb = buildArchiveWorkbook(_archiveDays, _archiveMermas);
+// Builds the .xlsx and hands it to the share sheet (or downloads it). Called straight from a tap:
+// everything here is synchronous so the share sheet still counts as a user action on iOS.
+function shareWorkbook(wb, fileBase) {
   const now = new Date();
-  const name = `postre_mio_archivo_${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.xlsx`;
+  const name = `${fileBase}_${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.xlsx`;
   const data = window.XLSX.write(wb, { type: "array", bookType: "xlsx" });
   const file = new File([data], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 
@@ -3450,6 +3449,29 @@ function exportArchive() {
   } else {
     download();
   }
+}
+
+function exportArchive() {
+  if (!_archiveDays.length) { showToast("No hay días archivados"); return; }
+  if (!window.XLSX) {
+    loadXlsx().then(() => showToast("Listo. Toca Exportar otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
+    return;
+  }
+  shareWorkbook(buildArchiveWorkbook(_archiveDays, _archiveMermas), "postre_mio_archivo");
+}
+
+// "Exportar día": the sales still in Historial (the open day), same workbook layout as Archivo,
+// without closing anything. The day's mermas are fetched ahead of time (see updateCutBtnWithData).
+let _openDayMermas = [];
+function exportOpenDay() {
+  const sales = _historyData || [];
+  if (!sales.length) { showToast("No hay ventas que exportar"); return; }
+  if (!window.XLSX) {
+    loadXlsx().then(() => showToast("Listo. Toca Exportar día otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
+    return;
+  }
+  const days = groupArchive(sales, _openDayMermas);
+  shareWorkbook(buildArchiveWorkbook(days, _openDayMermas), "postre_mio_dia");
 }
 
 // ── Cerrar stand ──
