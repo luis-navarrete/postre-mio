@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.19.6";
-const APP_UPDATED = "2026-11-16T16:00Z";
+const APP_VERSION = "1.20.0";
+const APP_UPDATED = "2026-11-16T18:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -261,6 +261,16 @@ const DataStore = {
       const current = doc.exists ? doc.data().qty : 0;
       if (current < qty) throw new Error("insufficient_stock");
       tx.set(ref, { qty: current - qty });
+    });
+  },
+
+  // Takes qty off the stock without ever going below 0 (used by corrective entries)
+  async reduceStock(name, qty) {
+    const ref = storeRef("inventory").doc(name);
+    return db.runTransaction(async (tx) => {
+      const doc = await tx.get(ref);
+      const current = doc.exists ? doc.data().qty : 0;
+      tx.set(ref, { qty: Math.max(0, current - qty) });
     });
   },
 
@@ -1817,7 +1827,7 @@ function showPage(page) {
 
   ["posPage","inventoryPage","historyPage","archivePage","promoPage","pendingPage","mermaPage","settingsPage","forecastPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
-  ["promoFab","mermaFab","editFab","priceFab","hideFab"]
+  ["promoFab","mermaFab","editFab","priceFab","hideFab","historyAddFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
 
   if (page === "pos") {
@@ -2793,6 +2803,10 @@ function syncModeFabs() {
   }
   const edit = document.getElementById("editFab");
   if (edit) edit.classList.toggle("active", editModeActive);
+  // "+" (corrective entry) only while editing Historial
+  const add = document.getElementById("historyAddFab");
+  const historyOpen = document.getElementById("historyPage").style.display !== "none";
+  if (add) add.style.display = historyOpen && editModeActive ? "flex" : "none";
 }
 
 function toggleItemHidden(name) {
@@ -2930,6 +2944,148 @@ function saveSaleNote(saleId, remove = false) {
   // Don't await: offline, the write is queued and the card already shows the change.
   DataStore.updateSale(saleId, { note: note || firebase.firestore.FieldValue.delete() })
     .catch(() => showToast("Error al guardar la nota. Intenta de nuevo."));
+}
+
+// ── Corrective entry: one sale that adds up everything sold but never registered ──
+let _corrRows = [];
+let _corrQty = {};
+let _corrTotalTouched = false;
+
+function corrRowList() {
+  const rows = [];
+  menu.forEach(cat => cat.items.forEach(item => {
+    if (VARIANT_PRODUCTS[item.name]) {
+      // each flavour has its own stock and its own full price
+      (ITEM_EXTRAS[item.name] || []).forEach(e => rows.push({
+        cat: cat.category, key: variantKey(item.name, e.name), label: `${item.name} · ${e.name}`,
+        item: { name: item.name, price: item.price + e.price, extra: { name: e.name, price: e.price, variant: e.name } },
+      }));
+    } else {
+      rows.push({ cat: cat.category, key: item.name, label: item.name, item: { name: item.name, price: item.price, extra: null } });
+    }
+  }));
+  return rows;
+}
+
+function corrDayOptions() {
+  const days = new Set((_historyData || []).filter(s => s.isoDate).map(s => fcKey(new Date(s.isoDate))));
+  days.add(fcKey(new Date()));
+  return [...days].sort().reverse();
+}
+
+function openCorrectionModal() {
+  _corrRows = corrRowList();
+  _corrQty = {};
+  _corrTotalTouched = false;
+  const days = corrDayOptions();
+  const dayOpts = days.map(k => {
+    const d = fcDate(k);
+    return `<option value="${k}">${esc(d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" }))}</option>`;
+  }).join("");
+  let lastCat = null;
+  const rowsHTML = _corrRows.map((r, i) => {
+    const head = r.cat !== lastCat ? (lastCat = r.cat, `<div class="corr-cat">${catHTML(r.cat)}</div>`) : "";
+    return `${head}
+      <div class="corr-row">
+        <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}</small></div>
+        <div class="corr-step">
+          <button class="corr-btn" onclick="corrStep(${i}, -1)" aria-label="Quitar">−</button>
+          <span class="corr-qty" id="corr-q-${i}">0</span>
+          <button class="corr-btn" onclick="corrStep(${i}, 1)" aria-label="Agregar">+</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  openCompactModal(`
+    <div class="modal-head">
+      <div class="modal-head-main"><h3 style="width:auto;">Corrección</h3></div>
+      <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
+    </div>
+    <div class="modal-scroll">
+      <p class="corr-intro">Una sola entrada con todo lo que se vendió pero no se registró.</p>
+      <div class="promo-form">
+        <label>Día</label>
+        <select id="corr-day">${dayOpts}</select>
+      </div>
+      ${rowsHTML}
+      <div class="promo-form" style="margin-top:12px;">
+        <label>Total ($)</label>
+        <input id="corr-total" type="number" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="_corrTotalTouched = true">
+        <label>Método de pago</label>
+        <select id="corr-method">
+          <option value="cash" data-icon="banknote">Efectivo</option>
+          <option value="transfer" data-icon="transfer">Transferencia</option>
+          <option value="card" data-icon="card">Tarjeta</option>
+        </select>
+      </div>
+      <label class="switch-row" style="margin-top:12px;">
+        <span>Descontar del inventario</span>
+        <span class="toggle"><input type="checkbox" id="corr-stock" checked><span class="toggle-slider"></span></span>
+      </label>
+      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:6px;">Guardar corrección</button>
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <div class="modal-spacer"></div>
+    </div>
+  `);
+  document.getElementById("modalContent").classList.add("modal-split");
+}
+
+function corrStep(i, delta) {
+  const key = _corrRows[i].key;
+  _corrQty[key] = Math.max(0, (_corrQty[key] || 0) + delta);
+  document.getElementById("corr-q-" + i).textContent = _corrQty[key];
+  if (!_corrTotalTouched) {
+    const total = _corrRows.reduce((t, r) => t + (_corrQty[r.key] || 0) * r.item.price, 0);
+    document.getElementById("corr-total").value = total.toFixed(2);
+  }
+}
+
+async function saveCorrection() {
+  const items = [];
+  _corrRows.forEach(r => { for (let n = 0; n < (_corrQty[r.key] || 0); n++) items.push({ ...r.item, extra: r.item.extra ? { ...r.item.extra } : null }); });
+  if (!items.length) { showToast("Agrega al menos un producto"); return; }
+  const total = parseFloat(document.getElementById("corr-total").value);
+  if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
+  const method = document.getElementById("corr-method").value;
+  const dayKey = document.getElementById("corr-day").value;
+  const discount = document.getElementById("corr-stock").checked;
+
+  // today: now; an earlier day: just before midnight, so it ends that day's list
+  let when = new Date();
+  if (dayKey !== fcKey(when)) { when = fcDate(dayKey); when.setHours(23, 59, 59, 0); }
+
+  const sale = {
+    items, total, method,
+    folio: dayKey === fcKey(new Date()) ? makeFolio() : formatFolio(when),
+    date: when.toLocaleString(), isoDate: when.toISOString(),
+    note: "Corrección: ventas no registradas", correction: true,
+  };
+
+  const btn = document.getElementById("corrSaveBtn");
+  btn.disabled = true;
+  showSpinner();
+  try {
+    await DataStore.addSale(sale);
+    if (discount) {
+      const counts = {};
+      items.forEach(i => { const k = stockKey(i); counts[k] = (counts[k] || 0) + 1; });
+      for (const [name, qty] of Object.entries(counts)) {
+        inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
+        DataStore.reduceStock(name, qty).catch(() => {});
+      }
+      saveInventory();
+      renderProducts();
+    }
+    closeModal();
+    showToast("Corrección agregada", "check");
+    hideSpinner();
+    await renderHistoryFromFirestore();
+  } catch (e) {
+    hideSpinner();
+    console.error("saveCorrection failed:", e);
+    showToast("No se pudo guardar la corrección");
+    btn.disabled = false;
+  }
 }
 
 async function confirmEditSale(saleId) {

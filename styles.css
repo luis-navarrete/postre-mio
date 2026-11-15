@@ -2149,3 +2149,14 @@ body.has-savebar .toast { bottom: 96px; }
 
 .fc-table tr.fc-cat td { text-align: left; padding: 14px 10px 6px; font-size: 12px; font-weight: 700; color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--card-bg); }
 .fc-table tr.fc-cat .icon { width: 14px; height: 14px; vertical-align: -2px; }
+
+/* Historial: corrective entry */
+.corr-intro { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); line-height: 1.4; }
+.corr-cat { margin: 12px 0 2px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.corr-cat .icon { width: 14px; height: 14px; vertical-align: -2px; }
+.corr-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.corr-name { display: flex; flex-direction: column; font-size: 14px; min-width: 0; }
+.corr-name small { color: var(--text-muted); font-size: 11px; }
+.corr-step { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.modal-content .corr-btn { width: 32px; height: 32px; margin: 0; padding: 0; border: none; border-radius: 8px; background: var(--btn-secondary-bg); color: var(--text); font-size: 18px; line-height: 1; cursor: pointer; }
+.corr-qty { min-width: 22px; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
