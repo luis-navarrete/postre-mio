@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.3";
-const APP_UPDATED = "2026-11-19T12:00Z";
+const APP_VERSION = "1.30.4";
+const APP_UPDATED = "2026-11-19T13:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -662,6 +662,7 @@ const _ICON_PATHS = {
   discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><g transform="rotate(45 12.5 12.5)"><path d="M10.3 16.1L14.7 8.9"/><circle cx="9.3" cy="9.7" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.7" cy="15.3" r="1.25" fill="currentColor" stroke="none"/></g>',
   sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  clipboardCheck: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
   rotateCcw: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
@@ -3190,7 +3191,7 @@ let _corrTotalTouched = false;
 
 function corrRowList() {
   const rows = [];
-  menu.forEach(cat => cat.items.forEach(item => {
+  visibleMenu().forEach(cat => cat.items.forEach(item => { // hidden products are left out
     if (VARIANT_PRODUCTS[item.name]) {
       // each flavour has its own stock and its own full price
       (ITEM_EXTRAS[item.name] || []).forEach(e => rows.push({
