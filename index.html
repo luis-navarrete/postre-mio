@@ -146,6 +146,14 @@
   </div>
 </div>
 
+<!-- PRONÓSTICO (computer only) -->
+<div id="forecastPage" class="page page-flow" style="display:none;">
+  <div class="page-content fc-page">
+    <h2>Pronóstico de producción</h2>
+    <div id="forecastContent"></div>
+  </div>
+</div>
+
 <!-- PROMOCIONES -->
 <div id="promoPage" class="page page-flow" style="display:none;">
   <div class="page-content">
@@ -199,6 +207,7 @@
     <button data-page="promos" onclick="showPage('promos')">Promociones</button>
     <button data-page="mermas" onclick="showPage('mermas')">Mermas</button>
     <button data-page="archive" onclick="showPage('archive')">Archivo</button>
+    <button data-page="forecast" onclick="showPage('forecast')" style="display:none;">Pronóstico</button>
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
     <button data-page="settings" onclick="showPage('settings')">Ajustes</button>
   </div>
