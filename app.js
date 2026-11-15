@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.0";
-const APP_UPDATED = "2026-11-19T09:00Z";
+const APP_VERSION = "1.30.4";
+const APP_UPDATED = "2026-11-19T13:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -662,6 +662,7 @@ const _ICON_PATHS = {
   discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><g transform="rotate(45 12.5 12.5)"><path d="M10.3 16.1L14.7 8.9"/><circle cx="9.3" cy="9.7" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.7" cy="15.3" r="1.25" fill="currentColor" stroke="none"/></g>',
   sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  clipboardCheck: '<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
   rotateCcw: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
@@ -1708,7 +1709,7 @@ function generateTicket(sale) {
       <table style="width:100%;border-collapse:collapse;">
         <tr><td colspan="3" style="font-size:10px;opacity:0.6;">FORMA DE PAGO</td></tr>
         <tr>
-          <td>${sale.method === "cash" ? "Efectivo" : sale.method === "card" ? "Tarjeta" : "Transferencia"}</td>
+          <td>${METHOD_LABELS[sale.method] || "Transferencia"}</td>
           <td style="width:16px;text-align:right;padding-right:0;">$</td>
           <td style="text-align:right;padding-left:2px;white-space:nowrap;">${parseFloat(sale.amount).toFixed(2)}</td>
         </tr>
@@ -3127,6 +3128,7 @@ function openEditSale(saleId) {
           <option value="cash"     data-icon="banknote" ${sale.method === 'cash'     ? 'selected' : ''}>Efectivo</option>
           <option value="transfer" data-icon="transfer" ${sale.method === 'transfer' ? 'selected' : ''}>Transferencia</option>
           <option value="card"     data-icon="card"     ${sale.method === 'card'     ? 'selected' : ''}>Tarjeta</option>
+          ${sale.method === 'adjust' ? `<option value="adjust" data-icon="sliders" selected>Ajuste</option>` : ""}
         </select>
       </div>${resetBtn("method")}</div>
 
@@ -3189,7 +3191,7 @@ let _corrTotalTouched = false;
 
 function corrRowList() {
   const rows = [];
-  menu.forEach(cat => cat.items.forEach(item => {
+  visibleMenu().forEach(cat => cat.items.forEach(item => { // hidden products are left out
     if (VARIANT_PRODUCTS[item.name]) {
       // each flavour has its own stock and its own full price
       (ITEM_EXTRAS[item.name] || []).forEach(e => rows.push({
@@ -3228,9 +3230,9 @@ function openCorrectionModal() {
       <div class="corr-row">
         <div class="corr-name">${esc(r.label)}<small>${money(r.item.price)}<span class="corr-sold" id="corr-s-${i}"></span></small></div>
         <div class="corr-step">
-          <button class="corr-btn" id="corr-m-${i}" onclick="corrStep(${i}, -1)" aria-label="Quitar" ${_corrStart[r.key] <= 0 ? "disabled" : ""}>−</button>
+          <button class="corr-btn" id="corr-m-${i}" ${CORR_HOLD_ATTRS(i, -1)} aria-label="Quitar" ${_corrStart[r.key] <= 0 ? "disabled" : ""}>−</button>
           <span class="corr-qty" id="corr-q-${i}">${_corrStart[r.key]}</span>
-          <button class="corr-btn" id="corr-p-${i}" onclick="corrStep(${i}, 1)" aria-label="Agregar" disabled>+</button>
+          <button class="corr-btn" id="corr-p-${i}" ${CORR_HOLD_ATTRS(i, 1)} aria-label="Agregar" disabled>+</button>
         </div>
       </div>`;
   }).join("");
@@ -3250,23 +3252,23 @@ function openCorrectionModal() {
       <div class="promo-form" style="margin-top:12px;">
         <label>Total ($)</label>
         <input id="corr-total" type="number" inputmode="decimal" value="0.00" onfocus="this.select()" oninput="_corrTotalTouched = true">
-        <label>Método de pago</label>
-        <select id="corr-method">
-          <option value="cash" data-icon="banknote">Efectivo</option>
-          <option value="transfer" data-icon="transfer">Transferencia</option>
-          <option value="card" data-icon="card">Tarjeta</option>
-        </select>
       </div>
-      <label class="switch-row" style="margin-top:12px;">
-        <span>Actualizar el inventario</span>
-        <span class="toggle"><input type="checkbox" id="corr-stock" checked><span class="toggle-slider"></span></span>
-      </label>
-      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:6px;">Guardar corrección</button>
+      <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:12px;">Guardar corrección</button>
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
-      <div class="modal-spacer"></div>
+      <div class="modal-spacer corr-spacer"></div>
     </div>
   `);
   document.getElementById("modalContent").classList.add("modal-split");
+}
+
+// Press and hold −/+ to keep counting, like the inventory buttons (shares stopHold)
+const CORR_HOLD_ATTRS = (i, delta) => `style="-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;" onpointerdown="startCorrHold(${i}, ${delta})" onpointerup="stopHold()" onpointerleave="stopHold()" onpointercancel="stopHold()" oncontextmenu="return false" ontouchstart="this.ontouchend=stopHold;return true;"`;
+function startCorrHold(i, delta) {
+  stopHold();
+  corrStep(i, delta);
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => corrStep(i, delta), 80);
+  }, 500);
 }
 
 function corrStep(i, delta) {
@@ -3289,9 +3291,8 @@ async function saveCorrection() {
   if (!items.length) { showToast("Cuenta lo que queda: nada ha cambiado"); return; }
   const total = parseFloat(document.getElementById("corr-total").value);
   if (isNaN(total) || total < 0) { showToast("Total inválido"); return; }
-  const method = document.getElementById("corr-method").value;
+  const method = "adjust"; // an adjustment, not a payment
   const dayKey = document.getElementById("corr-day").value;
-  const discount = document.getElementById("corr-stock").checked;
 
   // today: now; an earlier day: just before midnight, so it ends that day's list
   let when = new Date();
@@ -3309,16 +3310,15 @@ async function saveCorrection() {
   showSpinner();
   try {
     await DataStore.addSale(sale);
-    if (discount) {
-      const counts = {};
-      items.forEach(i => { const k = stockKey(i); counts[k] = (counts[k] || 0) + 1; });
-      for (const [name, qty] of Object.entries(counts)) {
-        inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
-        DataStore.reduceStock(name, qty).catch(() => {});
-      }
-      saveInventory();
-      renderProducts();
+    // the inventory always follows what was counted
+    const counts = {};
+    items.forEach(i => { const k = stockKey(i); counts[k] = (counts[k] || 0) + 1; });
+    for (const [name, qty] of Object.entries(counts)) {
+      inventory[name] = Math.max(0, (inventory[name] || 0) - qty);
+      DataStore.reduceStock(name, qty).catch(() => {});
     }
+    saveInventory();
+    renderProducts();
     closeModal();
     showToast("Corrección agregada", "check");
     hideSpinner();
@@ -3599,7 +3599,7 @@ function deleteSale(saleId) {
 // ─────────────────────────────────────────────
 
 const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
+const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia", adjust: "Ajuste" };
 const pad2 = n => String(n).padStart(2, "0");
 // Archived days are numbered; the day still open in Historial has no number yet
 // Amount with the "$" pinned to the left of a fixed-width box and the digits right-aligned, so the
@@ -3665,7 +3665,7 @@ function groupArchive(sales, mermas) {
   return Object.values(byDay).map(d => {
     d.sales.sort((a, b) => String(a.isoDate || "").localeCompare(String(b.isoDate || "")));
     d.total = d.sales.reduce((sum, s) => sum + (parseFloat(s.total) || 0), 0);
-    d.byMethod = { cash: 0, card: 0, transfer: 0 };
+    d.byMethod = { cash: 0, card: 0, transfer: 0, adjust: 0 };
     d.sales.forEach(s => { d.byMethod[s.method] = (d.byMethod[s.method] || 0) + (parseFloat(s.total) || 0); });
     const first = d.sales.find(s => s.isoDate);
     d.date = first ? new Date(first.isoDate) : null;
@@ -3834,16 +3834,16 @@ function buildArchiveWorkbook(days, mermas) {
   };
 
   // ── Resumen ──
-  const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia"]];
+  const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia", "Ajuste"]];
   days.forEach(d => sum.push([
     dayLabel(d.dayNo), d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
-    d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0,
+    d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0, d.byMethod.adjust || 0,
   ]));
-  const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer"][i]] || 0), 0);
-  sum.push([days.length > 1 ? "Total del evento" : "Total", "", col(2), col(3), col(4), col(5), col(6)]);
+  const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer", "adjust"][i]] || 0), 0);
+  sum.push([days.length > 1 ? "Total del evento" : "Total", "", col(2), col(3), col(4), col(5), col(6), col(7)]);
   const wsSum = XL.utils.aoa_to_sheet(sum);
-  wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
-  for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6]);
+  wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
+  for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6, 7]);
   XL.utils.book_append_sheet(wb, wsSum, sheetName("Resumen"));
 
   // ── One sheet per day ──

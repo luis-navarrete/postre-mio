@@ -1973,6 +1973,7 @@ body.has-savebar .toast { bottom: 96px; }
   padding: 0 22px calc(18px + env(safe-area-inset-bottom, 0px));
 }
 .modal-split .modal-spacer { height: 16px; }
+.modal-split .modal-spacer.corr-spacer { height: 36px; }   /* Corrección: more room under the last button */
 
 /* two-option slider: grey track, teal thumb that highlights the selected option */
 .seg-row { margin-bottom: 12px; }
