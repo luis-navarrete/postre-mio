@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.17.15";
-const APP_UPDATED = "2026-11-15T03:00Z";
+const APP_VERSION = "1.18.0";
+const APP_UPDATED = "2026-11-15T18:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -594,6 +594,8 @@ const _ICON_PATHS = {
   trash:    '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
+  sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   chef:     '<path d="M17 21a1 1 0 0 0 1-1v-5.35c0-.46.32-.84.73-1.04a4 4 0 0 0-2.14-7.59 5 5 0 0 0-9.18 0 4 4 0 0 0-2.14 7.59c.41.2.73.58.73 1.04V20a1 1 0 0 0 1 1z"/><path d="M6 17h12"/>',
   receipt:  '<path d="M4 2.6q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0q1 -1.1 2 0L20 21.4q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0q-1 1.1 -2 0Z" fill="#f6f7f9" stroke="#b9bec7" stroke-width=".7" stroke-linejoin="round"/><rect x="6" y="4.6" width="12" height="2" rx=".3" fill="#2b2f36"/><rect x="6" y="7.4" width="12" height=".55" fill="#2b2f36"/><rect x="6" y="8.4" width="12" height=".55" fill="#2b2f36"/><rect x="9.6" y="10" width="4.8" height=".95" rx=".3" fill="#2b2f36"/><rect x="6" y="12.3" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="12.8" x2="15.2" y2="12.8" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="12.3" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="14.5" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="15.0" x2="15.2" y2="15.0" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="14.5" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="6" y="16.7" width="5" height="0.95" rx=".3" fill="#2b2f36"/><line x1="11.7" y1="17.2" x2="15.2" y2="17.2" stroke="#7b818c" stroke-width=".7" stroke-dasharray=".6 .7"/><rect x="15.5" y="16.7" width="2.6" height="0.95" rx=".3" fill="#2b2f36"/><rect x="15.5" y="19.1" width="2.6" height=".95" rx=".3" fill="#2b2f36"/>',
@@ -1748,6 +1750,7 @@ document.addEventListener("touchend", () => { _swipe = null; }, { passive: true 
 document.addEventListener("touchcancel", () => { _swipe = null; }, { passive: true });
 
 function showPage(page) {
+  if (page === "forecast" && !isDesktopDevice()) page = "pos"; // computer-only page
   if (page !== 'settings' && !guardSettingsLeave(() => showPage(page))) return;
   const inventoryVisible = document.getElementById('inventoryPage').style.display !== 'none';
   if (page !== 'inventory' && inventoryVisible && (updatedItems.size > 0 || updatedFrozenItems.size > 0)) {
@@ -1775,7 +1778,7 @@ function showPage(page) {
     return;
   }
 
-  ["posPage","inventoryPage","historyPage","archivePage","promoPage","pendingPage","mermaPage","settingsPage"]
+  ["posPage","inventoryPage","historyPage","archivePage","promoPage","pendingPage","mermaPage","settingsPage","forecastPage"]
     .forEach(id => document.getElementById(id).style.display = "none");
   ["promoFab","mermaFab","editFab","priceFab","hideFab"]
     .forEach(id => document.getElementById(id).style.display = "none");
@@ -1798,6 +1801,10 @@ function showPage(page) {
   if (page === "archive") {
     document.getElementById("archivePage").style.display = "block";
     renderArchive();
+  }
+  if (page === "forecast") {
+    document.getElementById("forecastPage").style.display = "block";
+    renderForecast();
   }
   if (page === "history") {
     document.getElementById("historyPage").style.display = "block";
@@ -1845,7 +1852,7 @@ function showPage(page) {
   window.scrollTo(0, 0);
 
   const pageEl = document.getElementById(
-    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", archive: "archivePage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage" }[page]
+    { pos: "posPage", inventory: "inventoryPage", history: "historyPage", archive: "archivePage", promos: "promoPage", pending: "pendingPage", mermas: "mermaPage", settings: "settingsPage", forecast: "forecastPage" }[page]
   );
   if (pageEl) {
     pageEl.classList.remove("page-enter");
@@ -3096,6 +3103,9 @@ function updateCutBtnWithData(data) {
   renderHistoryStats(data);
   const container = document.getElementById("cutBtn");
   if (data.length > 0) {
+    // get the exporter and the day's mermas ready so "Exportar día" can build the file right when tapped
+    loadXlsx();
+    DataStore.getMermas().then(m => { _openDayMermas = m; }).catch(() => {});
     container.style.display = "block";
   } else {
     container.style.display = "none";
@@ -3130,6 +3140,8 @@ function deleteSale(saleId) {
 const money = n => "$" + (parseFloat(n) || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const METHOD_LABELS = { cash: "Efectivo", card: "Tarjeta", transfer: "Transferencia" };
 const pad2 = n => String(n).padStart(2, "0");
+// Archived days are numbered; the day still open in Historial has no number yet
+const dayLabel = n => n ? "Día " + n : "Día actual";
 
 // Corte de caja: closes the day. Every sale in Historial moves, intact, to Archivo
 // and Historial starts empty for the next day.
@@ -3357,11 +3369,11 @@ function buildArchiveWorkbook(days, mermas) {
   // ── Resumen ──
   const sum = [["Día", "Fecha", "Ventas", "Total", "Efectivo", "Tarjeta", "Transferencia"]];
   days.forEach(d => sum.push([
-    "Día " + d.dayNo, d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
+    dayLabel(d.dayNo), d.date ? `${pad2(d.date.getDate())}/${pad2(d.date.getMonth() + 1)}/${d.date.getFullYear()}` : "",
     d.sales.length, d.total, d.byMethod.cash || 0, d.byMethod.card || 0, d.byMethod.transfer || 0,
   ]));
   const col = i => days.reduce((t, d) => t + (i === 2 ? d.sales.length : i === 3 ? d.total : d.byMethod[["", "", "", "", "cash", "card", "transfer"][i]] || 0), 0);
-  sum.push(["Total del evento", "", col(2), col(3), col(4), col(5), col(6)]);
+  sum.push([days.length > 1 ? "Total del evento" : "Total", "", col(2), col(3), col(4), col(5), col(6)]);
   const wsSum = XL.utils.aoa_to_sheet(sum);
   wsSum["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 9 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
   for (let r = 1; r < sum.length; r++) setMoney(wsSum, r, [3, 4, 5, 6]);
@@ -3405,7 +3417,7 @@ function buildArchiveWorkbook(days, mermas) {
     if (totalCell && last > 1) totalCell.f = `SUM(E2:E${last})`;
     ws["!cols"] = [{ wch: 15 }, { wch: 11 }, { wch: 9 }, { wch: 15 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 24 }, { wch: 24 }, { wch: 40 }, ...products.map(p => ({ wch: Math.max(6, Math.min(16, p.length)) }))];
     for (let r = 1; r < rows.length - 1; r++) setMoney(ws, r, moneyCols); // all but the final "Ventas" count
-    XL.utils.book_append_sheet(wb, ws, sheetName(`Día ${d.dayNo}${d.date ? " " + pad2(d.date.getDate()) + "-" + pad2(d.date.getMonth() + 1) : ""}`));
+    XL.utils.book_append_sheet(wb, ws, sheetName(`${dayLabel(d.dayNo)}${d.date ? " " + pad2(d.date.getDate()) + "-" + pad2(d.date.getMonth() + 1) : ""}`));
   });
 
   // ── Mermas (detail) ──
@@ -3413,7 +3425,7 @@ function buildArchiveWorkbook(days, mermas) {
     const dayOf = Object.fromEntries(days.map(d => [d.dayNo, d]));
     const mrows = [["Día", "Fecha", "Producto", "Motivo", "Cantidad"]];
     [...mermas].sort((a, b) => (a.dayNo || 0) - (b.dayNo || 0)).forEach(m => mrows.push([
-      "Día " + (m.dayNo || ""), dateText(m), m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
+      dayLabel(m.dayNo || 0), dateText(m), m.name, (MERMA_REASONS[m.reason] || { label: m.reason }).label, m.qty || 0,
     ]));
     const wsM = XL.utils.aoa_to_sheet(mrows);
     wsM["!cols"] = [{ wch: 8 }, { wch: 22 }, { wch: 36 }, { wch: 18 }, { wch: 10 }];
@@ -3422,17 +3434,11 @@ function buildArchiveWorkbook(days, mermas) {
   return wb;
 }
 
-// Called straight from a tap: everything here is synchronous so the share sheet still
-// counts as a user action on iOS.
-function exportArchive() {
-  if (!_archiveDays.length) { showToast("No hay días archivados"); return; }
-  if (!window.XLSX) {
-    loadXlsx().then(() => showToast("Listo. Toca Exportar otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
-    return;
-  }
-  const wb = buildArchiveWorkbook(_archiveDays, _archiveMermas);
+// Builds the .xlsx and hands it to the share sheet (or downloads it). Called straight from a tap:
+// everything here is synchronous so the share sheet still counts as a user action on iOS.
+function shareWorkbook(wb, fileBase) {
   const now = new Date();
-  const name = `postre_mio_archivo_${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.xlsx`;
+  const name = `${fileBase}_${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}.xlsx`;
   const data = window.XLSX.write(wb, { type: "array", bookType: "xlsx" });
   const file = new File([data], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 
@@ -3450,6 +3456,29 @@ function exportArchive() {
   } else {
     download();
   }
+}
+
+function exportArchive() {
+  if (!_archiveDays.length) { showToast("No hay días archivados"); return; }
+  if (!window.XLSX) {
+    loadXlsx().then(() => showToast("Listo. Toca Exportar otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
+    return;
+  }
+  shareWorkbook(buildArchiveWorkbook(_archiveDays, _archiveMermas), "postre_mio_archivo");
+}
+
+// "Exportar día": the sales still in Historial (the open day), same workbook layout as Archivo,
+// without closing anything. The day's mermas are fetched ahead of time (see updateCutBtnWithData).
+let _openDayMermas = [];
+function exportOpenDay() {
+  const sales = _historyData || [];
+  if (!sales.length) { showToast("No hay ventas que exportar"); return; }
+  if (!window.XLSX) {
+    loadXlsx().then(() => showToast("Listo. Toca Exportar día otra vez")).catch(() => showToast("No se pudo cargar el exportador"));
+    return;
+  }
+  const days = groupArchive(sales, _openDayMermas);
+  shareWorkbook(buildArchiveWorkbook(days, _openDayMermas), "postre_mio_dia");
 }
 
 // ── Cerrar stand ──
@@ -4668,6 +4697,322 @@ if (window.ResizeObserver) new ResizeObserver(updateStatsJump).observe(document.
 window.addEventListener("beforeunload", e => {
   if (settingsPageVisible() && updateSettingsDirty() > 0) { e.preventDefault(); e.returnValue = ""; }
 });
+
+// ── PRONÓSTICO ───────────────────────────────
+// Production proposal for the rest of the event, built from the sales so far. Computer only
+// (see isDesktopDevice): the phone/iPad stays the till.
+//
+// For every product: base rate = Σ(weight × units sold that day) / Σ(weight × day factor), so a Saturday
+// that sold 30 counts as "30 ÷ Saturday factor" of a normal day. Each remaining day is then
+// base × that day's factor. Day factor = weekday × payday × promotion (each one optional).
+// Need = Σ remaining days × (1 + safety margin); make = need − stock − frozen.
+
+const FC_DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const FC_DEFAULTS = {
+  useWeekday: true,
+  weekdayF: { 0: 1.05, 1: 0.8, 2: 0.8, 3: 0.8, 4: 0.85, 5: 1, 6: 1.2 }, // Sun..Sat, assumptions: editable
+  useTrend: true,
+  usePayday: false, paydays: [], payBoost: 15, payDip: 10,
+  usePromo: false, promoDays: [], promoBoost: 25,
+  margin: 10,
+  eventDays: 4,
+  override: {}, // day key -> true/false: include/exclude an observed day (default: all but today)
+};
+
+function fcLoadPrefs() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("forecastPrefs") || "{}") || {}; } catch (e) {}
+  return { ...FC_DEFAULTS, ...saved, weekdayF: { ...FC_DEFAULTS.weekdayF, ...(saved.weekdayF || {}) } };
+}
+let _fc = { prefs: fcLoadPrefs(), sales: null, cal: null, mode: "pay" };
+function fcSavePrefs() { try { localStorage.setItem("forecastPrefs", JSON.stringify(_fc.prefs)); } catch (e) {} }
+
+const fcKey = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const fcDate = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d, 12); };
+const fcAddDays = (date, n) => new Date(date.getFullYear(), date.getMonth(), date.getDate() + n, 12);
+const fcDayDiff = (a, b) => Math.round((a - b) / 86400000);
+const fcLabel = k => { const d = fcDate(k); return `${FC_DAYS[d.getDay()]} ${d.getDate()}`; };
+
+// Payday: the day itself and the next one sell more; the two days before sell less.
+function fcPayFactor(date, p) {
+  let best = 1, bestDist = 99;
+  for (const k of p.paydays) {
+    const off = fcDayDiff(date, fcDate(k));
+    let f;
+    if (off === 0 || off === 1) f = 1 + p.payBoost / 100;
+    else if (off === -1 || off === -2) f = 1 - p.payDip / 100;
+    else continue;
+    if (Math.abs(off) < bestDist) { best = f; bestDist = Math.abs(off); }
+  }
+  return best;
+}
+
+function fcDayFactor(date, p) {
+  const wd = p.useWeekday ? (Number(p.weekdayF[date.getDay()]) || 1) : 1;
+  const pay = p.usePayday ? fcPayFactor(date, p) : 1;
+  const promo = p.usePromo && p.promoDays.includes(fcKey(date)) ? 1 + p.promoBoost / 100 : 1;
+  return { f: wd * pay * promo, wd, pay, promo };
+}
+
+// sales: every sale of the event (archive + the open day). stock/frozen: { key: n }.
+function fcModel(sales, p, now, stock, frozen) {
+  const byDay = {};
+  sales.forEach(s => {
+    if (!s.isoDate) return;
+    const k = fcKey(new Date(s.isoDate));
+    const day = byDay[k] = byDay[k] || { key: k, units: {}, sales: 0 };
+    day.sales++;
+    (s.items || []).forEach(i => {
+      const key = stockKey({ name: currentProductName(i.name), extra: i.extra });
+      day.units[key] = (day.units[key] || 0) + 1;
+    });
+  });
+  const keys = Object.keys(byDay).sort();
+  if (!keys.length) return null;
+
+  const todayKey = fcKey(now);
+  const observed = keys.map(k => {
+    const d = fcDate(k);
+    const included = p.override[k] !== undefined ? !!p.override[k] : k !== todayKey;
+    return { ...byDay[k], date: d, included, today: k === todayKey, ...fcDayFactor(d, p) };
+  });
+  const used = observed.filter(d => d.included);
+
+  const start = observed[0].date;
+  const end = fcAddDays(start, Math.max(1, p.eventDays) - 1);
+  const lastUsed = used.length ? used[used.length - 1].date : null;
+  const remaining = [];
+  if (lastUsed) {
+    for (let d = fcAddDays(lastUsed, 1); d <= end; d = fcAddDays(d, 1)) {
+      if (fcKey(d) < todayKey) continue; // days already gone with no sales are not forecast
+      remaining.push({ key: fcKey(d), date: d, ...fcDayFactor(d, p) });
+    }
+  }
+
+  const names = new Set();
+  observed.forEach(d => Object.keys(d.units).forEach(n => names.add(n)));
+  const todayObs = observed.find(d => d.today);
+  const weight = i => (p.useTrend ? 1 + 0.5 * i : 1);
+  const denom = used.reduce((t, d, i) => t + weight(i) * d.f, 0);
+
+  const rows = [...names].map(name => {
+    const num = used.reduce((t, d, i) => t + weight(i) * (d.units[name] || 0), 0);
+    const base = denom > 0 ? num / denom : 0;
+    const perDay = remaining.map(r => {
+      let v = base * r.f;
+      // today's sales so far are already out of the stock count
+      if (todayObs && !todayObs.included && r.key === todayKey) v = Math.max(0, v - (todayObs.units[name] || 0));
+      return v;
+    });
+    const total = perDay.reduce((t, v) => t + v, 0) * (1 + p.margin / 100);
+    const need = Math.ceil(total - 1e-9);
+    const have = (stock[name] ?? 0) + (frozen[name] ?? 0);
+    return { name, base, perDay, need, stock: stock[name] ?? 0, frozen: frozen[name] ?? 0, make: Math.max(0, need - have), sold: observed.map(d => d.units[name] || 0) };
+  }).sort((a, b) => b.make - a.make || b.need - a.need || a.name.localeCompare(b.name, "es"));
+
+  return { observed, used, remaining, rows, start, end, totalMake: rows.reduce((t, r) => t + r.make, 0) };
+}
+
+// Computer only: needs a mouse-type pointer and isn't a phone/tablet (iPadOS Safari pretends to be a Mac).
+function isDesktopDevice() {
+  const ua = navigator.userAgent || "";
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return false;
+  if (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) return false;
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+function updateForecastAccess() {
+  const ok = isDesktopDevice();
+  const btn = document.querySelector('#sideMenu button[data-page="forecast"]');
+  if (btn) btn.style.display = ok ? "" : "none";
+  const page = document.getElementById("forecastPage");
+  if (!ok && page && page.style.display !== "none") showPage("pos");
+}
+
+async function renderForecast() {
+  const root = document.getElementById("forecastContent");
+  if (!root) return;
+  showSpinner();
+  try {
+    const [archive, current] = await Promise.all([DataStore.getArchive(), DataStore.getSales()]);
+    _fc.sales = [...archive, ...current];
+  } catch (e) {
+    console.error("renderForecast failed:", e);
+    showToast("No se pudieron cargar las ventas");
+    if (!_fc.sales) _fc.sales = [];
+  } finally {
+    hideSpinner();
+  }
+  _fc.cal = null;
+  fcRender();
+}
+
+function fcSet(key, val) { _fc.prefs[key] = val; fcSavePrefs(); fcRender(); }
+function fcSetNum(key, val, min, max) {
+  const n = Number(String(val).replace(",", "."));
+  if (!isFinite(n)) { fcRender(); return; }
+  fcSet(key, Math.min(max, Math.max(min, n)));
+}
+function fcSetWd(i, val) {
+  const n = Number(String(val).replace(",", "."));
+  if (isFinite(n)) _fc.prefs.weekdayF[i] = Math.min(3, Math.max(0.1, n));
+  fcSavePrefs(); fcRender();
+}
+function fcToggleDay(key, included) { _fc.prefs.override[key] = !included; fcSavePrefs(); fcRender(); }
+function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.getMonth() + delta, 1, 12); fcRender(); }
+function fcCalMode(mode) { _fc.mode = mode; fcRender(); }
+// Tap a day: mark/unmark it as payday or promotion (and switch that option on)
+function fcCalTap(key) {
+  const p = _fc.prefs;
+  const [list, flag] = _fc.mode === "pay" ? ["paydays", "usePayday"] : ["promoDays", "usePromo"];
+  p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
+  if (p[list].length) p[flag] = true;
+  fcSavePrefs(); fcRender();
+}
+
+function fcModelNow() {
+  return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory);
+}
+
+function fcSwitch(id, label, checked, onchange, extra = "") {
+  return `
+    <label class="switch-row">
+      <span>${label}</span>
+      <span class="toggle"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} onchange="${onchange}"><span class="toggle-slider"></span></span>
+    </label>${extra}`;
+}
+function fcNum(label, value, key, min, max, step, suffix) {
+  return `
+    <div class="fc-num-row">
+      <span>${label}</span>
+      <span><input type="text" inputmode="decimal" value="${value}" onchange="fcSetNum('${key}', this.value, ${min}, ${max})" onfocus="this.select()">${suffix ? " " + suffix : ""}</span>
+    </div>`;
+}
+
+function fcCalendarHTML(m) {
+  const p = _fc.prefs;
+  if (!_fc.cal) _fc.cal = m ? new Date(m.start.getFullYear(), m.start.getMonth(), 1, 12) : new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12);
+  const first = _fc.cal;
+  const month = first.getMonth();
+  const obs = new Set(m ? m.observed.filter(d => d.included).map(d => d.key) : []);
+  const fut = new Set(m ? m.remaining.map(d => d.key) : []);
+  const todayKey = fcKey(new Date());
+  let cells = "";
+  for (let i = 0; i < first.getDay(); i++) cells += `<span class="fc-day blank"></span>`;
+  const daysInMonth = new Date(first.getFullYear(), month + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = fcKey(new Date(first.getFullYear(), month, d, 12));
+    const cls = ["fc-day",
+      p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "",
+      obs.has(key) ? "obs" : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
+    cells += `<button class="${cls}" onclick="fcCalTap('${key}')">${d}</button>`;
+  }
+  const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
+  return `
+    <div class="fc-cal-head">
+      <button class="fc-nav" onclick="fcCalNav(-1)" aria-label="Mes anterior">${icon("chevronRight")}</button>
+      <strong>${esc(title)}</strong>
+      <button class="fc-nav next" onclick="fcCalNav(1)" aria-label="Mes siguiente">${icon("chevronRight")}</button>
+    </div>
+    <div class="fc-modes">
+      <button class="${_fc.mode === "pay" ? "on is-pay" : ""}" onclick="fcCalMode('pay')">Quincena</button>
+      <button class="${_fc.mode === "promo" ? "on is-promo" : ""}" onclick="fcCalMode('promo')">Promoción</button>
+    </div>
+    <div class="fc-cal">
+      ${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}
+      ${cells}
+    </div>
+    <div class="fc-legend">
+      <span><i class="lg obs"></i>Con ventas</span><span><i class="lg fut"></i>Por pronosticar</span>
+      <span><i class="lg is-pay"></i>Quincena</span><span><i class="lg is-promo"></i>Promoción</span>
+    </div>
+    <p class="fc-hint">Toca un día para marcarlo como ${_fc.mode === "pay" ? "día de pago" : "día de promoción"}.</p>`;
+}
+
+function fcRender() {
+  const root = document.getElementById("forecastContent");
+  if (!root) return;
+  const p = _fc.prefs;
+  const m = fcModelNow();
+
+  const options = `
+    <div class="settings-card">
+      <h3>${icon("sliders")} Opciones</h3>
+      ${fcSwitch("fcWd", "Día de la semana", p.useWeekday, "fcSet('useWeekday', this.checked)",
+        p.useWeekday ? `<div class="fc-wd">${FC_DAYS.map((d, i) => `<label><span>${d}</span><input type="text" inputmode="decimal" value="${p.weekdayF[i]}" onchange="fcSetWd(${i}, this.value)" onfocus="this.select()"></label>`).join("")}</div><p class="fc-hint">Qué tan fuerte vende cada día frente a un día normal (1 = normal). Son valores supuestos: ajústalos.</p>` : "")}
+      ${fcSwitch("fcTrend", "Tendencia reciente (los últimos días pesan más)", p.useTrend, "fcSet('useTrend', this.checked)")}
+      ${fcSwitch("fcPay", "Quincena", p.usePayday, "fcSet('usePayday', this.checked)",
+        p.usePayday ? fcNum("Más ventas en día de pago y el siguiente", p.payBoost, "payBoost", 0, 100, 5, "%") + fcNum("Menos ventas 1–2 días antes", p.payDip, "payDip", 0, 90, 5, "%") + `<p class="fc-hint">${p.paydays.length ? "Pagos marcados: " + p.paydays.slice().sort().map(fcLabel).join(", ") : "Marca los días de pago en el calendario."}</p>` : "")}
+      ${fcSwitch("fcPromo", "Fin de semana de promoción (Buen Fin…)", p.usePromo, "fcSet('usePromo', this.checked)",
+        p.usePromo ? fcNum("Más ventas en días de promoción", p.promoBoost, "promoBoost", 0, 200, 5, "%") + `<p class="fc-hint">${p.promoDays.length ? "Promoción: " + p.promoDays.slice().sort().map(fcLabel).join(", ") : "Marca los días de promoción en el calendario."}</p>` : "")}
+      <div class="fc-sep"></div>
+      ${fcNum("Margen de seguridad", p.margin, "margin", 0, 100, 5, "%")}
+      ${fcNum("Duración del evento", p.eventDays, "eventDays", 1, 14, 1, "días")}
+    </div>`;
+
+  const calendar = `<div class="settings-card"><h3>${icon("calendar")} Calendario</h3>${fcCalendarHTML(m)}</div>`;
+
+  let body;
+  if (!m) {
+    body = `<div class="settings-card"><p class="fc-empty">Aún no hay ventas para calcular un pronóstico.</p></div>`;
+  } else {
+    const chips = m.observed.map(d => `
+      <button class="fc-chip ${d.included ? "on" : ""}" onclick="fcToggleDay('${d.key}', ${d.included})">
+        <b>${fcLabel(d.key)}</b>
+        <span>${d.sales} ${d.sales === 1 ? "venta" : "ventas"}${d.today ? " · hoy, parcial" : ""}</span>
+        <span>×${d.f.toFixed(2)}</span>
+      </button>`).join("");
+    const head = `
+      <tr>
+        <th class="l">Producto</th>
+        ${m.observed.map(d => `<th class="${d.included ? "" : "off"}">${fcLabel(d.key)}</th>`).join("")}
+        ${m.remaining.map(d => `<th class="fut">${fcLabel(d.key)}</th>`).join("")}
+        <th>Necesario</th><th>Hay</th><th class="make">Hacer</th>
+      </tr>`;
+    const rows = m.rows.map(r => `
+      <tr>
+        <td class="l">${esc(r.name)}</td>
+        ${r.sold.map((v, i) => `<td class="${m.observed[i].included ? "" : "off"}">${v}</td>`).join("")}
+        ${r.perDay.map(v => `<td class="fut">${v.toFixed(1)}</td>`).join("")}
+        <td>${r.need}</td>
+        <td>${r.stock}${r.frozen ? ` <small>+${r.frozen}${icon("snowflake")}</small>` : ""}</td>
+        <td class="make"><span class="${r.make ? "pill" : "pill zero"}">${r.make}</span></td>
+      </tr>`).join("");
+    const range = m.remaining.length ? m.remaining.map(d => fcLabel(d.key)).join(" · ") : "";
+    body = `
+      <div class="settings-card">
+        <h3>${icon("receipt")} Días con ventas</h3>
+        <div class="fc-chips">${chips}</div>
+        <p class="fc-hint">Toca un día para incluirlo o dejarlo fuera del cálculo. El factor (×) es lo que pesa ese día frente a uno normal.</p>
+      </div>
+      <div class="settings-card">
+        <div class="fc-table-head">
+          <h3>${icon("flame")} Propuesta${range ? ` <small>para ${esc(range)}</small>` : ""}</h3>
+          ${m.remaining.length && m.rows.length ? `<button class="btn-brand btn-icon fc-copy" onclick="fcCopy()">${icon("clipboard")} Copiar lista</button>` : ""}
+        </div>
+        ${!m.used.length ? `<p class="fc-empty">Incluye al menos un día con ventas.</p>`
+          : !m.remaining.length ? `<p class="fc-empty">No quedan días por pronosticar. Sube la duración del evento si todavía faltan días.</p>`
+          : `<p class="fc-total">${m.totalMake} ${m.totalMake === 1 ? "pieza" : "piezas"} por hacer</p>
+             <div class="fc-table-wrap"><table class="fc-table"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+             <p class="fc-hint">Hay = stock + congelados. Las ventas se limitan a lo que había: si algo se agotó pronto, la demanda real fue mayor; sube el margen.</p>`}
+      </div>`;
+  }
+
+  root.innerHTML = `<div class="fc-top">${options}${calendar}</div>${body}`;
+}
+
+function fcCopy() {
+  const m = fcModelNow();
+  if (!m) return;
+  const lines = m.rows.filter(r => r.make > 0).map(r => `• ${r.name}: ${r.make}`);
+  const text = `Producción sugerida para ${m.remaining.map(d => fcLabel(d.key)).join(" y ")}\n${lines.join("\n")}`;
+  const done = () => showToast("Lista copiada", "check");
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(() => showToast("No se pudo copiar"));
+  else showToast("No se pudo copiar");
+}
+// ── END PRONÓSTICO ───────────────────────────
+
+updateForecastAccess();
+window.matchMedia("(hover: hover) and (pointer: fine)").addEventListener("change", updateForecastAccess);
 
 // Swallow touch scrolling on the loading overlays (iOS would otherwise scroll the page behind them)
 ["pageSpinner", "loadingScreen"].forEach(id => {

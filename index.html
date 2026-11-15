@@ -131,6 +131,7 @@
     <div id="historyList"></div>
     <div id="historyStats" class="history-stats" style="display:none;"></div>
     <div id="cutBtn" style="display:none; text-align: center;">
+      <button class="btn-brand btn-icon" onclick="exportOpenDay()"><span data-icon="download"></span> Exportar día</button>
       <button onclick="generateCut()">Corte de caja</button>
     </div>
   </div>
@@ -142,6 +143,14 @@
     <h2>Archivo</h2>
     <div id="archiveList"></div>
     <div id="archiveActions"></div>
+  </div>
+</div>
+
+<!-- PRONÓSTICO (computer only) -->
+<div id="forecastPage" class="page page-flow" style="display:none;">
+  <div class="page-content fc-page">
+    <h2>Pronóstico de producción</h2>
+    <div id="forecastContent"></div>
   </div>
 </div>
 
@@ -198,6 +207,7 @@
     <button data-page="promos" onclick="showPage('promos')">Promociones</button>
     <button data-page="mermas" onclick="showPage('mermas')">Mermas</button>
     <button data-page="archive" onclick="showPage('archive')">Archivo</button>
+    <button data-page="forecast" onclick="showPage('forecast')" style="display:none;">Pronóstico</button>
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0;">
     <button data-page="settings" onclick="showPage('settings')">Ajustes</button>
   </div>
