@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.0";
-const APP_UPDATED = "2026-11-17T16:00Z";
+const APP_VERSION = "1.22.1";
+const APP_UPDATED = "2026-11-17T17:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5230,6 +5230,10 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
+// Two outline halves that start together at the top centre and meet at the bottom centre
+const FC_DRAW_SVG = '<svg class="fc-draw" viewBox="0 0 100 100" aria-hidden="true">' +
+  '<path pathLength="1" d="M50 1.5H86a12.5 12.5 0 0 1 12.5 12.5V86a12.5 12.5 0 0 1-12.5 12.5H50"/>' +
+  '<path pathLength="1" d="M50 1.5H14A12.5 12.5 0 0 0 1.5 14V86A12.5 12.5 0 0 0 14 98.5H50"/></svg>';
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
@@ -5247,7 +5251,14 @@ function fcPressStart(e, key) {
   if (e.button !== 0 && e.button !== 2) return;
   fcPressCancel();
   const right = e.button === 2;
-  e.currentTarget.classList.add(right ? "pressing-festivo" : "pressing-include");
+  const el = e.currentTarget;
+  if (right) {
+    el.classList.add("pressing-festivo");
+  } else if (el.classList.contains("obs") || el.classList.contains("off")) {
+    // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
+    el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
+    el.insertAdjacentHTML("beforeend", FC_DRAW_SVG);
+  }
   _fcPress = {
     key, button: e.button, fired: false, at: 0,
     timer: setTimeout(() => { // held long enough
@@ -5266,7 +5277,10 @@ function fcPressEnd(e, key) {
 function fcPressCancel() {
   if (_fcPress.timer) clearTimeout(_fcPress.timer);
   _fcPress.timer = 0;
-  document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => el.classList.remove("pressing-festivo", "pressing-include"));
+  document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => {
+    el.classList.remove("pressing-festivo", "pressing-include", "draw", "erase");
+    el.querySelectorAll(".fc-draw").forEach(n => n.remove());
+  });
 }
 // The right button is handled with pointer events above; here we only stop the browser's menu.
 function fcCalRight(e) { e.preventDefault(); }
