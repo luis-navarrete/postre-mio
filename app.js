@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.22.6";
-const APP_UPDATED = "2026-11-17T22:00Z";
+const APP_VERSION = "1.23.5";
+const APP_UPDATED = "2026-11-18T07:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -659,7 +659,7 @@ const _ICON_PATHS = {
   trendDown:'<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
   utensils: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/>',
   bills:    '<rect x="2" y="8" width="17" height="11" rx="2"/><path d="M5 5h15a2 2 0 0 1 2 2v9"/><circle cx="10.5" cy="13.5" r="2.2"/>',
-  discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><path d="M16.5 10.5l-6 6"/><circle cx="11" cy="11" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/>',
+  discountTag: '<path d="M12.59 2.59A2 2 0 0 0 11.17 2H4a2 2 0 0 0-2 2v7.17a2 2 0 0 0 .59 1.41l8.7 8.7a2.43 2.43 0 0 0 3.42 0l6.58-6.58a2.43 2.43 0 0 0 0-3.42z"/><g transform="rotate(45 12.5 12.5)"><path d="M10.3 16.1L14.7 8.9"/><circle cx="9.3" cy="9.7" r="1.25" fill="currentColor" stroke="none"/><circle cx="15.7" cy="15.3" r="1.25" fill="currentColor" stroke="none"/></g>',
   sliders:  '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
   clock:    '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
@@ -5242,10 +5242,24 @@ function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.get
 // Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
-// Two outline halves that start together at the top centre and meet at the bottom centre
-const FC_DRAW_SVG = '<svg class="fc-draw" viewBox="0 0 100 100" aria-hidden="true">' +
-  '<path pathLength="1" d="M50 1.5H86a12.5 12.5 0 0 1 12.5 12.5V86a12.5 12.5 0 0 1-12.5 12.5H50"/>' +
-  '<path pathLength="1" d="M50 1.5H14A12.5 12.5 0 0 0 1.5 14V86A12.5 12.5 0 0 0 14 98.5H50"/></svg>';
+// Two outline halves that start together at the top centre and meet at the bottom centre. The svg is drawn in real
+// pixels at the cell's exact size (border box, 9px corners, 2px line) so the line lies exactly on the cell's border.
+// On a festivo day a darker purple copy, clipped to the festivo cap's own crescent shape, is laid over the part that
+// crosses the cap, so the two line up exactly.
+const FC_CAP = 9; // px, thickness of the festivo cap (keep in sync with the ::before box-shadow in styles.css)
+function fcDrawSvg(festivo, W, H) {
+  const R = 9, r = R - 1, mx = (W / 2).toFixed(2), w = W.toFixed(2), h = H.toFixed(2);
+  const paths = `<path pathLength="1" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${mx}"/>` +
+    `<path pathLength="1" d="M${mx} 1H${1 + r}a${r} ${r} 0 0 0-${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 0 ${r} ${r}H${mx}"/>`;
+  const box = dy => `M0 ${R + dy}a${R} ${R} 0 0 1 ${R} -${R}H${(W - R).toFixed(2)}a${R} ${R} 0 0 1 ${R} ${R}V${(H - R + dy).toFixed(2)}a${R} ${R} 0 0 1 -${R} ${R}H${R}a${R} ${R} 0 0 1 -${R} -${R}Z`;
+  // dashed outline drawn in the same svg (so it shares the line's exact geometry): evenly spaced dashes all round
+  const P = 2 * (W - 2 - 2 * r) + 2 * (H - 2 - 2 * r) + 2 * Math.PI * r, n = Math.max(8, Math.round(P / 10)), unit = P / n;
+  const dots = `<path class="fc-dots" style="stroke-dasharray:${(unit * 0.62).toFixed(2)} ${(unit * 0.38).toFixed(2)}" d="M${mx} 1H${(W - 1 - r).toFixed(2)}a${r} ${r} 0 0 1 ${r} ${r}V${(H - 1 - r).toFixed(2)}a${r} ${r} 0 0 1-${r} ${r}H${1 + r}a${r} ${r} 0 0 1-${r}-${r}V${1 + r}a${r} ${r} 0 0 1 ${r}-${r}Z"/>`;
+  const cap = festivo
+    ? `<defs><clipPath id="fcCapClip"><path clip-rule="evenodd" d="${box(0)} ${box(FC_CAP)}"/></clipPath></defs><g class="fc-draw-cap" clip-path="url(#fcCapClip)">${paths}</g>`
+    : "";
+  return `<svg class="fc-draw" viewBox="0 0 ${w} ${h}" aria-hidden="true">${dots}${paths}${cap}</svg>`;
+}
 function fcToggleMark(key, kind) {
   const p = _fc.prefs, [list, flag] = FC_MARKS[kind];
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
@@ -5269,7 +5283,8 @@ function fcPressStart(e, key) {
   } else if (el.classList.contains("obs") || el.classList.contains("off")) {
     // the outline is drawn (day gets included) or erased (day gets left out) from the top centre to the sides
     el.classList.add("pressing-include", el.classList.contains("obs") ? "erase" : "draw");
-    el.insertAdjacentHTML("beforeend", FC_DRAW_SVG);
+    const box = el.getBoundingClientRect();
+    el.insertAdjacentHTML("beforeend", fcDrawSvg(el.classList.contains("is-festivo"), box.width, box.height));
   }
   _fcPress = {
     key, button: e.button, fired: false, at: 0,
@@ -5421,7 +5436,7 @@ function fcCalendarHTML(m) {
     const od = obsDay[key];
     const tip = od ? ` title="${esc(`${fcLabel(key)} · ${od.sales} ${od.sales === 1 ? "venta" : "ventas"} · ×${od.f.toFixed(2)} · ${od.included ? "incluido en el cálculo" : "fuera del cálculo"}${od.today ? " (hoy, parcial)" : ""}`)}"` : "";
     const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("discountTag")}</span>` : "");
-    cells += `<button class="${cls}"${tip} onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
+    cells += `<button class="${cls}"${tip} onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')"><span class="fc-n">${d}</span>${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
   }
   const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return `
