@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.30.0";
-const APP_UPDATED = "2026-11-19T09:00Z";
+const APP_VERSION = "1.30.1";
+const APP_UPDATED = "2026-11-19T10:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3263,7 +3263,7 @@ function openCorrectionModal() {
       </label>
       <button class="btn-brand" id="corrSaveBtn" onclick="saveCorrection()" style="margin-top:6px;">Guardar corrección</button>
       <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
-      <div class="modal-spacer"></div>
+      <div class="modal-spacer corr-spacer"></div>
     </div>
   `);
   document.getElementById("modalContent").classList.add("modal-split");
