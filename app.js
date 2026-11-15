@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.28.6";
-const APP_UPDATED = "2026-11-19T05:00Z";
+const APP_VERSION = "1.28.8";
+const APP_UPDATED = "2026-11-19T07:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -3019,7 +3019,7 @@ function editTimeLabel() {
   const t = _editTime;
   const d = new Date(2000, 0, 1, t.h, t.m);
   const txt = appSettings.use24hEditor ? `${pad2(t.h)}:${pad2(t.m)}` : fmtTime12(d);
-  return `${esc(txt)}${t.h * 60 + t.m !== t.original ? " <small>(cambiada)</small>" : ""}`;
+  return esc(txt);
 }
 // current hour / minutes: read from the wheel while it is open, else from the saved state
 function editTimeValues() {
@@ -3078,7 +3078,7 @@ function editDateHTML() {
       <div class="fc-cal">${FC_DAYS.map(d => `<span class="fc-dow">${d}</span>`).join("")}${cells}</div>
     </div>`;
   }
-  return `<div class="ef-row"><div class="ef-main"><button class="fc-range-btn edit-date-btn" onclick="toggleEditCal()">${esc(editDateLabel(g.key))}${g.key !== g.original ? " <small>(cambiada)</small>" : ""}</button></div>${resetBtn("date")}</div>${cal}`;
+  return `<div class="ef-row"><div class="ef-main"><button class="fc-range-btn edit-date-btn" onclick="toggleEditCal()">${esc(editDateLabel(g.key))}</button></div>${resetBtn("date")}</div>${cal}`;
 }
 function renderEditDate() { const el = document.getElementById("edit-date"); if (el) { el.innerHTML = editDateHTML(); updateEditResets(); } }
 function toggleEditCal() { _editDate.open = !_editDate.open; renderEditDate(); }
