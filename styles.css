@@ -2248,14 +2248,15 @@ body.has-savebar .toast { bottom: 96px; }
 .gift-tag { color: var(--green); font-weight: 700; }
 .gift-tag .icon { width: 13px; height: 13px; vertical-align: -2px; }
 
-/* The last button of the cart: on a touch screen it runs to the screen's bottom and right edges and its bottom-right
-   corner follows the device's corner curve (a rough guess per device class); on a computer it keeps a small blank gap. */
+/* The last button of the cart keeps the same 14px gap as the others (the cart's padding) on every device; on a touch
+   screen its bottom-right corner is rounded concentrically with the device's screen corner (screen corner - gap),
+   so it follows the curve of the screen without ever touching or being clipped by it. On a computer: a normal corner. */
 @media (pointer: coarse) {
-  :root { --screen-corner: 18px; }                                            /* iPad */
-  .cart-last { margin: 8px -14px -14px 0; border-radius: 8px 0 var(--screen-corner) 8px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+  :root { --screen-corner: 18px; }                                              /* iPad */
+  .cart-last { border-bottom-right-radius: max(8px, calc(var(--screen-corner) - 14px)); }
 }
 @media (pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px) {
-  :root { --screen-corner: 56px; }                                            /* iPhone (the biggest corner, so nothing is ever cut off) */
+  :root { --screen-corner: 56px; }                                              /* iPhone */
 }
 
 /* viewport-fit=cover lets the page use the whole screen (needed for the curved corner button); keep the content out of the notch when the phone is sideways */
