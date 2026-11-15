@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.25.0";
-const APP_UPDATED = "2026-11-18T14:00Z";
+const APP_VERSION = "1.26.1";
+const APP_UPDATED = "2026-11-18T16:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -1109,6 +1109,46 @@ function removeItem(i) {
   renderCart();
 }
 
+// ── Gifts ("Añadir regalo") ──
+// Pick any product; it goes through the normal add-to-cart flow (stock check, flavour / extras questions) flagged as a gift.
+function openGiftPicker() {
+  const flat = menu.flatMap(c => c.items);
+  let i = 0;
+  const rows = menu.map(cat => `
+    <div class="corr-cat">${catHTML(cat.category)}</div>
+    ${cat.items.map(it => { const idx = i++; return `<button class="gift-row" onclick="pickGift(${idx})"><span>${esc(it.name)}</span><small>STOCK: ${productStock(it.name)}</small></button>`; }).join("")}`).join("");
+  openCompactModal(`
+    <div class="modal-head">
+      <div class="modal-head-main"><h3 style="width:auto;">${icon('gift')} Añadir regalo</h3></div>
+      <button class="icon-close" onclick="closeModal()" aria-label="Cerrar">${icon('close')}</button>
+    </div>
+    <div class="modal-scroll">
+      <p class="corr-intro">Elige el producto que se regala. No cuesta nada y sale de tu inventario.</p>
+      ${rows}
+      <div class="modal-spacer"></div>
+    </div>
+  `);
+  document.getElementById("modalContent").classList.add("modal-split");
+  window._giftFlat = flat;
+}
+function pickGift(idx) {
+  const item = (window._giftFlat || [])[idx];
+  closeModal();
+  if (item) addToCart({ ...item, gift: true });
+}
+// + / − on a gift line (same name and flavour / extra)
+function changeGiftQty(name, extraName, delta) {
+  const same = i => i.gift && i.name === name && (i.extra ? i.extra.name : null) === extraName;
+  if (delta > 0) {
+    if (cart.filter(i => i.name === name).length >= productStock(name)) { showToast("No hay más stock disponible"); return; }
+    const model = [...cart].reverse().find(same);
+    if (model) { cart.push({ ...model, cartId: ++_cartIdCounter }); renderCart(); }
+  } else {
+    const idx = cart.map((i, n) => same(i) ? n : -1).filter(n => n >= 0).pop();
+    if (idx !== undefined) { cart.splice(idx, 1); renderCart(); }
+  }
+}
+
 function clearCart() {
   if (cart.length === 0) return;
   confirmModal("¿Limpiar la orden?", () => {
@@ -1286,6 +1326,8 @@ function closeModal() {
 
 function openPaymentOptions() {
   const { finalTotal } = computeCartTotals();
+  // nothing to pay (an order made only of gifts): go straight to the last step
+  if (finalTotal === 0) { showFinalStep(0, "cash", 0, 0); return; }
   openPopupModal(`
     <h3>Cobrar: $${finalTotal.toFixed(2)}</h3>
     <button class="btn-primary" onclick="handleCash(${finalTotal})">Efectivo</button>
@@ -3870,9 +3912,18 @@ function itemMatchesScope(item, promo) {
 }
 
 // Returns array of { promo, discount, freeItems[] }
-function applyPromotions(cartItems) {
-  const applied = [];
+// A gift ("Añadir regalo") is handled as a free_item promotion that needs no condition and no active promo: each gift
+// item in the cart is discounted by its own price. Gifts never count towards (nor get discounted by) other promotions.
+const GIFT_PROMO = { id: "gift", name: "Regalo", active: true, scope: "any", scopeValue: "", triggerQty: 1, type: "free_item", value: 1 };
 
+function applyPromotions(allItems) {
+  const applied = [];
+  const gifts = allItems.filter(i => i.gift);
+  const cartItems = allItems.filter(i => !i.gift);
+
+  if (gifts.length) {
+    applied.push({ promo: GIFT_PROMO, discount: gifts.reduce((s, i) => s + i.price, 0), freeCount: gifts.length, freeItemName: [...new Set(gifts.map(g => g.name))].join(", ") });
+  }
   if (!cartItems.length) return applied;
 
   for (const promo of promotions) {
@@ -3960,10 +4011,10 @@ function renderCart() {
 
   const { finalTotal, appliedPromos } = computeCartTotals();
 
-  // Group ALL items by name + extra variant
+  // Group ALL items by name + extra variant (gifts are kept apart from regular items)
   const grouped = {};
   cart.forEach(item => {
-    const key = item.name + (item.extra ? '::' + item.extra.name : '');
+    const key = item.name + (item.extra ? '::' + item.extra.name : '') + (item.gift ? '::gift' : '');
     if (!grouped[key]) grouped[key] = { ...item, qty: 0 };
     grouped[key].qty++;
   });
@@ -3976,13 +4027,14 @@ function renderCart() {
       : `$${basePrice.toFixed(2)}${item.extra ? ` + $${item.extra.price.toFixed(2)}` : ''} × ${item.qty}`;
     const div = document.createElement("div");
     div.className = "item";
+    const qtyFn = item.gift ? "changeGiftQty" : "changeQtyGrouped";
     div.innerHTML = `
       <div class="cart-item-name">${esc(item.name)}</div>
-      <div class="cart-item-price">${priceLine}</div>
+      <div class="cart-item-price">${item.gift ? `<span class="gift-tag">${icon('gift')} Regalo</span> × ${item.qty}` : priceLine}</div>
       ${item.extra ? `<div class="cart-extra-line"><span>↳ ${esc(item.extra.name)}</span></div>` : ''}
       <div class="cart-item-controls">
-        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
-        <button onclick="changeQtyGrouped('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
+        <button onclick="${qtyFn}('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, -1)">−</button>
+        <button onclick="${qtyFn}('${item.name.replace(/'/g,"\\'")}', ${extraName ? `'${extraName.replace(/'/g,"\\'")}'` : 'null'}, 1)">+</button>
       </div>
     `;
     frag.appendChild(div);
@@ -5664,6 +5716,20 @@ function fcCopy() {
   else showToast("No se pudo copiar");
 }
 // ── END PRONÓSTICO ───────────────────────────
+
+// The Caja page fills exactly what is left under the header, whatever the device: measure the header
+function syncHeaderHeight() {
+  const header = document.querySelector(".header");
+  if (header && header.offsetHeight) document.documentElement.style.setProperty("--header-h", header.offsetHeight + "px");
+}
+(function () {
+  const header = document.querySelector(".header");
+  if (!header) return;
+  if (window.ResizeObserver) new ResizeObserver(syncHeaderHeight).observe(header);
+  window.addEventListener("resize", syncHeaderHeight);
+  window.addEventListener("orientationchange", syncHeaderHeight);
+  syncHeaderHeight();
+})();
 
 updateForecastAccess();
 window.matchMedia("(hover: hover) and (pointer: fine)").addEventListener("change", updateForecastAccess);

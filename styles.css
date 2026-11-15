@@ -78,7 +78,7 @@ button:active { opacity: 0.75; }
 
 /* ── PAGE SHELL ────────────────────────── */
 .page {
-  height: calc(100dvh - 100px);
+  height: calc(100dvh - var(--header-h, 100px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -388,7 +388,7 @@ button:active { opacity: 0.75; }
 .cart-items {
   overflow-y: auto;
   flex: 1;
-  max-height: 340px;
+  min-height: 0; /* fills the column, so the buttons always sit at the bottom whatever the screen height */
 }
 
 .item {
@@ -431,7 +431,11 @@ button:active { opacity: 0.75; }
   border-top: 1px dashed var(--border);
 }
 
-.total { font-size: 19px; font-weight: 700; padding: 6px 0 2px; }
+.total { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; font-size: 19px; font-weight: 700; padding: 6px 0 2px; }
+.total-label { font-size: 12px; letter-spacing: 0.3px; }
+.total-amt { min-width: 0; }
+/* wide cart: the label is as big as the number; in a narrow one (phone) it stays small so the total never wraps */
+@container (min-width: 210px) { .total-label { font-size: inherit; letter-spacing: 0; } }
 
 /* ── INVENTORY PAGE ────────────────────── */
 #inventoryList {
@@ -2238,3 +2242,19 @@ body.has-savebar .toast { bottom: 96px; }
 .mny-sign { position: absolute; right: 100%; margin-right: 1px; }
 /* no press-dimming on calendar days: it made the dashed outline look different while holding */
 .fc-day:active { opacity: 1; }
+
+/* Añadir regalo */
+.gift-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin: 0; padding: 11px 4px; background: transparent !important; color: var(--text) !important; border: none; border-bottom: 1px solid var(--border); border-radius: 0; font-size: 14px; font-weight: 500; text-align: left; }
+.gift-row small { color: var(--text-muted); font-size: 11px; font-weight: 600; }
+.gift-tag { color: var(--green); font-weight: 700; }
+.gift-tag .icon { width: 13px; height: 13px; vertical-align: -2px; }
+
+/* The last button of the cart: on a touch screen it runs to the screen's bottom and right edges and its bottom-right
+   corner follows the device's corner curve (a rough guess per device class); on a computer it keeps a small blank gap. */
+@media (pointer: coarse) {
+  :root { --screen-corner: 18px; }                                            /* iPad */
+  .cart-last { margin: 8px -14px -14px 0; border-radius: 8px 0 var(--screen-corner) 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (pointer: coarse) and (max-width: 500px), (pointer: coarse) and (max-height: 500px) {
+  :root { --screen-corner: 47px; }                                            /* iPhone */
+}
