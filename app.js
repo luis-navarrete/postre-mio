@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.20.5";
-const APP_UPDATED = "2026-11-16T23:00Z";
+const APP_VERSION = "1.21.0";
+const APP_UPDATED = "2026-11-17T01:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5201,10 +5201,9 @@ function fcResetSuggested() {
   Object.assign(_fc.prefs, { weekdayF: { ...FC_SUGGESTED.weekdayF }, payBoost: FC_SUGGESTED.payBoost, payDip: FC_SUGGESTED.payDip, promoBoost: FC_SUGGESTED.promoBoost });
   fcSavePrefs(); fcRender();
 }
-function fcToggleDay(key, included) { _fc.prefs.override[key] = !included; fcSavePrefs(); fcRender(); }
 function fcCalNav(delta) { _fc.cal = new Date(_fc.cal.getFullYear(), _fc.cal.getMonth() + delta, 1, 12); fcRender(); }
-// Calendar clicks: left click = payday (quincena), right click = promotion, holding the left button = festivo.
-// Each one turns its option on when a day gets marked.
+// Calendar clicks. Left: click = payday (quincena), hold = include / leave out a day that has sales.
+// Right: click = promotion, hold = festivo. Marking a day turns its option on.
 const FC_MARKS = { pay: ["paydays", "usePayday"], promo: ["promoDays", "usePromo"], festivo: ["festivoDays", "useFestivo"] };
 const FC_HOLD_MS = 500;
 function fcToggleMark(key, kind) {
@@ -5212,37 +5211,41 @@ function fcToggleMark(key, kind) {
   p[list] = p[list].includes(key) ? p[list].filter(k => k !== key) : [...p[list], key];
   if (p[list].length) p[flag] = true;
 }
+function fcToggleInclude(key) {
+  const m = fcModelNow();
+  const d = m && m.observed.find(x => x.key === key);
+  if (!d) { showToast("Ese día no tiene ventas"); return; }
+  _fc.prefs.override[key] = !d.included;
+}
 function fcMarked() { fcSavePrefs(); fcSyncMeta(); fcRender(); }
-let _fcPress = { timer: 0, fired: false, key: "", at: 0 };
+let _fcPress = { timer: 0, fired: false, key: "", at: 0, button: -1 };
 function fcPressStart(e, key) {
-  if (e.button !== 0) return; // only the left button (or a finger)
+  if (e.button !== 0 && e.button !== 2) return;
   fcPressCancel();
-  e.currentTarget.classList.add("pressing");
+  const right = e.button === 2;
+  e.currentTarget.classList.add(right ? "pressing-festivo" : "pressing-include");
   _fcPress = {
-    key, fired: false, at: 0,
-    timer: setTimeout(() => { // held long enough: festivo
+    key, button: e.button, fired: false, at: 0,
+    timer: setTimeout(() => { // held long enough
       _fcPress.timer = 0; _fcPress.fired = true; _fcPress.at = Date.now();
-      fcToggleMark(key, "festivo"); fcMarked();
+      if (right) fcToggleMark(key, "festivo"); else fcToggleInclude(key);
+      fcMarked();
     }, FC_HOLD_MS),
   };
 }
 function fcPressEnd(e, key) {
-  if (e.button !== 0 || _fcPress.key !== key || !_fcPress.timer) return; // already handled as a hold, or not ours
+  if (e.button !== _fcPress.button || _fcPress.key !== key || !_fcPress.timer) return; // already a hold, or not ours
   clearTimeout(_fcPress.timer);
   _fcPress.timer = 0;
-  fcToggleMark(key, "pay"); fcMarked(); // short press: quincena
+  fcToggleMark(key, e.button === 2 ? "promo" : "pay"); fcMarked(); // short press
 }
 function fcPressCancel() {
   if (_fcPress.timer) clearTimeout(_fcPress.timer);
   _fcPress.timer = 0;
-  document.querySelectorAll(".fc-day.pressing").forEach(el => el.classList.remove("pressing"));
+  document.querySelectorAll(".fc-day.pressing-festivo, .fc-day.pressing-include").forEach(el => el.classList.remove("pressing-festivo", "pressing-include"));
 }
-function fcCalRight(e, key) {
-  e.preventDefault();
-  // a long press on a touch screen also fires "contextmenu": that one is the festivo hold, not a promotion
-  if (_fcPress.timer || (_fcPress.fired && Date.now() - _fcPress.at < 1500)) return;
-  fcToggleMark(key, "promo"); fcMarked();
-}
+// The right button is handled with pointer events above; here we only stop the browser's menu.
+function fcCalRight(e) { e.preventDefault(); }
 
 function fcModelNow() {
   return fcModel(_fc.sales || [], _fc.prefs, new Date(), inventory, frozenInventory, _fc.history || []);
@@ -5271,7 +5274,8 @@ function fcCalendarHTML(m) {
   if (!_fc.cal) _fc.cal = m ? new Date(m.start.getFullYear(), m.start.getMonth(), 1, 12) : new Date(new Date().getFullYear(), new Date().getMonth(), 1, 12);
   const first = _fc.cal;
   const month = first.getMonth();
-  const obs = new Set(m ? m.observed.filter(d => d.included).map(d => d.key) : []);
+  const obsDay = {};
+  (m ? m.observed : []).forEach(d => { obsDay[d.key] = d; });
   const fut = new Set(m ? m.remaining.map(d => d.key) : []);
   const todayKey = fcKey(new Date());
   let cells = "";
@@ -5281,9 +5285,11 @@ function fcCalendarHTML(m) {
     const key = fcKey(new Date(first.getFullYear(), month, d, 12));
     const cls = ["fc-day",
       p.paydays.includes(key) ? "is-pay" : "", p.promoDays.includes(key) ? "is-promo" : "", p.festivoDays.includes(key) ? "is-festivo" : "",
-      obs.has(key) ? "obs" : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
+      obsDay[key] ? (obsDay[key].included ? "obs" : "off") : "", fut.has(key) ? "fut" : "", key === todayKey ? "today" : ""].join(" ");
+    const od = obsDay[key];
+    const tip = od ? ` title="${esc(`${fcLabel(key)} · ${od.sales} ${od.sales === 1 ? "venta" : "ventas"} · ×${od.f.toFixed(2)} · ${od.included ? "incluido en el cálculo" : "fuera del cálculo"}${od.today ? " (hoy, parcial)" : ""}`)}"` : "";
     const marks = (p.paydays.includes(key) ? `<span class="fc-mark is-pay">${icon("bills")}</span>` : "") + (p.promoDays.includes(key) ? `<span class="fc-mark is-promo">${icon("discountTag")}</span>` : "");
-    cells += `<button class="${cls}" onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
+    cells += `<button class="${cls}"${tip} onpointerdown="fcPressStart(event, '${key}')" onpointerup="fcPressEnd(event, '${key}')" onpointerleave="fcPressCancel()" onpointercancel="fcPressCancel()" oncontextmenu="fcCalRight(event, '${key}')">${d}${marks ? `<span class="fc-marks">${marks}</span>` : ""}</button>`;
   }
   const title = first.toLocaleDateString("es-MX", { month: "long", year: "numeric" });
   return `
@@ -5297,10 +5303,10 @@ function fcCalendarHTML(m) {
       ${cells}
     </div>
     <div class="fc-legend">
-      <span><i class="lg obs"></i>Con ventas</span><span><i class="lg fut"></i>Por pronosticar</span>
+      <span><i class="lg obs"></i>Con ventas</span><span><i class="lg off"></i>Fuera del cálculo</span><span><i class="lg fut"></i>Por pronosticar</span>
       <span><span class="fc-mark is-pay">${icon("bills")}</span>Quincena</span><span><span class="fc-mark is-promo">${icon("discountTag")}</span>Promoción</span><span><i class="lg is-festivo"></i>Festivo</span>
     </div>
-    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>clic izquierdo sostenido</b>: festivo. Las marcas se guardan en la nube.</p>`;
+    <p class="fc-hint"><b>Clic izquierdo</b>: quincena · <b>clic derecho</b>: promoción · <b>izquierdo sostenido</b>: incluir o dejar fuera un día con ventas · <b>derecho sostenido</b>: festivo. Pasa el cursor sobre un día con ventas para ver su factor. Las marcas se guardan en la nube.</p>`;
 }
 
 function fcRender() {
@@ -5329,16 +5335,10 @@ function fcRender() {
 
   const calendar = `<div class="settings-card"><h3>${icon("calendar")} Calendario</h3>${fcCalendarHTML(m)}</div>`;
 
-  let body, daysCard = "";
+  let body;
   if (!m) {
     body = `<div class="settings-card"><p class="fc-empty">Aún no hay ventas ni eventos guardados para calcular un pronóstico.</p></div>`;
   } else {
-    const chips = m.observed.map(d => `
-      <button class="fc-chip ${d.included ? "on" : ""}" onclick="fcToggleDay('${d.key}', ${d.included})">
-        <b>${fcLabel(d.key)}</b>
-        <span>${d.sales} ${d.sales === 1 ? "venta" : "ventas"}${d.today ? " · hoy, parcial" : ""}</span>
-        <span>×${d.f.toFixed(2)}</span>
-      </button>`).join("");
     const head = `
       <tr>
         <th class="l">Producto</th>
@@ -5358,18 +5358,13 @@ function fcRender() {
         <td class="make"><span class="${r.make ? "pill" : "pill zero"}">${r.make}</span></td>
       </tr>`).join("");
     const range = m.remaining.length ? m.remaining.map(d => fcLabel(d.key)).join(" · ") : "";
-    daysCard = `
-      <div class="settings-card">
-        <h3>${icon("receipt")} Días con ventas</h3>
-        ${m.observed.length ? `<div class="fc-chips">${chips}</div>` : `<p class="fc-empty">Este evento aún no tiene ventas; el pronóstico usa solo los eventos guardados.</p>`}
-        <p class="fc-hint">Toca un día para incluirlo o dejarlo fuera del cálculo. El factor (×) es lo que pesa ese día frente a uno normal.</p>
-      </div>`;
     body = `
       <div class="settings-card">
         <div class="fc-table-head">
           <h3>${icon("flame")} Propuesta${range ? ` <small>para ${esc(range)}</small>` : ""}</h3>
           ${m.remaining.length && m.rows.length ? `<button class="btn-brand btn-icon fc-copy" onclick="fcCopy()">${icon("clipboard")} Copiar lista</button>` : ""}
         </div>
+        ${!m.observed.length ? `<p class="fc-hint" style="margin-top:0;">Este evento aún no tiene ventas; el pronóstico usa solo los eventos guardados.</p>` : ""}
         ${!m.used.length && !m.histDays ? `<p class="fc-empty">Incluye al menos un día con ventas.</p>`
           : !m.remaining.length ? `<p class="fc-empty">No quedan días por pronosticar. Sube la duración del evento si todavía faltan días.</p>`
           : `<p class="fc-total">${m.totalMake} ${m.totalMake === 1 ? "pieza" : "piezas"} por hacer</p>
@@ -5393,7 +5388,7 @@ function fcRender() {
       (<a href="https://escholarship.org/content/qt95f078fj/qt95f078fj.pdf?t=smzq6r" target="_blank" rel="noopener">eScholarship</a>). Por eso puse +10% y −10%, el extremo bajo.</p>
       <p class="fc-hint">Estas cifras vienen de resúmenes de los estudios; confírmalas antes de tomarlas como exactas. Tus propios datos pesan más: con más días de ventas, el pronóstico depende cada vez menos de estos factores.</p>
     </details>`;
-  root.innerHTML = `<div class="fc-top">${options}<div class="fc-side">${calendar}${daysCard}</div></div>${body}${hist}${sources}`;
+  root.innerHTML = `<div class="fc-top">${options}<div class="fc-side">${calendar}</div></div>${body}${hist}${sources}`;
 }
 
 function fcHistoryHTML(m) {
