@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.31.0";
-const APP_UPDATED = "2026-11-19T15:00Z";
+const APP_VERSION = "1.31.1";
+const APP_UPDATED = "2026-11-19T16:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -2593,8 +2593,9 @@ async function saveInventoryFromModal() {
 let _bakeSelections = {};
 let _bakeAs = {};   // frozen product -> units to bake as its alternative (see BAKE_AS)
 
-// Some frozen dough can be baked as another product: frozen Cinnamon Roll cookies can become Fresa Pink Sugar
-const BAKE_AS = { "Cinnamon Roll": "Fresa Pink Sugar" };
+// Some frozen dough can be baked as another product (both ways): frozen Cinnamon Roll cookies can become
+// Fresa Pink Sugar and the other way round
+const BAKE_AS = { "Cinnamon Roll": "Fresa Pink Sugar", "Fresa Pink Sugar": "Cinnamon Roll" };
 
 function openBakeModal() {
   const hiddenItems = getHiddenItems();
@@ -2638,7 +2639,7 @@ function renderBakeModalBody() {
         </div>
         ${asName ? `
         <div class="edit-inv-line bake-as">
-          <span class="edit-inv-label">${icon('chevronRight')} Como ${esc(asName)}</span>
+          <span class="edit-inv-label">${icon('chevronRight')} ${esc(asName)}</span>
           <div class="edit-inv-controls">
             <button ${holdAttrs(-1, true)}>−</button>
             <span class="edit-inv-qty" id="bk-as-${safeId}">${asQty}</span>
