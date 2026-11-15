@@ -11,8 +11,8 @@ const firebaseConfig = {
 };
 
 // Bump both when releasing a change (shown in Ajustes > Acerca de)
-const APP_VERSION = "1.27.0";
-const APP_UPDATED = "2026-11-18T19:00Z";
+const APP_VERSION = "1.27.1";
+const APP_UPDATED = "2026-11-18T20:00Z";
 
 const STORE_ID = "postremio_main";
 
@@ -5741,6 +5741,13 @@ window.matchMedia("(hover: hover) and (pointer: fine)").addEventListener("change
   const el = document.getElementById(id);
   if (el) el.addEventListener("touchmove", e => e.preventDefault(), { passive: false });
 });
+
+// Phones: ask the browser to stay in portrait (works on Android; iOS ignores it, so #rotateGuard covers the app there)
+try {
+  if (Math.min(screen.width, screen.height) < 500 && screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock("portrait-primary").catch(() => {});
+  }
+} catch (e) {}
 
 // Fill static icon placeholders in index.html
 document.querySelectorAll('[data-icon]').forEach(el => { el.innerHTML = icon(el.dataset.icon); });

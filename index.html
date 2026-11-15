@@ -16,6 +16,17 @@
 
 <body class="no-page-scroll">
 
+<!-- Shown only on a phone held sideways (the app is made for portrait there); see styles.css -->
+<div id="rotateGuard" aria-hidden="true">
+  <svg viewBox="0 0 64 64" width="72" height="72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="21" y="8" width="22" height="40" rx="5"/><line x1="29" y1="43" x2="35" y2="43"/>
+    <path d="M10 34a22 22 0 0 0 14 22"/><polyline points="24 49 24 57 16 57"/>
+    <path d="M54 30a22 22 0 0 0-14-22"/><polyline points="40 15 40 7 48 7"/>
+  </svg>
+  <p>Gira tu teléfono</p>
+  <small>Postre Mío se usa en vertical</small>
+</div>
+
 <!-- AUTH GATE -->
 <div id="authGate" class="auth-gate">
   <img src="logo.jpeg">

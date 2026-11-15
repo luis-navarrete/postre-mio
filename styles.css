@@ -2260,3 +2260,16 @@ body.has-savebar .toast { bottom: 96px; }
 
 /* viewport-fit=cover lets the page use the whole screen (needed for the curved corner button); keep the content out of the notch when the phone is sideways */
 body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); box-sizing: border-box; }
+
+/* Phone held sideways: the app is made for portrait, so cover it with a "turn your phone" message.
+   (Phones only: a short landscape touch screen. iPads and computers are not affected.) */
+#rotateGuard { display: none; }
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 500px) {
+  #rotateGuard {
+    position: fixed; inset: 0; z-index: 20000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: var(--brand); color: #fff; text-align: center;
+  }
+  #rotateGuard p { margin: 8px 0 0; font-size: 20px; font-weight: 700; }
+  #rotateGuard small { font-size: 14px; opacity: 0.9; }
+}
